@@ -1,0 +1,174 @@
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
+import { Card, CardContent } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { TrendingUp, Users, ShoppingBag, Plus, ExternalLink, AlertCircle } from 'lucide-react'
+
+export default async function CreatorDashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) redirect('/login')
+
+  const { data: creator } = await supabase
+    .from('creator_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!creator) redirect('/creator/onboarding')
+
+  const [productsRes, subscriptionsRes, purchasesRes] = await Promise.all([
+    supabase.from('products').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false }),
+    supabase.from('subscriptions').select('*, tier:subscription_tiers(price_monthly)').eq('creator_id', creator.id).eq('status', 'active'),
+    supabase.from('purchases').select('*, product:products(price)').eq('products.creator_id', creator.id),
+  ])
+
+  const products = productsRes.data ?? []
+  const subscriptions = subscriptionsRes.data ?? []
+  const purchases = purchasesRes.data ?? []
+
+  const monthlyRevenue = subscriptions.reduce((sum: number, s: { tier: { price_monthly: number } | null }) => sum + (s.tier?.price_monthly ?? 0), 0)
+  const totalRevenue = purchases.reduce((sum: number, p: { amount_paid: number }) => sum + p.amount_paid, 0) + monthlyRevenue
+
+  const recentProducts = products.slice(0, 5)
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500">Willkommen zurück, {creator.display_name}</p>
+        </div>
+        <div className="flex gap-3">
+          <Link href={`/creators/${creator.slug}`} target="_blank">
+            <Button variant="outline" size="sm">
+              <ExternalLink className="h-4 w-4" />
+              Mein Profil
+            </Button>
+          </Link>
+          <Link href="/creator/products/new">
+            <Button size="sm">
+              <Plus className="h-4 w-4" />
+              Produkt hinzufügen
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Stripe Connect Warning */}
+      {!creator.stripe_account_active && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-yellow-800">Stripe Connect nicht eingerichtet</p>
+            <p className="text-sm text-yellow-700 mt-1">Richte dein Stripe-Konto ein, um Auszahlungen zu erhalten.</p>
+          </div>
+          <Link href="/creator/settings/payout">
+            <Button size="sm" variant="secondary">Einrichten</Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { icon: <TrendingUp className="h-5 w-5 text-green-600" />, label: 'Gesamtumsatz', value: formatCurrency(totalRevenue), sub: 'Alle Zeit' },
+          { icon: <TrendingUp className="h-5 w-5 text-blue-600" />, label: 'Monatlich', value: formatCurrency(monthlyRevenue), sub: 'Aus Abos' },
+          { icon: <Users className="h-5 w-5 text-purple-600" />, label: 'Abonnenten', value: subscriptions.length.toString(), sub: 'Aktiv' },
+          { icon: <ShoppingBag className="h-5 w-5 text-orange-600" />, label: 'Produkte', value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
+        ].map((stat) => (
+          <Card key={stat.label}>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center">
+                  {stat.icon}
+                </div>
+                <span className="text-sm text-gray-500">{stat.label}</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-400 mt-1">{stat.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent Products */}
+        <Card>
+          <div className="flex items-center justify-between p-6 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Meine Produkte</h2>
+            <Link href="/creator/products">
+              <Button variant="ghost" size="sm">Alle anzeigen</Button>
+            </Link>
+          </div>
+          <CardContent className="p-0">
+            {recentProducts.length === 0 ? (
+              <div className="text-center py-10 px-6">
+                <ShoppingBag className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">Noch keine Produkte</p>
+                <Link href="/creator/products/new" className="mt-3 inline-block">
+                  <Button size="sm">Erstes Produkt erstellen</Button>
+                </Link>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {recentProducts.map((product: { id: string; title: string; type: string; price: number; is_published: boolean; created_at: string }) => (
+                  <li key={product.id} className="flex items-center justify-between px-6 py-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                      <p className="text-xs text-gray-400">{formatDate(product.created_at)}</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      <span className="text-sm font-medium">{formatCurrency(product.price)}</span>
+                      <Badge variant={product.is_published ? 'success' : 'outline'}>
+                        {product.is_published ? 'Live' : 'Entwurf'}
+                      </Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Subscribers */}
+        <Card>
+          <div className="flex items-center justify-between p-6 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Aktive Abonnenten</h2>
+            <Badge variant="success">{subscriptions.length} aktiv</Badge>
+          </div>
+          <CardContent className="p-0">
+            {subscriptions.length === 0 ? (
+              <div className="text-center py-10 px-6">
+                <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">Noch keine Abonnenten</p>
+                <Link href="/creator/settings/tiers" className="mt-3 inline-block">
+                  <Button size="sm" variant="outline">Abo-Preise einrichten</Button>
+                </Link>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {subscriptions.slice(0, 5).map((sub: { id: string; tier: { price_monthly: number } | null; current_period_end: string }) => (
+                  <li key={sub.id} className="flex items-center justify-between px-6 py-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Abonnent</p>
+                      <p className="text-xs text-gray-400">bis {formatDate(sub.current_period_end)}</p>
+                    </div>
+                    <span className="text-sm font-medium text-green-600">
+                      {formatCurrency(sub.tier?.price_monthly ?? 0)}/Monat
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
