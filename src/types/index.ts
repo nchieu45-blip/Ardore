@@ -1,6 +1,6 @@
 export type UserRole = 'buyer' | 'creator'
 
-export type ProductType = 'pdf' | 'video' | 'course'
+export type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
 export interface Profile {
   id: string

@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS products (
   creator_id UUID NOT NULL REFERENCES creator_profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
-  type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'course')),
+  type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'course', 'image')),
   price NUMERIC(10,2) NOT NULL,
   file_url TEXT,
   thumbnail_url TEXT,
@@ -176,6 +176,7 @@ CREATE POLICY "messages_insert" ON messages FOR INSERT WITH CHECK (
 
 INSERT INTO storage.buckets (id, name, public) VALUES ('products', 'products', false) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('thumbnails', 'thumbnails', true) ON CONFLICT DO NOTHING;
 
 -- Storage policies
 CREATE POLICY "products_upload_creator" ON storage.objects
@@ -204,6 +205,12 @@ CREATE POLICY "avatars_public" ON storage.objects
 
 CREATE POLICY "avatars_upload_own" ON storage.objects
   FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.role() = 'authenticated');
+
+CREATE POLICY "thumbnails_public" ON storage.objects
+  FOR SELECT USING (bucket_id = 'thumbnails');
+
+CREATE POLICY "thumbnails_upload_creator" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'thumbnails' AND auth.role() = 'authenticated');
 
 -- Enable realtime for messages
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;

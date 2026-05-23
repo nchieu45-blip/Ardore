@@ -9,15 +9,15 @@ import { z } from 'zod'
 type AnyResolver = any
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { Input, Textarea, Select } from '@/components/ui/Input'
+import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { Upload, FileText, Video, BookOpen } from 'lucide-react'
+import { Upload, FileText, Video, BookOpen, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const schema = z.object({
   title: z.string().min(3, 'Mindestens 3 Zeichen').max(100),
   description: z.string().max(1000).optional(),
-  type: z.enum(['pdf', 'video', 'course']),
+  type: z.enum(['pdf', 'video', 'course', 'image']),
   price: z.coerce.number().min(0.5, 'Mindestpreis: 0,50€').max(9999),
 })
 
@@ -26,14 +26,72 @@ type FormData = z.infer<typeof schema>
 const PRODUCT_TYPES = [
   { value: 'pdf', label: 'PDF / E-Book', icon: <FileText className="h-5 w-5" />, desc: 'Trainingsplan, Ernährungsguide, etc.' },
   { value: 'video', label: 'Video', icon: <Video className="h-5 w-5" />, desc: 'Einzelnes Video oder Tutorial' },
+  { value: 'image', label: 'Bild', icon: <ImageIcon className="h-5 w-5" />, desc: 'Foto, Grafik, Infografik' },
   { value: 'course', label: 'Kurs', icon: <BookOpen className="h-5 w-5" />, desc: 'Mehrere Lektionen / Programm' },
 ]
+
+const ACCEPT_BY_TYPE: Record<string, string> = {
+  pdf: '.pdf',
+  video: '.mp4,.mov,.webm',
+  image: '.jpg,.jpeg,.png,.webp,.gif',
+  course: '.pdf,.mp4,.mov,.zip,.rar',
+}
+
+const HINT_BY_TYPE: Record<string, string> = {
+  pdf: 'PDF – Max. 500 MB',
+  video: 'MP4, MOV, WEBM – Max. 500 MB',
+  image: 'JPG, PNG, WEBP, GIF – Max. 50 MB',
+  course: 'PDF, MP4, ZIP – Max. 500 MB',
+}
+
+function FileUploadZone({
+  file,
+  onChange,
+  accept,
+  hint,
+  label,
+}: {
+  file: File | null
+  onChange: (f: File | null) => void
+  accept: string
+  hint: string
+  label: string
+}) {
+  return (
+    <label className={cn(
+      'flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-colors',
+      file ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
+    )}>
+      <div className="flex flex-col items-center gap-2 text-center px-4">
+        <Upload className={cn('h-8 w-8', file ? 'text-green-600' : 'text-gray-400')} />
+        {file ? (
+          <>
+            <p className="text-sm font-medium text-green-700">{file.name}</p>
+            <p className="text-xs text-green-600">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-gray-700">{label}</p>
+            <p className="text-xs text-gray-400">{hint}</p>
+          </>
+        )}
+      </div>
+      <input
+        type="file"
+        className="hidden"
+        accept={accept}
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+      />
+    </label>
+  )
+}
 
 export default function NewProductPage() {
   const router = useRouter()
   const supabase = createClient()
   const [error, setError] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [thumbnail, setThumbnail] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -59,6 +117,7 @@ export default function NewProductPage() {
       if (!creator) { router.push('/creator/onboarding'); return }
 
       let fileUrl: string | null = null
+      let thumbnailUrl: string | null = null
 
       if (file) {
         const ext = file.name.split('.').pop()
@@ -66,11 +125,20 @@ export default function NewProductPage() {
         const { error: uploadError } = await supabase.storage
           .from('products')
           .upload(path, file, { upsert: false })
-
         if (uploadError) throw new Error('Datei-Upload fehlgeschlagen')
-
         const { data: urlData } = supabase.storage.from('products').getPublicUrl(path)
         fileUrl = urlData.publicUrl
+      }
+
+      if (thumbnail) {
+        const ext = thumbnail.name.split('.').pop()
+        const path = `${creator.id}/${Date.now()}_thumb.${ext}`
+        const { error: thumbError } = await supabase.storage
+          .from('thumbnails')
+          .upload(path, thumbnail, { upsert: false })
+        if (thumbError) throw new Error('Thumbnail-Upload fehlgeschlagen')
+        const { data: thumbUrlData } = supabase.storage.from('thumbnails').getPublicUrl(path)
+        thumbnailUrl = thumbUrlData.publicUrl
       }
 
       const { error: insertError } = await supabase.from('products').insert({
@@ -80,6 +148,7 @@ export default function NewProductPage() {
         type: data.type,
         price: data.price,
         file_url: fileUrl,
+        thumbnail_url: thumbnailUrl,
         is_published: false,
       })
 
@@ -108,12 +177,15 @@ export default function NewProductPage() {
             <h2 className="font-semibold text-gray-900">Produkttyp</h2>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {PRODUCT_TYPES.map((type) => (
                 <button
                   key={type.value}
                   type="button"
-                  onClick={() => setValue('type', type.value as 'pdf' | 'video' | 'course')}
+                  onClick={() => {
+                    setValue('type', type.value as FormData['type'])
+                    setFile(null)
+                  }}
                   className={cn(
                     'flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-center transition-all',
                     selectedType === type.value
@@ -160,37 +232,35 @@ export default function NewProductPage() {
           </CardContent>
         </Card>
 
-        {/* File Upload */}
+        {/* Main file upload */}
         <Card>
           <CardHeader>
-            <h2 className="font-semibold text-gray-900">Datei hochladen</h2>
+            <h2 className="font-semibold text-gray-900">Produktdatei hochladen</h2>
           </CardHeader>
           <CardContent>
-            <label className={cn(
-              'flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-colors',
-              file ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
-            )}>
-              <div className="flex flex-col items-center gap-2 text-center px-4">
-                <Upload className={cn('h-8 w-8', file ? 'text-green-600' : 'text-gray-400')} />
-                {file ? (
-                  <>
-                    <p className="text-sm font-medium text-green-700">{file.name}</p>
-                    <p className="text-xs text-green-600">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-gray-700">Datei auswählen</p>
-                    <p className="text-xs text-gray-400">PDF, MP4, ZIP – Max. 500 MB</p>
-                  </>
-                )}
-              </div>
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.mp4,.mov,.zip,.rar"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
+            <FileUploadZone
+              file={file}
+              onChange={setFile}
+              accept={ACCEPT_BY_TYPE[selectedType]}
+              hint={HINT_BY_TYPE[selectedType]}
+              label="Datei auswählen"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Thumbnail upload */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold text-gray-900">Vorschaubild (optional)</h2>
+          </CardHeader>
+          <CardContent>
+            <FileUploadZone
+              file={thumbnail}
+              onChange={setThumbnail}
+              accept=".jpg,.jpeg,.png,.webp"
+              hint="JPG, PNG, WEBP – Max. 10 MB"
+              label="Vorschaubild auswählen"
+            />
           </CardContent>
         </Card>
 

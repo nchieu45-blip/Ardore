@@ -69,14 +69,21 @@ export default function LoginPage() {
                 error={errors.email?.message}
                 {...register('email')}
               />
-              <Input
-                label="Passwort"
-                type="password"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                error={errors.password?.message}
-                {...register('password')}
-              />
+              <div>
+                <Input
+                  label="Passwort"
+                  type="password"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  error={errors.password?.message}
+                  {...register('password')}
+                />
+                <div className="mt-1 text-right">
+                  <Link href="/forgot-password" className="text-sm text-green-600 hover:underline">
+                    Passwort vergessen?
+                  </Link>
+                </div>
+              </div>
 
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">

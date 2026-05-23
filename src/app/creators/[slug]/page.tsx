@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
-import { FileText, Video, BookOpen, MessageCircle, Lock } from 'lucide-react'
+import { FileText, Video, BookOpen, MessageCircle, Lock, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import BuyButton from './BuyButton'
 import SubscribeButton from './SubscribeButton'
@@ -14,9 +14,10 @@ const TYPE_ICONS = {
   pdf: <FileText className="h-5 w-5 text-green-600" />,
   video: <Video className="h-5 w-5 text-green-600" />,
   course: <BookOpen className="h-5 w-5 text-green-600" />,
+  image: <ImageIcon className="h-5 w-5 text-green-600" />,
 }
 
-const TYPE_LABELS = { pdf: 'PDF', video: 'Video', course: 'Kurs' }
+const TYPE_LABELS = { pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild' }
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -103,7 +104,7 @@ export default async function CreatorProfilePage({
               id: string
               title: string
               description: string | null
-              type: 'pdf' | 'video' | 'course'
+              type: 'pdf' | 'video' | 'course' | 'image'
               price: number
             }) => {
               const owned = purchasedIds.has(product.id)
