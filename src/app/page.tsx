@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Flame, BookOpen, Video, FileText, Star, Users, TrendingUp, Shield } from 'lucide-react'
+import CoachFinderWidget from '@/components/CoachFinderWidget'
 
 export default function HomePage() {
   return (
@@ -34,7 +35,10 @@ export default function HomePage() {
               </Button>
             </Link>
           </div>
-          <p className="text-sm text-gray-500 mt-4">Kostenlos registrieren • Keine Kreditkarte erforderlich</p>
+          <div className="mt-4 flex justify-center">
+            <CoachFinderWidget />
+          </div>
+          <p className="text-sm text-gray-500 mt-3">Kostenlos registrieren • Keine Kreditkarte erforderlich</p>
         </div>
       </section>
 
