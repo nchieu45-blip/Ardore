@@ -5,19 +5,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
-import { FileText, Video, BookOpen, MessageCircle, Lock, Image as ImageIcon } from 'lucide-react'
+import { MessageCircle, Lock } from 'lucide-react'
 import Link from 'next/link'
-import BuyButton from './BuyButton'
 import SubscribeButton from './SubscribeButton'
-
-const TYPE_ICONS = {
-  pdf: <FileText className="h-5 w-5 text-green-600" />,
-  video: <Video className="h-5 w-5 text-green-600" />,
-  course: <BookOpen className="h-5 w-5 text-green-600" />,
-  image: <ImageIcon className="h-5 w-5 text-green-600" />,
-}
-
-const TYPE_LABELS = { pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild' }
+import ProductsFilter from './ProductsFilter'
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -91,8 +82,8 @@ export default async function CreatorProfilePage({
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Products */}
-        <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-xl font-semibold text-gray-900">Produkte</h2>
+        <div className="lg:col-span-2">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Produkte</h2>
           {products.length === 0 ? (
             <Card>
               <CardContent className="text-center py-10">
@@ -100,45 +91,17 @@ export default async function CreatorProfilePage({
               </CardContent>
             </Card>
           ) : (
-            products.map((product: {
-              id: string
-              title: string
-              description: string | null
-              type: 'pdf' | 'video' | 'course' | 'image'
-              price: number
-            }) => {
-              const owned = purchasedIds.has(product.id)
-              return (
-                <Card key={product.id}>
-                  <CardContent className="flex items-start gap-4 p-5">
-                    <div className="h-12 w-12 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
-                      {TYPE_ICONS[product.type]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-gray-900">{product.title}</h3>
-                        <Badge variant="outline">{TYPE_LABELS[product.type]}</Badge>
-                      </div>
-                      {product.description && (
-                        <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <span className="font-semibold text-gray-900">{formatCurrency(product.price)}</span>
-                      {owned ? (
-                        <Badge variant="success">Gekauft</Badge>
-                      ) : user ? (
-                        <BuyButton productId={product.id} price={product.price} />
-                      ) : (
-                        <Link href="/login">
-                          <Button size="sm">Kaufen</Button>
-                        </Link>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })
+            <ProductsFilter
+              products={products.map((p: { id: string; title: string; description: string | null; type: 'pdf' | 'video' | 'course' | 'image'; price: number }) => ({
+                id: p.id,
+                title: p.title,
+                description: p.description,
+                type: p.type,
+                price: p.price,
+              }))}
+              purchasedIds={[...purchasedIds]}
+              isLoggedIn={!!user}
+            />
           )}
         </div>
 
