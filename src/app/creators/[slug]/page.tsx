@@ -9,6 +9,7 @@ import { MessageCircle, Lock } from 'lucide-react'
 import Link from 'next/link'
 import SubscribeButton from './SubscribeButton'
 import ProductsFilter from './ProductsFilter'
+import BestsellerSection from './BestsellerSection'
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -39,17 +40,41 @@ export default async function CreatorProfilePage({
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [productsRes, tiersRes, subscriptionRes, purchasesRes] = await Promise.all([
-    supabase.from('products').select('*').eq('creator_id', creator.id).eq('is_published', true).order('created_at', { ascending: false }),
+  const { data: productsData } = await supabase
+    .from('products')
+    .select('*')
+    .eq('creator_id', creator.id)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+
+  const products = productsData ?? []
+  const productIds = products.map((p: { id: string }) => p.id)
+
+  const [tiersRes, subscriptionRes, purchasesRes, salesRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
+    productIds.length > 0
+      ? supabase.from('purchases').select('product_id').in('product_id', productIds)
+      : Promise.resolve({ data: [] }),
   ])
 
-  const products = productsRes.data ?? []
   const tiers = tiersRes.data ?? []
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
+
+  const salesCounts: Record<string, number> = {}
+  for (const { product_id } of (salesRes.data ?? []) as { product_id: string }[]) {
+    salesCounts[product_id] = (salesCounts[product_id] ?? 0) + 1
+  }
+
+  const hasSales = Object.keys(salesCounts).length > 0
+  const bestsellers = hasSales
+    ? [...products]
+        .sort((a: { id: string }, b: { id: string }) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
+        .slice(0, 4)
+        .map((p: { id: string; title: string; description: string | null; type: 'pdf' | 'video' | 'course' | 'image'; price: number }, i: number) => ({ ...p, rank: i + 1 }))
+    : []
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -83,6 +108,13 @@ export default async function CreatorProfilePage({
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Products */}
         <div className="lg:col-span-2">
+          {bestsellers.length > 0 && (
+            <BestsellerSection
+              products={bestsellers}
+              purchasedIds={[...purchasedIds]}
+              isLoggedIn={!!user}
+            />
+          )}
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Produkte</h2>
           {products.length === 0 ? (
             <Card>
