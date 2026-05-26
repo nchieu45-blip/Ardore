@@ -1,0 +1,337 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/Button'
+import { Input, Textarea, Select } from '@/components/ui/Input'
+import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { getInitials } from '@/lib/utils'
+import { ArrowLeft, Camera, Check } from 'lucide-react'
+import Link from 'next/link'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyResolver = any
+
+const schema = z.object({
+  display_name: z.string().min(2, 'Mindestens 2 Zeichen').max(50, 'Maximal 50 Zeichen'),
+  bio: z.string().max(500, 'Maximal 500 Zeichen').optional(),
+  category: z.string().min(1, 'Bitte wähle eine Kategorie'),
+})
+
+type FormData = z.infer<typeof schema>
+
+const CATEGORIES = [
+  { value: '', label: 'Kategorie wählen...' },
+  { value: 'fitness', label: 'Fitness & Training' },
+  { value: 'ernaehrung', label: 'Ernährung & Diät' },
+  { value: 'yoga', label: 'Yoga & Meditation' },
+  { value: 'mental', label: 'Mental Health' },
+  { value: 'laufen', label: 'Laufen & Ausdauer' },
+  { value: 'abnehmen', label: 'Abnehmen & Gewicht' },
+  { value: 'muskelaufbau', label: 'Muskelaufbau' },
+  { value: 'allgemein', label: 'Allgemeine Gesundheit' },
+]
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024   // 5 MB
+const MAX_BANNER_BYTES = 10 * 1024 * 1024  // 10 MB
+
+export default function ProfileSettingsPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [creatorId, setCreatorId] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  // Images: current URLs + selected files + local previews
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null)
+  const [imageError, setImageError] = useState('')
+
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema) as AnyResolver,
+  })
+
+  const bioValue = watch('bio') ?? ''
+
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+
+      const { data: creator } = await supabase
+        .from('creator_profiles')
+        .select('id, display_name, bio, category, avatar_url, banner_url')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!creator) { router.push('/creator/onboarding'); return }
+
+      setCreatorId(creator.id)
+      setDisplayName(creator.display_name)
+      setAvatarUrl(creator.avatar_url)
+      setBannerUrl(creator.banner_url)
+
+      reset({
+        display_name: creator.display_name,
+        bio: creator.bio ?? '',
+        category: creator.category ?? '',
+      })
+
+      setLoading(false)
+    }
+    load()
+  }, [router, supabase, reset])
+
+  function pickFile(
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'avatar' | 'banner',
+  ) {
+    setImageError('')
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const maxBytes = type === 'avatar' ? MAX_AVATAR_BYTES : MAX_BANNER_BYTES
+    const maxLabel = type === 'avatar' ? '5 MB' : '10 MB'
+
+    if (!file.type.startsWith('image/')) {
+      setImageError('Nur Bilddateien sind erlaubt.')
+      return
+    }
+    if (file.size > maxBytes) {
+      setImageError(`Bild ist zu groß. Maximum: ${maxLabel}.`)
+      return
+    }
+
+    const preview = URL.createObjectURL(file)
+    if (type === 'avatar') {
+      setAvatarFile(file)
+      setAvatarPreview(preview)
+    } else {
+      setBannerFile(file)
+      setBannerPreview(preview)
+    }
+  }
+
+  async function uploadImage(file: File, path: string): Promise<string> {
+    const { error: uploadError } = await supabase.storage
+      .from('profile-images')
+      .upload(path, file, { upsert: true, contentType: file.type })
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage.from('profile-images').getPublicUrl(path)
+    // Bust cache so the browser fetches the new image
+    return `${data.publicUrl}?t=${Date.now()}`
+  }
+
+  async function onSubmit(data: FormData) {
+    setError('')
+    setImageError('')
+    setSaved(false)
+
+    let newAvatarUrl = avatarUrl
+    let newBannerUrl = bannerUrl
+
+    try {
+      if (avatarFile) {
+        newAvatarUrl = await uploadImage(avatarFile, `${creatorId}/avatar`)
+      }
+      if (bannerFile) {
+        newBannerUrl = await uploadImage(bannerFile, `${creatorId}/banner`)
+      }
+    } catch {
+      setImageError('Bild-Upload fehlgeschlagen. Prüfe ob der Storage-Bucket "profile-images" existiert.')
+      return
+    }
+
+    const { error: updateError } = await supabase
+      .from('creator_profiles')
+      .update({
+        display_name: data.display_name,
+        bio: data.bio || null,
+        category: data.category,
+        avatar_url: newAvatarUrl,
+        banner_url: newBannerUrl,
+      })
+      .eq('id', creatorId)
+
+    if (updateError) {
+      setError('Speichern fehlgeschlagen. Bitte versuche es erneut.')
+      return
+    }
+
+    setDisplayName(data.display_name)
+    setAvatarUrl(newAvatarUrl)
+    setBannerUrl(newBannerUrl)
+    setAvatarFile(null)
+    setBannerFile(null)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  if (loading) {
+    return <div className="max-w-2xl mx-auto px-4 py-8 text-gray-500">Lädt...</div>
+  }
+
+  const avatarSrc = avatarPreview ?? avatarUrl
+  const bannerSrc = bannerPreview ?? bannerUrl
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* Back link */}
+      <Link
+        href="/creator/settings"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Zurück zu Einstellungen
+      </Link>
+
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Coach-Profil bearbeiten</h1>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Banner + Avatar */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold text-gray-900 text-sm">Profilbild & Banner</h2>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {/* Banner */}
+            <div className="relative">
+              <div
+                className="h-36 rounded-xl overflow-hidden bg-gradient-to-br from-green-400 to-green-600 relative group cursor-pointer"
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                {bannerSrc && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={bannerSrc} alt="Banner" className="w-full h-full object-cover" />
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2">
+                    <Camera className="h-5 w-5 text-gray-700" />
+                  </div>
+                </div>
+              </div>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => pickFile(e, 'banner')}
+              />
+
+              {/* Avatar overlapping banner */}
+              <div className="absolute bottom-0 left-5 translate-y-1/2">
+                <div
+                  className="relative h-20 w-20 rounded-full ring-4 ring-white overflow-hidden cursor-pointer group"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarSrc} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-green-100 flex items-center justify-center text-green-700 text-xl font-semibold">
+                      {getInitials(displayName || 'C')}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    <Camera className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => pickFile(e, 'avatar')}
+                />
+              </div>
+            </div>
+
+            {/* Spacer for avatar overlap */}
+            <div className="mt-14 flex gap-3 text-xs text-gray-500">
+              <span>Profilbild: max. 5 MB</span>
+              <span>·</span>
+              <span>Banner: max. 10 MB</span>
+            </div>
+
+            {imageError && (
+              <p className="mt-2 text-xs text-red-600">{imageError}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Profile fields */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold text-gray-900 text-sm">Profilinformationen</h2>
+          </CardHeader>
+          <CardContent className="space-y-5 pt-0">
+            <Input
+              label="Coach-Name"
+              placeholder="z.B. Fitness mit Max"
+              error={errors.display_name?.message}
+              {...register('display_name')}
+            />
+
+            <Select
+              label="Kategorie"
+              options={CATEGORIES}
+              error={errors.category?.message}
+              {...register('category')}
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <Textarea
+                label="Über mich"
+                placeholder="Erzähl deinen Kunden, wer du bist und was du anbietest..."
+                rows={4}
+                error={errors.bio?.message}
+                {...register('bio')}
+              />
+              <p className={`text-xs self-end ${bioValue.length > 480 ? 'text-amber-600' : 'text-gray-400'}`}>
+                {bioValue.length} / 500
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <Link href="/creator/settings">
+            <Button type="button" variant="outline">Abbrechen</Button>
+          </Link>
+          <Button type="submit" loading={isSubmitting} className="flex-1 sm:flex-none sm:min-w-36">
+            {saved ? (
+              <>
+                <Check className="h-4 w-4" />
+                Gespeichert
+              </>
+            ) : (
+              'Änderungen speichern'
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
