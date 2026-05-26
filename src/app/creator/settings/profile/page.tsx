@@ -33,6 +33,7 @@ const CATEGORIES = [
   { value: 'laufen', label: 'Laufen & Ausdauer' },
   { value: 'abnehmen', label: 'Abnehmen & Gewicht' },
   { value: 'muskelaufbau', label: 'Muskelaufbau' },
+  { value: 'pilates', label: 'Pilates' },
   { value: 'allgemein', label: 'Allgemeine Gesundheit' },
 ]
 
