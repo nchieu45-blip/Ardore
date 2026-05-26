@@ -5,11 +5,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
-import { MessageCircle, Lock } from 'lucide-react'
+import { MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import SubscribeButton from './SubscribeButton'
-import ProductsFilter from './ProductsFilter'
-import BestsellerSection from './BestsellerSection'
+import BuyButton from './BuyButton'
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -20,6 +19,22 @@ const CATEGORY_LABELS: Record<string, string> = {
   abnehmen: 'Abnehmen',
   muskelaufbau: 'Muskelaufbau',
   allgemein: 'Gesundheit',
+}
+
+type ProductType = 'pdf' | 'video' | 'course' | 'image'
+
+const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
+  pdf: <FileText className="h-5 w-5 text-green-600" />,
+  video: <Video className="h-5 w-5 text-green-600" />,
+  course: <BookOpen className="h-5 w-5 text-green-600" />,
+  image: <ImageIcon className="h-5 w-5 text-green-600" />,
+}
+
+const TYPE_LABELS: Record<ProductType, string> = {
+  pdf: 'PDF',
+  video: 'Video',
+  course: 'Kurs',
+  image: 'Bild',
 }
 
 export default async function CreatorProfilePage({
@@ -48,33 +63,16 @@ export default async function CreatorProfilePage({
     .order('created_at', { ascending: false })
 
   const products = productsData ?? []
-  const productIds = products.map((p: { id: string }) => p.id)
 
-  const [tiersRes, subscriptionRes, purchasesRes, salesRes] = await Promise.all([
+  const [tiersRes, subscriptionRes, purchasesRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
-    productIds.length > 0
-      ? supabase.from('purchases').select('product_id').in('product_id', productIds)
-      : Promise.resolve({ data: [] }),
   ])
 
   const tiers = tiersRes.data ?? []
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
-
-  const salesCounts: Record<string, number> = {}
-  for (const { product_id } of (salesRes.data ?? []) as { product_id: string }[]) {
-    salesCounts[product_id] = (salesCounts[product_id] ?? 0) + 1
-  }
-
-  const hasSales = Object.keys(salesCounts).length > 0
-  const bestsellers = hasSales
-    ? [...products]
-        .sort((a: { id: string }, b: { id: string }) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
-        .slice(0, 4)
-        .map((p: { id: string; title: string; description: string | null; type: 'pdf' | 'video' | 'course' | 'image'; price: number }, i: number) => ({ ...p, rank: i + 1 }))
-    : []
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -108,13 +106,6 @@ export default async function CreatorProfilePage({
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Products */}
         <div className="lg:col-span-2">
-          {bestsellers.length > 0 && (
-            <BestsellerSection
-              products={bestsellers}
-              purchasedIds={[...purchasedIds]}
-              isLoggedIn={!!user}
-            />
-          )}
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Produkte</h2>
           {products.length === 0 ? (
             <Card>
@@ -123,17 +114,41 @@ export default async function CreatorProfilePage({
               </CardContent>
             </Card>
           ) : (
-            <ProductsFilter
-              products={products.map((p: { id: string; title: string; description: string | null; type: 'pdf' | 'video' | 'course' | 'image'; price: number }) => ({
-                id: p.id,
-                title: p.title,
-                description: p.description,
-                type: p.type,
-                price: p.price,
-              }))}
-              purchasedIds={[...purchasedIds]}
-              isLoggedIn={!!user}
-            />
+            <div className="space-y-4">
+              {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number }) => {
+                const owned = purchasedIds.has(product.id)
+                return (
+                  <Card key={product.id}>
+                    <CardContent className="flex items-start gap-4 p-5">
+                      <div className="h-12 w-12 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                        {TYPE_ICONS[product.type]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-gray-900">{product.title}</h3>
+                          <Badge variant="outline">{TYPE_LABELS[product.type]}</Badge>
+                        </div>
+                        {product.description && (
+                          <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                        <span className="font-semibold text-gray-900">{formatCurrency(product.price)}</span>
+                        {owned ? (
+                          <Badge variant="success">Gekauft</Badge>
+                        ) : user ? (
+                          <BuyButton productId={product.id} price={product.price} />
+                        ) : (
+                          <Link href="/login">
+                            <Button size="sm">Kaufen</Button>
+                          </Link>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
           )}
         </div>
 
