@@ -22,15 +22,19 @@ type FormData = z.infer<typeof schema>
 
 const CATEGORIES = [
   { value: '', label: 'Kategorie wählen...' },
-  { value: 'fitness', label: 'Fitness & Training' },
-  { value: 'ernaehrung', label: 'Ernährung & Diät' },
-  { value: 'yoga', label: 'Yoga & Meditation' },
+  { value: 'fitness', label: 'Fitness' },
+  { value: 'ernaehrung', label: 'Ernährung' },
   { value: 'mental', label: 'Mental Health' },
-  { value: 'laufen', label: 'Laufen & Ausdauer' },
-  { value: 'abnehmen', label: 'Abnehmen & Gewicht' },
-  { value: 'muskelaufbau', label: 'Muskelaufbau' },
-  { value: 'pilates', label: 'Pilates' },
-  { value: 'allgemein', label: 'Allgemeine Gesundheit' },
+  { value: 'abnehmen', label: 'Abnehmen' },
+  { value: 'schlaf', label: 'Schlaf' },
+  { value: 'yoga', label: 'Yoga' },
+  { value: 'laufen', label: 'Laufen' },
+  { value: 'krafttraining', label: 'Krafttraining' },
+  { value: 'meditation', label: 'Meditation' },
+  { value: 'stressmanagement', label: 'Stressmanagement' },
+  { value: 'rueckenschmerzen', label: 'Rückenschmerzen' },
+  { value: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
+  { value: 'mobility', label: 'Mobility & Dehnen' },
 ]
 
 export default function CreatorOnboardingPage() {

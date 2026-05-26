@@ -13,12 +13,17 @@ import BuyButton from './BuyButton'
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
   ernaehrung: 'Ernährung',
-  yoga: 'Yoga',
   mental: 'Mental Health',
-  laufen: 'Laufen',
   abnehmen: 'Abnehmen',
-  muskelaufbau: 'Muskelaufbau',
-  allgemein: 'Gesundheit',
+  schlaf: 'Schlaf',
+  yoga: 'Yoga',
+  laufen: 'Laufen',
+  krafttraining: 'Krafttraining',
+  meditation: 'Meditation',
+  stressmanagement: 'Stressmanagement',
+  rueckenschmerzen: 'Rückenschmerzen',
+  schwangerschaft: 'Schwangerschaft & Postnatal',
+  mobility: 'Mobility & Dehnen',
 }
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'

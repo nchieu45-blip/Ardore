@@ -23,15 +23,20 @@ interface Message {
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
   ernaehrung: 'Ernährung',
-  yoga: 'Yoga',
   mental: 'Mental Health',
-  laufen: 'Laufen',
   abnehmen: 'Abnehmen',
-  muskelaufbau: 'Muskelaufbau',
-  allgemein: 'Gesundheit',
+  schlaf: 'Schlaf',
+  yoga: 'Yoga',
+  laufen: 'Laufen',
+  krafttraining: 'Krafttraining',
+  meditation: 'Meditation',
+  stressmanagement: 'Stressmanagement',
+  rueckenschmerzen: 'Rückenschmerzen',
+  schwangerschaft: 'Schwangerschaft & Postnatal',
+  mobility: 'Mobility & Dehnen',
 }
 
-const QUICK_GOALS = ['Abnehmen', 'Muskelaufbau', 'Ernährung', 'Yoga & Meditation', 'Laufen']
+const QUICK_GOALS = ['Abnehmen', 'Krafttraining', 'Ernährung', 'Mental Health', 'Yoga']
 
 export default function CoachFinderWidget() {
   const [open, setOpen] = useState(false)

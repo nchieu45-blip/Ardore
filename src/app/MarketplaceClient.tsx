@@ -45,8 +45,12 @@ const TOPIC_FILTERS: { key: TopicFilter; label: string }[] = [
   { key: 'schlaf', label: 'Schlaf' },
   { key: 'yoga', label: 'Yoga' },
   { key: 'laufen', label: 'Laufen' },
-  { key: 'muskelaufbau', label: 'Muskelaufbau' },
-  { key: 'pilates', label: 'Pilates' },
+  { key: 'krafttraining', label: 'Krafttraining' },
+  { key: 'meditation', label: 'Meditation' },
+  { key: 'stressmanagement', label: 'Stressmanagement' },
+  { key: 'rueckenschmerzen', label: 'Rückenschmerzen' },
+  { key: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
+  { key: 'mobility', label: 'Mobility & Dehnen' },
 ]
 
 const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
