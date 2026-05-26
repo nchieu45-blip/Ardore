@@ -46,6 +46,7 @@ const TOPIC_FILTERS: { key: TopicFilter; label: string }[] = [
   { key: 'yoga', label: 'Yoga' },
   { key: 'laufen', label: 'Laufen' },
   { key: 'muskelaufbau', label: 'Muskelaufbau' },
+  { key: 'pilates', label: 'Pilates' },
 ]
 
 const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
