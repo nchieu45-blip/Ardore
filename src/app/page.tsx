@@ -6,7 +6,7 @@ export default async function MarketplacePage() {
 
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, title, description, type, price, creator_id, creator_profiles!inner(display_name, avatar_url, slug)')
+    .select('id, title, description, type, price, created_at, creator_id, creator_profiles!inner(display_name, avatar_url, slug, category)')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
 
@@ -17,7 +17,8 @@ export default async function MarketplacePage() {
     type: 'pdf' | 'video' | 'course' | 'image'
     price: number
     creator_id: string
-    creator_profiles: { display_name: string; avatar_url: string | null; slug: string } | { display_name: string; avatar_url: string | null; slug: string }[]
+    created_at: string
+    creator_profiles: { display_name: string; avatar_url: string | null; slug: string; category: string | null } | { display_name: string; avatar_url: string | null; slug: string; category: string | null }[]
   }) => {
     const cp = Array.isArray(p.creator_profiles) ? p.creator_profiles[0] : p.creator_profiles
     return {
@@ -26,10 +27,12 @@ export default async function MarketplacePage() {
       description: p.description,
       type: p.type,
       price: p.price,
+      createdAt: p.created_at,
       creator: {
         display_name: cp?.display_name ?? '',
         avatar_url: cp?.avatar_url ?? null,
         slug: cp?.slug ?? '',
+        category: cp?.category ?? null,
       },
     }
   })
@@ -52,5 +55,5 @@ export default async function MarketplacePage() {
         .slice(0, 4)
     : []
 
-  return <MarketplaceClient products={products} bestsellers={bestsellers} />
+  return <MarketplaceClient products={products} bestsellers={bestsellers} salesCounts={salesCounts} />
 }
