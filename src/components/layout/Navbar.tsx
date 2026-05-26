@@ -42,6 +42,9 @@ export function Navbar({ user }: NavbarProps) {
             <Link href="/creators" className="text-sm text-gray-600 hover:text-green-600 transition-colors">
               Coaches entdecken
             </Link>
+            <Link href="/landing" className="text-sm text-gray-600 hover:text-green-600 transition-colors">
+              Für Coaches
+            </Link>
             {user ? (
               <>
                 <Link href={dashboardPath} className="text-sm text-gray-600 hover:text-green-600 transition-colors">
@@ -118,6 +121,13 @@ export function Navbar({ user }: NavbarProps) {
               onClick={() => setMenuOpen(false)}
             >
               Coaches entdecken
+            </Link>
+            <Link
+              href="/landing"
+              className="block py-2 text-sm text-gray-600 hover:text-green-600"
+              onClick={() => setMenuOpen(false)}
+            >
+              Für Coaches
             </Link>
             {user ? (
               <>
