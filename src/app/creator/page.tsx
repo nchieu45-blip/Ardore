@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { TrendingUp, Users, ShoppingBag, Plus, ExternalLink, AlertCircle } from 'lucide-react'
+import { TrendingUp, Users, ShoppingBag, Plus, ExternalLink, AlertCircle, MessageCircle, Settings2 } from 'lucide-react'
 
 export default async function CreatorDashboardPage() {
   const supabase = await createClient()
@@ -58,6 +58,22 @@ export default async function CreatorDashboardPage() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Quick-action buttons */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <Link href="/creator/chat">
+          <Button>
+            <MessageCircle className="h-4 w-4" />
+            Mit Abonnenten chatten
+          </Button>
+        </Link>
+        <Link href="/creator/settings/tiers">
+          <Button variant="outline">
+            <Settings2 className="h-4 w-4" />
+            Abos verwalten
+          </Button>
+        </Link>
       </div>
 
       {/* Stripe Connect Warning */}

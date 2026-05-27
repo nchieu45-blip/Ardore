@@ -1,0 +1,62 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import CreatorChatWindow from './CreatorChatWindow'
+
+export default async function CreatorChatThreadPage({
+  params,
+}: {
+  params: Promise<{ buyerUserId: string }>
+}) {
+  const { buyerUserId } = await params
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: creator } = await supabase
+    .from('creator_profiles')
+    .select('id, user_id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!creator) redirect('/creator/onboarding')
+
+  // Verify buyer has/had an active subscription
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('creator_id', creator.id)
+    .eq('buyer_id', buyerUserId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!subscription) redirect('/creator/chat')
+
+  const [profileRes, messagesRes] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, avatar_url').eq('id', buyerUserId).single(),
+    supabase
+      .from('messages')
+      .select('*, sender:profiles(id, full_name, avatar_url)')
+      .eq('creator_id', creator.id)
+      .or(`sender_id.eq.${buyerUserId},sender_id.eq.${user.id}`)
+      .order('created_at', { ascending: true })
+      .limit(100),
+  ])
+
+  const buyer = profileRes.data ?? { id: buyerUserId, full_name: null, avatar_url: null }
+  const currentProfile = await supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <CreatorChatWindow
+        creatorId={creator.id}
+        creatorUserId={user.id}
+        buyer={buyer}
+        currentUserId={user.id}
+        currentUserName={currentProfile.data?.full_name ?? null}
+        currentUserAvatar={currentProfile.data?.avatar_url ?? null}
+        initialMessages={messagesRes.data ?? []}
+      />
+    </div>
+  )
+}
