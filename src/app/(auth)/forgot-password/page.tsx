@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
   async function onSubmit(data: FormData) {
     setError('')
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password&type=recovery`,
     })
     if (error) {
       setError('Fehler beim Senden der E-Mail. Bitte versuche es erneut.')
