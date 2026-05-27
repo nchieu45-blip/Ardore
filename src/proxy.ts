@@ -41,6 +41,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Block verified-email-required paths for users who haven't confirmed yet
+  if (isProtected && user && !user.email_confirmed_at) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/verify-email'
+    url.searchParams.set('email', user.email ?? '')
+    return NextResponse.redirect(url)
+  }
+
   const authPaths = ['/login', '/register']
   if (authPaths.includes(pathname) && user) {
     return NextResponse.redirect(new URL('/', request.url))

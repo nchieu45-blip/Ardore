@@ -43,6 +43,7 @@ export default function RegisterPage() {
           full_name: data.full_name,
           role,
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/verify-success&type=signup`,
       },
     })
 
@@ -58,12 +59,7 @@ export default function RegisterPage() {
       return
     }
 
-    if (role === 'creator') {
-      router.push('/creator/onboarding')
-    } else {
-      router.push('/creators')
-    }
-    router.refresh()
+    router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
   }
 
   return (
