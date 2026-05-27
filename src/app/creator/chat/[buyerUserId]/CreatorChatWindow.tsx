@@ -45,6 +45,16 @@ export default function CreatorChatWindow({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Mark thread as read whenever this window mounts
+  useEffect(() => {
+    fetch('/api/chat-last-read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ buyerUserId: buyer.id }),
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     const channel = supabase
       .channel(`creator-chat-${creatorId}-${buyer.id}`)
