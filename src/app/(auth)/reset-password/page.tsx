@@ -22,20 +22,40 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+type Status = 'checking' | 'ready' | 'invalid'
+
 export default function ResetPasswordPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [ready, setReady] = useState(false)
+  const [status, setStatus] = useState<Status>('checking')
   const [error, setError] = useState('')
 
   useEffect(() => {
+    // PKCE flow: Supabase sends ?code=xxx in the reset link
+    const code = new URLSearchParams(window.location.search).get('code')
+
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          setStatus('invalid')
+        } else {
+          // Remove the code from the URL so a page refresh doesn't re-use it
+          window.history.replaceState({}, '', window.location.pathname)
+          setStatus('ready')
+        }
+      })
+      return
+    }
+
+    // Implicit flow fallback: token arrives as a URL hash fragment
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        setReady(true)
+        setStatus('ready')
       }
     })
     return () => subscription.unsubscribe()
-  }, [supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -65,9 +85,21 @@ export default function ResetPasswordPage() {
 
         <Card>
           <CardContent>
-            {!ready ? (
+            {status === 'checking' && (
               <p className="text-center text-gray-500 py-4">Link wird überprüft…</p>
-            ) : (
+            )}
+
+            {status === 'invalid' && (
+              <div className="text-center py-4 space-y-3">
+                <p className="text-red-600 font-medium">Dieser Link ist ungültig oder abgelaufen.</p>
+                <p className="text-sm text-gray-500">Bitte fordere einen neuen Reset-Link an.</p>
+                <Link href="/forgot-password" className="inline-block text-sm text-green-600 font-medium hover:underline">
+                  Neuen Link anfordern →
+                </Link>
+              </div>
+            )}
+
+            {status === 'ready' && (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <Input
                   label="Neues Passwort"
@@ -97,6 +129,12 @@ export default function ResetPasswordPage() {
             )}
           </CardContent>
         </Card>
+
+        <p className="text-center text-sm text-gray-600 mt-6">
+          <Link href="/login" className="text-green-600 font-medium hover:underline">
+            Zurück zur Anmeldung
+          </Link>
+        </p>
       </div>
     </div>
   )
