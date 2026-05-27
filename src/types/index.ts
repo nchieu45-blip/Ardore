@@ -85,6 +85,19 @@ export interface Message {
   sender?: Profile
 }
 
+export interface Review {
+  id: string
+  product_id: string
+  buyer_id: string
+  rating: number
+  content: string | null
+  created_at: string
+  profiles?: {
+    full_name: string | null
+    avatar_url: string | null
+  } | null
+}
+
 export interface CreatorStats {
   total_revenue: number
   monthly_revenue: number

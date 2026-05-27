@@ -5,6 +5,7 @@ import { Search, FileText, Video, BookOpen, Image as ImageIcon, ChevronDown } fr
 import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
+import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -30,6 +31,7 @@ interface Props {
   products: MarketplaceProduct[]
   bestsellers: MarketplaceProduct[]
   salesCounts: Record<string, number>
+  ratings: Record<string, { avg: number; count: number }>
 }
 
 type TopicFilter = 'all' | string
@@ -89,7 +91,7 @@ const TYPE_LABELS: Record<ProductType, string> = {
   image: 'Bild',
 }
 
-export default function MarketplaceClient({ products, bestsellers, salesCounts }: Props) {
+export default function MarketplaceClient({ products, bestsellers, salesCounts, ratings }: Props) {
   const [topic, setTopic] = useState<TopicFilter>('all')
   const [type, setType] = useState<TypeFilter>('all')
   const [sort, setSort] = useState<SortKey>('popular')
@@ -167,7 +169,12 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts }
                     </div>
                     <div className="p-3">
                       <p className="text-xs text-gray-500 mb-0.5 truncate">{product.creator.display_name}</p>
-                      <p className="font-medium text-gray-900 text-sm line-clamp-2 mb-2">{product.title}</p>
+                      <p className="font-medium text-gray-900 text-sm line-clamp-2 mb-1">{product.title}</p>
+                      {ratings[product.id] && (
+                        <div className="mb-1">
+                          <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
+                        </div>
+                      )}
                       <p className="text-green-600 font-semibold text-sm">{formatCurrency(product.price)}</p>
                     </div>
                   </div>
@@ -253,7 +260,12 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts }
                       <Avatar src={product.creator.avatar_url} name={product.creator.display_name} size="sm" className="h-5 w-5 text-[10px]" />
                       <span className="text-xs text-gray-500 truncate">{product.creator.display_name}</span>
                     </div>
-                    <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-3 flex-1">{product.title}</h3>
+                    <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-2 flex-1">{product.title}</h3>
+                    {ratings[product.id] && (
+                      <div className="mb-2">
+                        <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">{TYPE_LABELS[product.type]}</Badge>
                       <span className="font-semibold text-gray-900 text-sm">{formatCurrency(product.price)}</span>

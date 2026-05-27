@@ -37,15 +37,31 @@ export default async function MarketplacePage() {
     }
   })
 
-  // Compute bestsellers from purchase counts
   const productIds = products.map(p => p.id)
-  const { data: salesData } = productIds.length > 0
-    ? await supabase.from('purchases').select('product_id').in('product_id', productIds)
-    : { data: [] }
+
+  const [salesRes, reviewsRes] = await Promise.all([
+    productIds.length > 0
+      ? supabase.from('purchases').select('product_id').in('product_id', productIds)
+      : Promise.resolve({ data: [] }),
+    productIds.length > 0
+      ? supabase.from('reviews').select('product_id, rating').in('product_id', productIds)
+      : Promise.resolve({ data: [] }),
+  ])
 
   const salesCounts: Record<string, number> = {}
-  for (const { product_id } of (salesData ?? []) as { product_id: string }[]) {
+  for (const { product_id } of (salesRes.data ?? []) as { product_id: string }[]) {
     salesCounts[product_id] = (salesCounts[product_id] ?? 0) + 1
+  }
+
+  const ratingSums: Record<string, { sum: number; count: number }> = {}
+  for (const r of (reviewsRes.data ?? []) as { product_id: string; rating: number }[]) {
+    if (!ratingSums[r.product_id]) ratingSums[r.product_id] = { sum: 0, count: 0 }
+    ratingSums[r.product_id].sum += r.rating
+    ratingSums[r.product_id].count++
+  }
+  const ratings: Record<string, { avg: number; count: number }> = {}
+  for (const [id, { sum, count }] of Object.entries(ratingSums)) {
+    ratings[id] = { avg: sum / count, count }
   }
 
   const bestsellers = Object.keys(salesCounts).length > 0
@@ -55,5 +71,5 @@ export default async function MarketplacePage() {
         .slice(0, 4)
     : []
 
-  return <MarketplaceClient products={products} bestsellers={bestsellers} salesCounts={salesCounts} />
+  return <MarketplaceClient products={products} bestsellers={bestsellers} salesCounts={salesCounts} ratings={ratings} />
 }

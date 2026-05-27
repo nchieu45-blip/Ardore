@@ -4,11 +4,13 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import { MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
+import ReviewSection from './ReviewSection'
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -24,6 +26,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   rueckenschmerzen: 'Rückenschmerzen',
   schwangerschaft: 'Schwangerschaft & Postnatal',
   mobility: 'Mobility & Dehnen',
+  pilates: 'Pilates',
+  muskelaufbau: 'Muskelaufbau',
 }
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -40,6 +44,26 @@ const TYPE_LABELS: Record<ProductType, string> = {
   video: 'Video',
   course: 'Kurs',
   image: 'Bild',
+}
+
+interface ReviewProfile {
+  full_name: string | null
+  avatar_url: string | null
+}
+
+interface ReviewRow {
+  id: string
+  product_id: string
+  buyer_id: string
+  rating: number
+  content: string | null
+  created_at: string
+  profiles: ReviewProfile | ReviewProfile[] | null
+}
+
+function normalizeProfile(raw: ReviewProfile | ReviewProfile[] | null): ReviewProfile | null {
+  if (!raw) return null
+  return Array.isArray(raw) ? raw[0] ?? null : raw
 }
 
 export default async function CreatorProfilePage({
@@ -68,16 +92,40 @@ export default async function CreatorProfilePage({
     .order('created_at', { ascending: false })
 
   const products = productsData ?? []
+  const productIds = products.map((p: { id: string }) => p.id)
 
-  const [tiersRes, subscriptionRes, purchasesRes] = await Promise.all([
+  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
+    productIds.length > 0
+      ? supabase.from('reviews').select('*, profiles(full_name, avatar_url)').in('product_id', productIds).order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    user ? supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single() : Promise.resolve({ data: null }),
   ])
 
   const tiers = tiersRes.data ?? []
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
+  const currentProfile = currentProfileRes.data
+
+  // Group reviews by product_id and normalise the profiles join
+  const reviewsByProduct: Record<string, {
+    id: string; product_id: string; buyer_id: string; rating: number; content: string | null; created_at: string
+    profiles: ReviewProfile | null
+  }[]> = {}
+
+  for (const r of (reviewsRes.data ?? []) as ReviewRow[]) {
+    if (!reviewsByProduct[r.product_id]) reviewsByProduct[r.product_id] = []
+    reviewsByProduct[r.product_id].push({ ...r, profiles: normalizeProfile(r.profiles) })
+  }
+
+  // Compute per-product rating stats
+  const ratingStats: Record<string, { avg: number; count: number }> = {}
+  for (const [productId, pReviews] of Object.entries(reviewsByProduct)) {
+    const sum = pReviews.reduce((acc, r) => acc + r.rating, 0)
+    ratingStats[productId] = { avg: sum / pReviews.length, count: pReviews.length }
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -122,6 +170,8 @@ export default async function CreatorProfilePage({
             <div className="space-y-4">
               {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number }) => {
                 const owned = purchasedIds.has(product.id)
+                const stats = ratingStats[product.id]
+                const productReviews = reviewsByProduct[product.id] ?? []
                 return (
                   <Card key={product.id}>
                     <CardContent className="flex items-start gap-4 p-5">
@@ -135,6 +185,11 @@ export default async function CreatorProfilePage({
                         </div>
                         {product.description && (
                           <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
+                        )}
+                        {stats && stats.count > 0 && (
+                          <div className="mt-1.5">
+                            <StarRating rating={stats.avg} count={stats.count} size="sm" />
+                          </div>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -150,6 +205,14 @@ export default async function CreatorProfilePage({
                         )}
                       </div>
                     </CardContent>
+                    <ReviewSection
+                      productId={product.id}
+                      reviews={productReviews}
+                      hasPurchased={owned}
+                      currentUserId={user?.id ?? null}
+                      currentUserName={currentProfile?.full_name ?? null}
+                      currentUserAvatar={currentProfile?.avatar_url ?? null}
+                    />
                   </Card>
                 )
               })}
