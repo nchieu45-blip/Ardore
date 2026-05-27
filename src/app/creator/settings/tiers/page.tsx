@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Plus, Trash2, Pencil } from 'lucide-react'
+import { Plus, Trash2, Pencil, Eye, EyeOff } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import type { SubscriptionTier } from '@/types'
 
@@ -153,9 +153,20 @@ export default function TiersPage() {
     setEditingId(null)
   }
 
+  async function toggleTier(id: string, currentlyActive: boolean) {
+    const { data: updated, error } = await supabase
+      .from('subscription_tiers')
+      .update({ is_active: !currentlyActive })
+      .eq('id', id)
+      .select()
+      .single()
+    if (!error) setTiers((prev) => prev.map((t) => (t.id === id ? updated : t)))
+  }
+
   async function deleteTier(id: string) {
     await supabase.from('subscription_tiers').delete().eq('id', id)
     setTiers((prev) => prev.filter((t) => t.id !== id))
+    setEditingId(null)
   }
 
   if (loading) return <div className="max-w-2xl mx-auto px-4 py-8 text-gray-500">Lädt...</div>
@@ -204,9 +215,18 @@ export default function TiersPage() {
                     onSave={(data) => handleEdit(tier.id, data)}
                     onCancel={() => setEditingId(null)}
                   />
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={() => deleteTier(tier.id)}
+                      className="text-sm text-red-500 hover:text-red-700 flex items-center gap-1.5 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Stufe löschen
+                    </button>
+                  </div>
                 </CardContent>
               ) : (
-                <div className="flex items-center justify-between p-5">
+                <div className={`flex items-center justify-between p-5 ${!tier.is_active ? 'opacity-60' : ''}`}>
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium text-gray-900">{tier.name}</h3>
@@ -223,14 +243,16 @@ export default function TiersPage() {
                     <button
                       onClick={() => { setEditingId(tier.id); setShowCreateForm(false) }}
                       className="text-gray-400 hover:text-blue-500 transition-colors"
+                      title="Bearbeiten"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => deleteTier(tier.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      onClick={() => toggleTier(tier.id, tier.is_active)}
+                      className={`transition-colors ${tier.is_active ? 'text-gray-400 hover:text-amber-500' : 'text-amber-500 hover:text-green-600'}`}
+                      title={tier.is_active ? 'Deaktivieren' : 'Reaktivieren'}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {tier.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
