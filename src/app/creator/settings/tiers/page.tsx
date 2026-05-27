@@ -19,7 +19,7 @@ import type { SubscriptionTier } from '@/types'
 const schema = z.object({
   name: z.string().min(2, 'Mindestens 2 Zeichen').max(50),
   description: z.string().max(300).optional(),
-  price_monthly: z.coerce.number().min(1, 'Mindestens 1,00 €').max(999),
+  price_monthly: z.coerce.number().int('Nur ganze Zahlen').min(0, 'Mindestens 0').max(999),
 })
 
 type FormData = z.infer<typeof schema>
@@ -118,9 +118,9 @@ export default function TiersPage() {
               <Input
                 label="Preis pro Monat (€)"
                 type="number"
-                step="0.01"
-                min="1"
-                placeholder="9.99"
+                step="1"
+                min="0"
+                placeholder="9"
                 error={errors.price_monthly?.message}
                 {...register('price_monthly')}
               />

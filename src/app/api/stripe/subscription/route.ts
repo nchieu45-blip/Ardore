@@ -24,7 +24,41 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
-  // Create or retrieve Stripe Price for this tier
+  // Free tier — skip Stripe entirely and create the subscription directly
+  if (tier.price_monthly === 0) {
+    // Idempotent: return success if an active subscription already exists
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('buyer_id', user.id)
+      .eq('creator_id', creatorId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (existing) {
+      return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
+    }
+
+    const farFuture = new Date()
+    farFuture.setFullYear(farFuture.getFullYear() + 100)
+
+    const { error } = await supabase.from('subscriptions').insert({
+      buyer_id: user.id,
+      creator_id: creatorId,
+      tier_id: tierId,
+      stripe_subscription_id: `free_${crypto.randomUUID()}`,
+      status: 'active',
+      current_period_end: farFuture.toISOString(),
+    })
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
+  }
+
+  // Paid tier — go through Stripe checkout
   let priceId = tier.stripe_price_id
 
   if (!priceId) {
