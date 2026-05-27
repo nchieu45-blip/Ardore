@@ -28,32 +28,49 @@ export default function ResetPasswordPage() {
   const router = useRouter()
   const supabase = createClient()
   const [status, setStatus] = useState<Status>('checking')
-  const [error, setError] = useState('')
+  const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
-    // PKCE flow: Supabase sends ?code=xxx in the reset link
-    const code = new URLSearchParams(window.location.search).get('code')
+    let unsubscribe: (() => void) | undefined
 
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          setStatus('invalid')
-        } else {
-          // Remove the code from the URL so a page refresh doesn't re-use it
-          window.history.replaceState({}, '', window.location.pathname)
-          setStatus('ready')
-        }
-      })
-      return
-    }
-
-    // Implicit flow fallback: token arrives as a URL hash fragment
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    // Primary path: /auth/callback already exchanged the code and set the
+    // session in cookies. getSession() reads it immediately.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         setStatus('ready')
+        return
       }
+
+      // Fallback A: direct PKCE link (user somehow bypassed /auth/callback)
+      const code = new URLSearchParams(window.location.search).get('code')
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code)
+          .then(({ error }) => {
+            if (error) {
+              setStatus('invalid')
+            } else {
+              window.history.replaceState({}, '', window.location.pathname)
+              setStatus('ready')
+            }
+          })
+          .catch(() => setStatus('invalid'))
+        return
+      }
+
+      // Fallback B: implicit-flow hash token — wait for PASSWORD_RECOVERY event
+      if (window.location.hash.includes('type=recovery')) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY') setStatus('ready')
+        })
+        unsubscribe = () => subscription.unsubscribe()
+        return
+      }
+
+      // No session, no code, no recovery hash → link is missing or expired
+      setStatus('invalid')
     })
-    return () => subscription.unsubscribe()
+
+    return () => unsubscribe?.()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -62,10 +79,10 @@ export default function ResetPasswordPage() {
   })
 
   async function onSubmit(data: FormData) {
-    setError('')
+    setSubmitError('')
     const { error } = await supabase.auth.updateUser({ password: data.password })
     if (error) {
-      setError('Fehler beim Zurücksetzen des Passworts. Bitte versuche es erneut.')
+      setSubmitError('Fehler beim Zurücksetzen des Passworts. Bitte versuche es erneut.')
       return
     }
     router.push('/login')
@@ -117,9 +134,9 @@ export default function ResetPasswordPage() {
                   error={errors.confirmPassword?.message}
                   {...register('confirmPassword')}
                 />
-                {error && (
+                {submitError && (
                   <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
-                    {error}
+                    {submitError}
                   </div>
                 )}
                 <Button type="submit" className="w-full" loading={isSubmitting}>

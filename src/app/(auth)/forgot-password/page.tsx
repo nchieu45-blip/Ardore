@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,6 +20,8 @@ type FormData = z.infer<typeof schema>
 
 export default function ForgotPasswordPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const linkError = searchParams.get('error')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,7 +32,7 @@ export default function ForgotPasswordPage() {
   async function onSubmit(data: FormData) {
     setError('')
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
     })
     if (error) {
       setError('Fehler beim Senden der E-Mail. Bitte versuche es erneut.')
@@ -52,6 +55,11 @@ export default function ForgotPasswordPage() {
 
         <Card>
           <CardContent>
+            {linkError && !sent && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
+                Dein Reset-Link ist ungültig oder abgelaufen. Bitte fordere unten einen neuen an.
+              </div>
+            )}
             {sent ? (
               <div className="text-center py-4 space-y-2">
                 <p className="text-green-700 font-medium">E-Mail gesendet!</p>
