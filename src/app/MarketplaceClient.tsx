@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Search, FileText, Video, BookOpen, Image as ImageIcon, ChevronDown,
-  TrendingUp, Sparkles, ShieldCheck, Users, SlidersHorizontal,
+  TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal, Users,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
@@ -104,6 +104,18 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
   const [type, setType] = useState<TypeFilter>('all')
   const [sort, setSort] = useState<SortKey>('popular')
   const [search, setSearch] = useState('')
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const categoryRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setCategoryOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const isFiltered = topic !== 'all' || type !== 'all' || search !== ''
 
@@ -229,26 +241,38 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
 
         {/* ── Filters ──────────────────────────────────────────────── */}
         <div className="space-y-3 mb-8 animate-slide-up animate-delay-100">
-          {/* Topic pills */}
-          <div className="flex flex-wrap gap-2">
-            {TOPIC_FILTERS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setTopic(key)}
-                className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-150 ${
-                  topic === key
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-400 hover:text-gray-900'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Type pills + sort */}
+          {/* Category dropdown + type pills + sort — all in one row */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex flex-wrap gap-2 items-center">
+              {/* Category dropdown */}
+              <div ref={categoryRef} className="relative">
+                <button
+                  onClick={() => setCategoryOpen((o) => !o)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all duration-150 ${
+                    topic !== 'all'
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 hover:text-gray-900'
+                  }`}
+                >
+                  {topic === 'all' ? 'Kategorie' : TOPIC_FILTERS.find(f => f.key === topic)?.label}
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${categoryOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {categoryOpen && (
+                  <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-40 animate-scale-in">
+                    {TOPIC_FILTERS.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => { setTopic(key); setCategoryOpen(false) }}
+                        className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        {label}
+                        {topic === key && <Check className="h-3.5 w-3.5 text-green-600" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <SlidersHorizontal className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
               {TYPE_FILTERS.map(({ key, label }) => (
                 <button

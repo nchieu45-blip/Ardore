@@ -41,6 +41,9 @@ export function Navbar({ user }: NavbarProps) {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
+            <Link href="/" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+              Startseite
+            </Link>
             <Link href="/creators" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
               Coaches entdecken
             </Link>
@@ -111,6 +114,9 @@ export function Navbar({ user }: NavbarProps) {
       {menuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm">
           <div className="px-4 py-3 space-y-1">
+            <Link href="/" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
+              Startseite
+            </Link>
             <Link href="/creators" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
               Coaches entdecken
             </Link>
