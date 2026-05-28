@@ -72,10 +72,10 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
     setMessages((prev) => [...prev, optimistic])
     setText('')
 
-    await supabase.from('messages').insert({
-      sender_id: currentUser.id,
-      creator_id: creatorId,
-      content: optimistic.content,
+    await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creatorId, content: optimistic.content }),
     })
 
     setSending(false)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
+import { notifyNewSubscriber } from '@/app/api/webhooks/stripe/route'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    notifyNewSubscriber(supabase, user.id, creatorId, tierId).catch(console.error)
     return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
   }
 
