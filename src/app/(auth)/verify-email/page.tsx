@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent } from '@/components/ui/Card'
-import { Flame, Mail } from 'lucide-react'
+import { AuthShell } from '@/components/layout/AuthShell'
+import { Mail, CheckCircle } from 'lucide-react'
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams()
@@ -36,56 +36,12 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-green-600 font-bold text-2xl mb-4">
-            <Flame className="h-7 w-7" />
-            Ardore
-          </Link>
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-50 flex items-center justify-center">
-            <Mail className="h-8 w-8 text-green-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Bitte bestätige deine E-Mail</h1>
-          <p className="text-gray-500 mt-2">
-            Wir haben eine Bestätigungs-E-Mail an{' '}
-            {email ? <strong className="text-gray-700">{email}</strong> : 'deine E-Mail-Adresse'} gesendet.
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="py-6 space-y-4">
-            <p className="text-sm text-gray-600 text-center">
-              Klicke auf den Link in der E-Mail, um dein Konto zu aktivieren und dich anzumelden.
-              Überprüfe auch deinen Spam-Ordner, falls du keine E-Mail erhalten hast.
-            </p>
-
-            {resent ? (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3 text-center">
-                E-Mail erneut gesendet!
-              </div>
-            ) : (
-              <>
-                {resendError && (
-                  <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 text-center">
-                    {resendError}
-                  </div>
-                )}
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={resend}
-                  loading={resending}
-                  disabled={!email}
-                >
-                  E-Mail erneut senden
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-sm text-gray-600 mt-6">
+    <AuthShell
+      heading="Bitte bestätige deine E-Mail"
+      subheading={email ? `Wir haben eine E-Mail an ${email} gesendet` : 'Wir haben dir eine Bestätigungs-E-Mail gesendet'}
+      icon={<Mail className="h-6 w-6 text-green-600" />}
+      footer={
+        <>
           Falsches Konto?{' '}
           <Link href="/register" className="text-green-600 font-medium hover:underline">
             Neu registrieren
@@ -94,8 +50,39 @@ export default function VerifyEmailPage() {
           <Link href="/login" className="text-green-600 font-medium hover:underline">
             Anmelden
           </Link>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 text-center">
+          Klicke auf den Link in der E-Mail, um dein Konto zu aktivieren.
+          Überprüfe auch deinen Spam-Ordner, falls du keine E-Mail erhalten hast.
         </p>
+
+        {resent ? (
+          <div className="flex items-center gap-2 justify-center bg-green-50 border border-green-100 text-green-700 text-sm rounded-xl px-4 py-3">
+            <CheckCircle className="h-4 w-4 flex-shrink-0" />
+            E-Mail erneut gesendet!
+          </div>
+        ) : (
+          <>
+            {resendError && (
+              <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 text-center">
+                {resendError}
+              </div>
+            )}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={resend}
+              loading={resending}
+              disabled={!email}
+            >
+              E-Mail erneut senden
+            </Button>
+          </>
+        )}
       </div>
-    </div>
+    </AuthShell>
   )
 }

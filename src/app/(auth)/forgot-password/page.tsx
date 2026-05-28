@@ -9,8 +9,8 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Card, CardContent } from '@/components/ui/Card'
-import { Flame } from 'lucide-react'
+import { AuthShell } from '@/components/layout/AuthShell'
+import { KeyRound, CheckCircle } from 'lucide-react'
 
 const schema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
@@ -42,60 +42,52 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-green-600 font-bold text-2xl mb-4">
-            <Flame className="h-7 w-7" />
-            Ardore
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Passwort zurücksetzen</h1>
-          <p className="text-gray-500 mt-1">Wir senden dir einen Link per E-Mail</p>
+    <AuthShell
+      heading="Passwort zurücksetzen"
+      subheading="Wir senden dir einen Link per E-Mail"
+      icon={<KeyRound className="h-6 w-6 text-green-600" />}
+      footer={
+        <Link href="/login" className="text-green-600 font-medium hover:underline">
+          ← Zurück zur Anmeldung
+        </Link>
+      }
+    >
+      {linkError && !sent && (
+        <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 mb-4">
+          Dein Reset-Link ist ungültig oder abgelaufen. Bitte fordere unten einen neuen an.
         </div>
+      )}
 
-        <Card>
-          <CardContent>
-            {linkError && !sent && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
-                Dein Reset-Link ist ungültig oder abgelaufen. Bitte fordere unten einen neuen an.
-              </div>
-            )}
-            {sent ? (
-              <div className="text-center py-4 space-y-2">
-                <p className="text-green-700 font-medium">E-Mail gesendet!</p>
-                <p className="text-sm text-gray-500">
-                  Prüfe dein Postfach und klicke auf den Link, um dein Passwort zurückzusetzen.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <Input
-                  label="E-Mail-Adresse"
-                  type="email"
-                  placeholder="max@beispiel.de"
-                  autoComplete="email"
-                  error={errors.email?.message}
-                  {...register('email')}
-                />
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
-                    {error}
-                  </div>
-                )}
-                <Button type="submit" className="w-full" loading={isSubmitting}>
-                  Link senden
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-sm text-gray-600 mt-6">
-          <Link href="/login" className="text-green-600 font-medium hover:underline">
-            Zurück zur Anmeldung
-          </Link>
-        </p>
-      </div>
-    </div>
+      {sent ? (
+        <div className="text-center py-4 space-y-3">
+          <div className="flex justify-center">
+            <CheckCircle className="h-10 w-10 text-green-500" />
+          </div>
+          <p className="font-semibold text-gray-900">E-Mail gesendet!</p>
+          <p className="text-sm text-gray-500">
+            Prüfe dein Postfach und klicke auf den Link, um dein Passwort zurückzusetzen. Schau auch im Spam-Ordner nach.
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <Input
+            label="E-Mail-Adresse"
+            type="email"
+            placeholder="max@beispiel.de"
+            autoComplete="email"
+            error={errors.email?.message}
+            {...register('email')}
+          />
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+              {error}
+            </div>
+          )}
+          <Button type="submit" className="w-full" loading={isSubmitting}>
+            Link senden
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   )
 }
