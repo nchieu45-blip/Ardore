@@ -41,15 +41,26 @@ export default async function CreatorsPage() {
     : []
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Coaches entdecken</h1>
-        <p className="text-gray-500">Finde die besten Fitness- und Gesundheitsexperten</p>
+    <div>
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-gray-50 to-white border-b border-gray-100 py-12 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-slide-up">
+            <p className="text-xs font-semibold text-green-600 uppercase tracking-widest mb-3">Unsere Coaches</p>
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3 tracking-tight">
+              Coaches entdecken
+            </h1>
+            <p className="text-gray-500 text-lg max-w-lg">
+              Finde die besten Fitness- und Gesundheitsexperten und starte deine Transformation.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        <TopCoachesSection coaches={topCoaches} />
+        <CreatorsFilter creators={creatorList} categories={categories} />
       </div>
-
-      <TopCoachesSection coaches={topCoaches} />
-
-      <CreatorsFilter creators={creatorList} categories={categories} />
     </div>
   )
 }

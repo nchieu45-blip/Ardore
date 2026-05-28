@@ -10,8 +10,8 @@ export function Card({ className, children, hover }: CardProps) {
   return (
     <div
       className={cn(
-        'bg-white rounded-xl border border-gray-200 shadow-sm',
-        hover && 'hover:shadow-md hover:border-green-200 transition-all duration-200 cursor-pointer',
+        'bg-white rounded-2xl border border-gray-100 shadow-sm',
+        hover && 'card-hover cursor-pointer hover:border-green-200',
         className
       )}
     >
@@ -38,7 +38,7 @@ export function CardContent({ className, children }: { className?: string; child
 
 export function CardFooter({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={cn('px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl', className)}>
+    <div className={cn('px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl', className)}>
       {children}
     </div>
   )

@@ -39,12 +39,12 @@ export default async function CreatorDashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-start justify-between mb-6 animate-slide-up">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500">Willkommen zurück, {creator.display_name}</p>
+          <p className="text-xs font-semibold text-green-600 uppercase tracking-widest mb-1">Creator Dashboard</p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Willkommen, {creator.display_name} 👋</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 flex-shrink-0">
           <Link href={`/creators/${creator.slug}`} target="_blank">
             <Button variant="outline" size="sm">
               <ExternalLink className="h-4 w-4" />
@@ -61,7 +61,7 @@ export default async function CreatorDashboardPage() {
       </div>
 
       {/* Quick-action buttons */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6 animate-slide-up animate-delay-100">
         <Link href="/creator/chat">
           <Button>
             <MessageCircle className="h-4 w-4" />
@@ -78,11 +78,11 @@ export default async function CreatorDashboardPage() {
 
       {/* Stripe Connect Warning */}
       {!creator.stripe_account_active && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3 animate-slide-up animate-delay-150">
+          <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-yellow-800">Stripe Connect nicht eingerichtet</p>
-            <p className="text-sm text-yellow-700 mt-1">Richte dein Stripe-Konto ein, um Auszahlungen zu erhalten.</p>
+            <p className="text-sm font-semibold text-amber-900">Stripe Connect nicht eingerichtet</p>
+            <p className="text-sm text-amber-700 mt-0.5">Richte dein Stripe-Konto ein, um Auszahlungen zu erhalten.</p>
           </div>
           <Link href="/creator/settings/payout">
             <Button size="sm" variant="secondary">Einrichten</Button>
@@ -93,21 +93,21 @@ export default async function CreatorDashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { icon: <TrendingUp className="h-5 w-5 text-green-600" />, label: 'Gesamtumsatz', value: formatCurrency(totalRevenue), sub: 'Alle Zeit' },
-          { icon: <TrendingUp className="h-5 w-5 text-blue-600" />, label: 'Monatlich', value: formatCurrency(monthlyRevenue), sub: 'Aus Abos' },
-          { icon: <Users className="h-5 w-5 text-purple-600" />, label: 'Abonnenten', value: subscriptions.length.toString(), sub: 'Aktiv' },
-          { icon: <ShoppingBag className="h-5 w-5 text-orange-600" />, label: 'Produkte', value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
-        ].map((stat) => (
-          <Card key={stat.label}>
+          { icon: <TrendingUp className="h-5 w-5 text-green-600" />, bg: 'bg-green-50', label: 'Gesamtumsatz', value: formatCurrency(totalRevenue), sub: 'Alle Zeit' },
+          { icon: <TrendingUp className="h-5 w-5 text-blue-600" />, bg: 'bg-blue-50', label: 'Monatlich', value: formatCurrency(monthlyRevenue), sub: 'Aus Abos' },
+          { icon: <Users className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50', label: 'Abonnenten', value: subscriptions.length.toString(), sub: 'Aktiv' },
+          { icon: <ShoppingBag className="h-5 w-5 text-orange-600" />, bg: 'bg-orange-50', label: 'Produkte', value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
+        ].map((stat, i) => (
+          <Card key={stat.label} className={`animate-slide-up animate-delay-${(i + 2) * 100}`}>
             <CardContent className="p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center">
+              <div className="flex items-center justify-between mb-4">
+                <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
                   {stat.icon}
                 </div>
-                <span className="text-sm text-gray-500">{stat.label}</span>
+                <span className="text-xs text-gray-400 font-medium">{stat.sub}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-xs text-gray-400 mt-1">{stat.sub}</p>
+              <p className="text-2xl font-bold text-gray-900 mb-0.5">{stat.value}</p>
+              <p className="text-sm text-gray-500">{stat.label}</p>
             </CardContent>
           </Card>
         ))}
