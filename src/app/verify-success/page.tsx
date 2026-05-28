@@ -14,5 +14,5 @@ export default async function VerifySuccessPage() {
     redirect('/creator/onboarding')
   }
 
-  redirect('/creators')
+  redirect('/buyer/onboarding')
 }
