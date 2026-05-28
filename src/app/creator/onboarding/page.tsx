@@ -10,7 +10,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea, Select } from '@/components/ui/Input'
 import { slugify, getInitials, cn } from '@/lib/utils'
-import { Flame, Camera, Check, ChevronRight, Sparkles, Plus } from 'lucide-react'
+import {
+  Flame, Camera, Check, ChevronRight, Sparkles, Plus,
+  FileText, Video, BookOpen, Image as ImageIcon,
+} from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyResolver = any
@@ -29,8 +32,16 @@ const tierSchema = z.object({
   price_monthly: z.coerce.number().int('Nur ganze Zahlen').min(0).max(999),
 })
 
+const productSchema = z.object({
+  title: z.string().min(3, 'Mindestens 3 Zeichen').max(100),
+  description: z.string().max(1000).optional(),
+  type: z.enum(['pdf', 'video', 'course', 'image']),
+  price: z.coerce.number().min(0.5, 'Mindestpreis: 0,50 €').max(9999),
+})
+
 type ProfileData = z.infer<typeof profileSchema>
-type TierData = z.infer<typeof tierSchema>
+type TierData    = z.infer<typeof tierSchema>
+type ProductData = z.infer<typeof productSchema>
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -53,10 +64,18 @@ const CATEGORIES = [
   { value: 'mobility', label: 'Mobility & Dehnen' },
 ]
 
+const PRODUCT_TYPES = [
+  { value: 'pdf',    label: 'PDF / E-Book', icon: <FileText  className="h-5 w-5" />, desc: 'Trainingsplan, Guide, etc.' },
+  { value: 'video',  label: 'Video',        icon: <Video     className="h-5 w-5" />, desc: 'Tutorial oder Workout' },
+  { value: 'image',  label: 'Bild',         icon: <ImageIcon className="h-5 w-5" />, desc: 'Foto, Grafik, Infografik' },
+  { value: 'course', label: 'Kurs',         icon: <BookOpen  className="h-5 w-5" />, desc: 'Mehrere Lektionen' },
+]
+
 const STEPS = [
   { n: 1, label: 'Profil' },
   { n: 2, label: 'Bilder' },
   { n: 3, label: 'Abos' },
+  { n: 4, label: 'Produkt' },
 ]
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024
@@ -89,7 +108,7 @@ function Stepper({ current }: { current: number }) {
           </div>
           {i < STEPS.length - 1 && (
             <div className={cn(
-              'w-12 sm:w-16 h-px mx-3 transition-colors duration-300',
+              'w-8 sm:w-12 h-px mx-2 sm:mx-3 transition-colors duration-300',
               current > s.n ? 'bg-green-600' : 'bg-gray-200',
             )} />
           )}
@@ -109,6 +128,7 @@ export default function CreatorOnboardingPage() {
   const [creatorId, setCreatorId] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [tierCreated, setTierCreated] = useState(false)
+  const [productCreated, setProductCreated] = useState(false)
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
@@ -222,6 +242,32 @@ export default function CreatorOnboardingPage() {
     setStep(4)
   }
 
+  // ── Step 4: Product ────────────────────────────────────────────────────────
+
+  const productForm = useForm<ProductData>({
+    resolver: zodResolver(productSchema) as AnyResolver,
+    defaultValues: { type: 'pdf', price: 9.99 },
+  })
+  const selectedType = productForm.watch('type')
+  const [productError, setProductError] = useState('')
+
+  async function submitProduct(data: ProductData) {
+    setProductError('')
+    const { error } = await supabase.from('products').insert({
+      creator_id: creatorId,
+      title: data.title,
+      description: data.description ?? null,
+      type: data.type,
+      price: data.price,
+      file_url: null,
+      thumbnail_url: null,
+      is_published: false,
+    })
+    if (error) { setProductError('Fehler beim Erstellen des Produkts.'); return }
+    setProductCreated(true)
+    setStep(5)
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
 
   if (checking) {
@@ -232,7 +278,8 @@ export default function CreatorOnboardingPage() {
     )
   }
 
-  const remainingSteps = 4 - step
+  const totalSteps = STEPS.length   // 4
+  const remainingSteps = totalSteps + 1 - step  // steps left including current
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-50 px-4 py-10">
@@ -247,14 +294,14 @@ export default function CreatorOnboardingPage() {
             Ardore
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Coach-Profil einrichten</h1>
-          {step < 4 && (
+          {step <= totalSteps && (
             <p className="text-gray-500 mt-1.5 text-sm">
-              Noch {remainingSteps} Schritt{remainingSteps !== 1 ? 'e' : ''} bis du loslegen kannst
+              Schritt {step} von {totalSteps}
             </p>
           )}
         </div>
 
-        {step < 4 && <Stepper current={step} />}
+        {step <= totalSteps && <Stepper current={step} />}
 
         {/* ── Step 1: Profile Info ── */}
         {step === 1 && (
@@ -300,7 +347,6 @@ export default function CreatorOnboardingPage() {
             <h2 className="font-semibold text-gray-900 mb-1">Profilbild & Banner</h2>
             <p className="text-sm text-gray-500 mb-5">Du kannst Bilder auch später noch in den Einstellungen ändern.</p>
 
-            {/* Banner */}
             <div className="relative">
               <div
                 className="h-32 rounded-xl overflow-hidden bg-gradient-to-br from-green-400 to-green-600 cursor-pointer group"
@@ -318,7 +364,6 @@ export default function CreatorOnboardingPage() {
               </div>
               <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => pickFile(e, 'banner')} />
 
-              {/* Avatar overlapping banner */}
               <div className="absolute bottom-0 left-4 translate-y-1/2">
                 <div
                   className="relative h-16 w-16 rounded-full ring-4 ring-white overflow-hidden cursor-pointer group bg-green-100"
@@ -409,8 +454,77 @@ export default function CreatorOnboardingPage() {
           </div>
         )}
 
-        {/* ── Step 4: Done ── */}
+        {/* ── Step 4: First Product ── */}
         {step === 4 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up">
+            <h2 className="font-semibold text-gray-900 mb-1">Erstes Produkt anlegen</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Erstelle ein Produkt als Entwurf — die Datei kannst du danach im Dashboard hochladen.
+            </p>
+            <form onSubmit={productForm.handleSubmit(submitProduct)} className="space-y-4">
+              {/* Type selector */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {PRODUCT_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => productForm.setValue('type', t.value as ProductData['type'])}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-center transition-all',
+                      selectedType === t.value
+                        ? 'border-green-600 bg-green-50 text-green-700'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300',
+                    )}
+                  >
+                    {t.icon}
+                    <span className="text-xs font-medium">{t.label}</span>
+                    <span className="text-[10px] opacity-60 leading-tight hidden sm:block">{t.desc}</span>
+                  </button>
+                ))}
+              </div>
+
+              <Input
+                label="Titel"
+                placeholder="z.B. 12-Wochen Trainingsplan"
+                error={productForm.formState.errors.title?.message}
+                {...productForm.register('title')}
+              />
+              <Input
+                label="Preis (€)"
+                type="number"
+                step="0.01"
+                min="0.50"
+                placeholder="9.99"
+                hint="Mindestpreis: 0,50 €"
+                error={productForm.formState.errors.price?.message}
+                {...productForm.register('price')}
+              />
+              <Textarea
+                label="Beschreibung (optional)"
+                placeholder="Beschreibe dein Produkt…"
+                error={productForm.formState.errors.description?.message}
+                {...productForm.register('description')}
+              />
+
+              {productError && (
+                <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+                  {productError}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(5)}>
+                  Überspringen
+                </Button>
+                <Button type="submit" className="flex-1" loading={productForm.formState.isSubmitting}>
+                  Entwurf speichern
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ── Step 5: Done ── */}
+        {step === 5 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center animate-slide-up">
             <div className="flex justify-center mb-5">
               <div className="h-16 w-16 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center shadow-sm">
@@ -422,16 +536,23 @@ export default function CreatorOnboardingPage() {
             </h2>
             <p className="text-gray-500 text-sm mb-6 leading-relaxed">
               Dein Coach-Profil ist eingerichtet.{' '}
-              {tierCreated
+              {productCreated
+                ? 'Dein erstes Produkt wurde als Entwurf gespeichert — lade jetzt die Datei hoch und veröffentliche es.'
+                : tierCreated
                 ? 'Deine erste Preisstufe ist aktiv — Kunden können jetzt abonnieren.'
-                : 'Erstelle jetzt Inhalte und richte deine Preisstufen ein.'}
+                : 'Erstelle jetzt Produkte und richte deine Preisstufen ein.'}
             </p>
 
             <div className="space-y-3">
               <Button className="w-full" size="lg" onClick={() => { router.push('/creator'); router.refresh() }}>
                 Zum Dashboard
               </Button>
-              {!tierCreated && (
+              {productCreated && (
+                <Button variant="outline" className="w-full" onClick={() => router.push('/creator/products')}>
+                  Produkt fertigstellen
+                </Button>
+              )}
+              {!tierCreated && !productCreated && (
                 <Button variant="outline" className="w-full" onClick={() => router.push('/creator/settings/tiers')}>
                   <Plus className="h-4 w-4" /> Abo-Preisstufe erstellen
                 </Button>
