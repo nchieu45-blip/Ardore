@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { CategoryPicker } from '@/components/ui/CategoryPicker'
+import { CategoryPicker, ServicePicker } from '@/components/ui/CategoryPicker'
 import { getInitials } from '@/lib/utils'
 import { ArrowLeft, Camera, Check } from 'lucide-react'
 import Link from 'next/link'
@@ -38,6 +38,7 @@ export default function ProfileSettingsPage() {
   const [error, setError] = useState('')
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [categoryError, setCategoryError] = useState('')
+  const [selectedServices, setSelectedServices] = useState<string[]>([])
 
   // Images: current URLs + selected files + local previews
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -64,7 +65,7 @@ export default function ProfileSettingsPage() {
 
       const { data: creator } = await supabase
         .from('creator_profiles')
-        .select('id, display_name, bio, category, categories, avatar_url, banner_url')
+        .select('id, display_name, bio, category, categories, services, avatar_url, banner_url')
         .eq('user_id', user.id)
         .single()
 
@@ -79,6 +80,7 @@ export default function ProfileSettingsPage() {
           ? (creator.categories as string[])
           : creator.category ? [creator.category] : []
       )
+      setSelectedServices((creator.services as string[] | null) ?? [])
 
       reset({
         display_name: creator.display_name,
@@ -164,6 +166,7 @@ export default function ProfileSettingsPage() {
         bio: data.bio || null,
         category: selectedCategories[0] ?? null,
         categories: selectedCategories,
+        services: selectedServices,
         avatar_url: newAvatarUrl,
         banner_url: newBannerUrl,
       })
@@ -292,6 +295,11 @@ export default function ProfileSettingsPage() {
               selected={selectedCategories}
               onChange={(cats) => { setSelectedCategories(cats); if (cats.length > 0) setCategoryError('') }}
               error={categoryError}
+            />
+
+            <ServicePicker
+              selected={selectedServices}
+              onChange={setSelectedServices}
             />
 
             <div className="flex flex-col gap-1.5">

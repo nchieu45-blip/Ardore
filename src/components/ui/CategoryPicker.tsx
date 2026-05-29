@@ -21,14 +21,32 @@ export const CATEGORY_OPTIONS = [
   { value: 'mobility',         label: 'Mobility & Dehnen' },
 ]
 
-interface CategoryPickerProps {
+export const SERVICE_OPTIONS = [
+  { value: '1to1_coaching',  label: '1:1 Coaching' },
+  { value: 'video_kurs',     label: 'Video Kurs' },
+  { value: 'online_kurs',    label: 'Online Kurs' },
+  { value: 'ernaehrungsplan', label: 'Ernährungsplan' },
+  { value: 'trainingsplan',  label: 'Trainingsplan' },
+  { value: 'gruppencoaching', label: 'Gruppencoaching' },
+  { value: 'live_sessions',  label: 'Live Sessions' },
+  { value: 'pdf_guide',      label: 'PDF Guide' },
+]
+
+interface ChipPickerProps {
   selected: string[]
-  onChange: (categories: string[]) => void
+  onChange: (values: string[]) => void
   error?: string
   label?: string
 }
 
-export function CategoryPicker({ selected, onChange, error, label = 'Kategorien' }: CategoryPickerProps) {
+function ChipPicker({
+  options,
+  selected,
+  onChange,
+  error,
+  label,
+  hint,
+}: ChipPickerProps & { options: { value: string; label: string }[]; hint: string }) {
   function toggle(value: string) {
     onChange(
       selected.includes(value)
@@ -41,13 +59,13 @@ export function CategoryPicker({ selected, onChange, error, label = 'Kategorien'
     <div>
       <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {CATEGORY_OPTIONS.map(cat => {
-          const active = selected.includes(cat.value)
+        {options.map(opt => {
+          const active = selected.includes(opt.value)
           return (
             <button
-              key={cat.value}
+              key={opt.value}
               type="button"
-              onClick={() => toggle(cat.value)}
+              onClick={() => toggle(opt.value)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-medium text-left transition-all duration-150',
                 active
@@ -56,15 +74,41 @@ export function CategoryPicker({ selected, onChange, error, label = 'Kategorien'
               )}
             >
               {active && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
-              <span className="leading-tight">{cat.label}</span>
+              <span className="leading-tight">{opt.label}</span>
             </button>
           )
         })}
       </div>
       {error
         ? <p className="text-xs text-red-600 mt-1.5">{error}</p>
-        : <p className="text-xs text-gray-400 mt-1.5">Wähle eine oder mehrere Kategorien</p>
+        : <p className="text-xs text-gray-400 mt-1.5">{hint}</p>
       }
     </div>
+  )
+}
+
+export function CategoryPicker({ selected, onChange, error, label = 'Kategorien' }: ChipPickerProps) {
+  return (
+    <ChipPicker
+      options={CATEGORY_OPTIONS}
+      selected={selected}
+      onChange={onChange}
+      error={error}
+      label={label}
+      hint="Wähle eine oder mehrere Kategorien"
+    />
+  )
+}
+
+export function ServicePicker({ selected, onChange, error, label = 'Dienstleistungen' }: ChipPickerProps) {
+  return (
+    <ChipPicker
+      options={SERVICE_OPTIONS}
+      selected={selected}
+      onChange={onChange}
+      error={error}
+      label={label}
+      hint="Wähle alle Dienstleistungen, die du anbietest"
+    />
   )
 }

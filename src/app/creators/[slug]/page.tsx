@@ -8,8 +8,9 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
-  Check, ShoppingBag, Sparkles, Pencil,
+  Check, ShoppingBag, Sparkles, Pencil, CheckCircle2,
 } from 'lucide-react'
+import { SERVICE_OPTIONS } from '@/components/ui/CategoryPicker'
 import Link from 'next/link'
 import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
@@ -52,6 +53,10 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
 }
 
 const DEFAULT_GRADIENT = 'from-green-400 to-emerald-600'
+
+const SERVICE_LABELS: Record<string, string> = Object.fromEntries(
+  SERVICE_OPTIONS.map(s => [s.value, s.label])
+)
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -156,6 +161,7 @@ export default async function CreatorProfilePage({
   const allCategories: string[] = (creator.categories as string[] | null)?.length
     ? (creator.categories as string[])
     : creator.category ? [creator.category] : []
+  const services: string[] = (creator.services as string[] | null) ?? []
   const bannerGradient = primaryCategory
     ? (CATEGORY_GRADIENTS[primaryCategory] ?? DEFAULT_GRADIENT)
     : DEFAULT_GRADIENT
@@ -228,6 +234,23 @@ export default async function CreatorProfilePage({
           )}
         </div>
       </div>
+
+      {services.length > 0 && (
+        <div className="mb-8 animate-slide-up animate-delay-100">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
+          <div className="flex flex-wrap gap-2">
+            {services.map(s => (
+              <span
+                key={s}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                {SERVICE_LABELS[s] ?? s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Products */}
