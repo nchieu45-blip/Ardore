@@ -41,7 +41,7 @@ interface Props {
 
 type TopicFilter = 'all' | string
 type TypeFilter = 'all' | ProductType
-type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc'
+type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
 
 const TOPIC_FILTERS: { key: TopicFilter; label: string }[] = [
   { key: 'all', label: 'Alle' },
@@ -71,10 +71,12 @@ const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
 ]
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'popular', label: 'Beliebteste' },
-  { key: 'newest', label: 'Neueste' },
-  { key: 'price_asc', label: 'Preis ↑' },
-  { key: 'price_desc', label: 'Preis ↓' },
+  { key: 'popular',      label: 'Beliebteste' },
+  { key: 'best_selling', label: 'Meistverkauft' },
+  { key: 'top_rated',    label: 'Best bewertet' },
+  { key: 'newest',       label: 'Neueste' },
+  { key: 'price_asc',    label: 'Preis ↑' },
+  { key: 'price_desc',   label: 'Preis ↓' },
 ]
 
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
@@ -132,10 +134,12 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
     })
     .sort((a, b) => {
       switch (sort) {
-        case 'popular':   return (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0)
-        case 'newest':    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        case 'price_asc': return a.price - b.price
-        case 'price_desc':return b.price - a.price
+        case 'popular':      return (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0)
+        case 'best_selling': return (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0)
+        case 'top_rated':    return (ratings[b.id]?.avg ?? 0) - (ratings[a.id]?.avg ?? 0)
+        case 'newest':       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        case 'price_asc':    return a.price - b.price
+        case 'price_desc':   return b.price - a.price
       }
     })
 
@@ -230,9 +234,12 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
                       <p className="text-xs text-gray-400 mb-0.5 truncate">{product.creator.display_name}</p>
                       <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-2 leading-snug">{product.title}</p>
                       {ratings[product.id] && (
-                        <div className="mb-2">
+                        <div className="mb-1">
                           <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
                         </div>
+                      )}
+                      {(salesCounts[product.id] ?? 0) > 0 && (
+                        <p className="text-[10px] text-gray-400 mb-2">{salesCounts[product.id]} mal gekauft</p>
                       )}
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-medium">{TYPE_LABELS[product.type]}</span>
@@ -355,9 +362,15 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
                     </h3>
 
                     {ratings[product.id] && (
-                      <div className="mb-3">
+                      <div className="mb-1.5">
                         <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
                       </div>
+                    )}
+
+                    {(salesCounts[product.id] ?? 0) > 0 && (
+                      <p className="text-[11px] text-gray-400 mb-2">
+                        {salesCounts[product.id]} mal gekauft
+                      </p>
                     )}
 
                     <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">

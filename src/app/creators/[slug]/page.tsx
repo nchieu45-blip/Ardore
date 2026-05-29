@@ -8,7 +8,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
-  Check, ShoppingBag, Sparkles, Pencil, CheckCircle2,
+  Check, ShoppingBag, Sparkles, Pencil, CheckCircle2, TrendingUp, Star,
 } from 'lucide-react'
 import { SERVICE_OPTIONS } from '@/components/ui/CategoryPicker'
 import Link from 'next/link'
@@ -126,7 +126,7 @@ export default async function CreatorProfilePage({
   const products = productsData ?? []
   const productIds = products.map((p: { id: string }) => p.id)
 
-  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes] = await Promise.all([
+  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
@@ -134,12 +134,21 @@ export default async function CreatorProfilePage({
       ? supabase.from('reviews').select('*, profiles(full_name, avatar_url)').in('product_id', productIds).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
     user ? supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single() : Promise.resolve({ data: null }),
+    productIds.length > 0
+      ? supabase.from('purchases').select('product_id').in('product_id', productIds)
+      : Promise.resolve({ data: [] }),
   ])
 
   const tiers = tiersRes.data ?? []
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
   const currentProfile = currentProfileRes.data
+
+  const productSalesCounts: Record<string, number> = {}
+  for (const { product_id } of (totalSalesRes.data ?? []) as { product_id: string }[]) {
+    productSalesCounts[product_id] = (productSalesCounts[product_id] ?? 0) + 1
+  }
+  const totalSales = Object.values(productSalesCounts).reduce((sum, n) => sum + n, 0)
 
   const reviewsByProduct: Record<string, {
     id: string; product_id: string; buyer_id: string; rating: number; content: string | null; created_at: string
@@ -156,6 +165,12 @@ export default async function CreatorProfilePage({
     const sum = pReviews.reduce((acc, r) => acc + r.rating, 0)
     ratingStats[productId] = { avg: sum / pReviews.length, count: pReviews.length }
   }
+
+  const allReviewsFlat = Object.values(reviewsByProduct).flat()
+  const totalReviewCount = allReviewsFlat.length
+  const overallAvgRating = totalReviewCount > 0
+    ? allReviewsFlat.reduce((sum, r) => sum + r.rating, 0) / totalReviewCount
+    : null
 
   const primaryCategory = (creator.categories as string[] | null)?.[0] ?? creator.category ?? null
   const allCategories: string[] = (creator.categories as string[] | null)?.length
@@ -200,7 +215,7 @@ export default async function CreatorProfilePage({
           {creator.bio && (
             <p className="text-gray-500 max-w-lg leading-relaxed">{creator.bio}</p>
           )}
-          <div className="flex items-center gap-3 mt-3">
+          <div className="flex flex-wrap items-center gap-3 mt-3">
             {products.length > 0 && (
               <span className="flex items-center gap-1.5 text-sm text-gray-500">
                 <ShoppingBag className="h-4 w-4 text-gray-400" />
@@ -211,6 +226,18 @@ export default async function CreatorProfilePage({
               <span className="flex items-center gap-1.5 text-sm text-gray-500">
                 <Sparkles className="h-4 w-4 text-gray-400" />
                 {tiers.length} Abo-Stufe{tiers.length !== 1 ? 'n' : ''}
+              </span>
+            )}
+            {totalSales > 0 && (
+              <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                <TrendingUp className="h-4 w-4 text-gray-400" />
+                {totalSales} {totalSales === 1 ? 'Kauf' : 'Käufe'}
+              </span>
+            )}
+            {overallAvgRating !== null && (
+              <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                {overallAvgRating.toFixed(1)} ({totalReviewCount} {totalReviewCount === 1 ? 'Bewertung' : 'Bewertungen'})
               </span>
             )}
           </div>
@@ -292,9 +319,14 @@ export default async function CreatorProfilePage({
                           <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{product.description}</p>
                         )}
                         {stats && stats.count > 0 && (
-                          <div className="mt-2">
+                          <div className="mt-2 mb-1">
                             <StarRating rating={stats.avg} count={stats.count} size="sm" />
                           </div>
+                        )}
+                        {(productSalesCounts[product.id] ?? 0) > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            {productSalesCounts[product.id]} mal gekauft
+                          </p>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-2 flex-shrink-0">
