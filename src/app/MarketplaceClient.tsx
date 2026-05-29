@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
+import CoachFinderWidget from '@/components/CoachFinderWidget'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -175,8 +176,13 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
             />
           </div>
 
+          {/* KI-Coach-Finder */}
+          <div className="animate-slide-up animate-delay-400 w-full max-w-xl mx-auto mb-8">
+            <CoachFinderWidget />
+          </div>
+
           {/* Trust badges */}
-          <div className="animate-slide-up animate-delay-400 flex flex-wrap items-center justify-center gap-4">
+          <div className="animate-slide-up animate-delay-500 flex flex-wrap items-center justify-center gap-4">
             {TRUST_BADGES.map(b => (
               <div key={b.label} className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/10 text-white/80 text-xs px-3 py-1.5 rounded-full">
                 {b.icon}

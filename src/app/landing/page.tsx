@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Flame, BookOpen, Video, FileText, Star, Users, TrendingUp, Shield } from 'lucide-react'
-import CoachFinderWidget from '@/components/CoachFinderWidget'
 
 export default function LandingPage() {
   return (
@@ -36,7 +35,9 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="mt-4 flex justify-center">
-            <CoachFinderWidget />
+            <Link href="/" className="text-sm text-green-700 hover:text-green-800 font-medium underline underline-offset-2 transition-colors">
+              Oder lass die KI deinen Coach finden →
+            </Link>
           </div>
           <p className="text-sm text-gray-500 mt-3">Kostenlos registrieren • Keine Kreditkarte erforderlich</p>
         </div>
