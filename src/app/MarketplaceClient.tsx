@@ -19,6 +19,7 @@ interface Creator {
   avatar_url: string | null
   slug: string
   category: string | null
+  categories: string[]
 }
 
 export interface MarketplaceProduct {
@@ -122,7 +123,7 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
 
   const filtered = products
     .filter(p => {
-      const matchesTopic  = topic === 'all' || p.creator.category === topic
+      const matchesTopic  = topic === 'all' || p.creator.categories.includes(topic) || p.creator.category === topic
       const matchesType   = type  === 'all' || p.type === type
       const matchesSearch = !search
         || p.title.toLowerCase().includes(search.toLowerCase())

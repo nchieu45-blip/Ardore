@@ -25,6 +25,7 @@ interface TopCoach {
   display_name: string
   bio: string | null
   category: string | null
+  categories: string[] | null
   avatar_url: string | null
   rank: number
 }
@@ -56,9 +57,9 @@ export default function TopCoachesSection({ coaches }: Props) {
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                       <span className="font-medium text-gray-900">{coach.display_name}</span>
                       {isTop && <Badge variant="warning">Beliebtester Coach</Badge>}
-                      {coach.category && (
-                        <Badge variant="success">{CATEGORY_LABELS[coach.category] ?? coach.category}</Badge>
-                      )}
+                      {(coach.categories?.length ? coach.categories : coach.category ? [coach.category] : []).slice(0, 2).map(cat => (
+                        <Badge key={cat} variant="success">{CATEGORY_LABELS[cat] ?? cat}</Badge>
+                      ))}
                     </div>
                     {coach.bio && (
                       <p className="text-sm text-gray-500 line-clamp-1">{coach.bio}</p>

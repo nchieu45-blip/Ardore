@@ -7,8 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { Input, Textarea, Select } from '@/components/ui/Input'
+import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { CategoryPicker } from '@/components/ui/CategoryPicker'
 import { getInitials } from '@/lib/utils'
 import { ArrowLeft, Camera, Check } from 'lucide-react'
 import Link from 'next/link'
@@ -19,27 +20,9 @@ type AnyResolver = any
 const schema = z.object({
   display_name: z.string().min(2, 'Mindestens 2 Zeichen').max(50, 'Maximal 50 Zeichen'),
   bio: z.string().max(500, 'Maximal 500 Zeichen').optional(),
-  category: z.string().min(1, 'Bitte wähle eine Kategorie'),
 })
 
 type FormData = z.infer<typeof schema>
-
-const CATEGORIES = [
-  { value: '', label: 'Kategorie wählen...' },
-  { value: 'fitness', label: 'Fitness' },
-  { value: 'ernaehrung', label: 'Ernährung' },
-  { value: 'mental', label: 'Mental Health' },
-  { value: 'abnehmen', label: 'Abnehmen' },
-  { value: 'schlaf', label: 'Schlaf' },
-  { value: 'yoga', label: 'Yoga' },
-  { value: 'laufen', label: 'Laufen' },
-  { value: 'krafttraining', label: 'Krafttraining' },
-  { value: 'meditation', label: 'Meditation' },
-  { value: 'stressmanagement', label: 'Stressmanagement' },
-  { value: 'rueckenschmerzen', label: 'Rückenschmerzen' },
-  { value: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
-  { value: 'mobility', label: 'Mobility & Dehnen' },
-]
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024   // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024  // 10 MB
@@ -53,6 +36,8 @@ export default function ProfileSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [categoryError, setCategoryError] = useState('')
 
   // Images: current URLs + selected files + local previews
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -79,7 +64,7 @@ export default function ProfileSettingsPage() {
 
       const { data: creator } = await supabase
         .from('creator_profiles')
-        .select('id, display_name, bio, category, avatar_url, banner_url')
+        .select('id, display_name, bio, category, categories, avatar_url, banner_url')
         .eq('user_id', user.id)
         .single()
 
@@ -89,11 +74,15 @@ export default function ProfileSettingsPage() {
       setDisplayName(creator.display_name)
       setAvatarUrl(creator.avatar_url)
       setBannerUrl(creator.banner_url)
+      setSelectedCategories(
+        (creator.categories as string[] | null)?.length
+          ? (creator.categories as string[])
+          : creator.category ? [creator.category] : []
+      )
 
       reset({
         display_name: creator.display_name,
         bio: creator.bio ?? '',
-        category: creator.category ?? '',
       })
 
       setLoading(false)
@@ -147,6 +136,11 @@ export default function ProfileSettingsPage() {
     setError('')
     setImageError('')
     setSaved(false)
+    if (selectedCategories.length === 0) {
+      setCategoryError('Bitte wähle mindestens eine Kategorie')
+      return
+    }
+    setCategoryError('')
 
     let newAvatarUrl = avatarUrl
     let newBannerUrl = bannerUrl
@@ -168,7 +162,8 @@ export default function ProfileSettingsPage() {
       .update({
         display_name: data.display_name,
         bio: data.bio || null,
-        category: data.category,
+        category: selectedCategories[0] ?? null,
+        categories: selectedCategories,
         avatar_url: newAvatarUrl,
         banner_url: newBannerUrl,
       })
@@ -293,11 +288,10 @@ export default function ProfileSettingsPage() {
               {...register('display_name')}
             />
 
-            <Select
-              label="Kategorie"
-              options={CATEGORIES}
-              error={errors.category?.message}
-              {...register('category')}
+            <CategoryPicker
+              selected={selectedCategories}
+              onChange={(cats) => { setSelectedCategories(cats); if (cats.length > 0) setCategoryError('') }}
+              error={categoryError}
             />
 
             <div className="flex flex-col gap-1.5">

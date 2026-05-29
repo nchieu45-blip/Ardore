@@ -152,8 +152,12 @@ export default async function CreatorProfilePage({
     ratingStats[productId] = { avg: sum / pReviews.length, count: pReviews.length }
   }
 
-  const bannerGradient = creator.category
-    ? (CATEGORY_GRADIENTS[creator.category] ?? DEFAULT_GRADIENT)
+  const primaryCategory = (creator.categories as string[] | null)?.[0] ?? creator.category ?? null
+  const allCategories: string[] = (creator.categories as string[] | null)?.length
+    ? (creator.categories as string[])
+    : creator.category ? [creator.category] : []
+  const bannerGradient = primaryCategory
+    ? (CATEGORY_GRADIENTS[primaryCategory] ?? DEFAULT_GRADIENT)
     : DEFAULT_GRADIENT
 
   return (
@@ -163,11 +167,13 @@ export default async function CreatorProfilePage({
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -bottom-6 -right-6 h-40 w-40 rounded-full bg-white/10" />
         <div className="absolute -top-8 -left-8 h-32 w-32 rounded-full bg-white/10" />
-        {creator.category && (
-          <div className="absolute top-4 right-4">
-            <span className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-              {CATEGORY_LABELS[creator.category] ?? creator.category}
-            </span>
+        {allCategories.length > 0 && (
+          <div className="absolute top-4 right-4 flex flex-wrap gap-1.5 justify-end max-w-[60%]">
+            {allCategories.slice(0, 3).map(cat => (
+              <span key={cat} className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+                {CATEGORY_LABELS[cat] ?? cat}
+              </span>
+            ))}
           </div>
         )}
         {/* Avatar */}

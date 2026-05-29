@@ -8,7 +8,8 @@ import { z } from 'zod'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { Input, Textarea, Select } from '@/components/ui/Input'
+import { Input, Textarea } from '@/components/ui/Input'
+import { CategoryPicker } from '@/components/ui/CategoryPicker'
 import { slugify, getInitials, cn } from '@/lib/utils'
 import {
   Flame, Camera, Check, ChevronRight, Sparkles, Plus,
@@ -23,7 +24,6 @@ type AnyResolver = any
 const profileSchema = z.object({
   display_name: z.string().min(2, 'Mindestens 2 Zeichen').max(50),
   bio: z.string().max(500, 'Max. 500 Zeichen').optional(),
-  category: z.string().min(1, 'Bitte wähle eine Kategorie'),
 })
 
 const tierSchema = z.object({
@@ -44,25 +44,6 @@ type TierData    = z.infer<typeof tierSchema>
 type ProductData = z.infer<typeof productSchema>
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  { value: '', label: 'Kategorie wählen...' },
-  { value: 'fitness', label: 'Fitness' },
-  { value: 'ernaehrung', label: 'Ernährung' },
-  { value: 'mental', label: 'Mental Health' },
-  { value: 'abnehmen', label: 'Abnehmen' },
-  { value: 'schlaf', label: 'Schlaf' },
-  { value: 'yoga', label: 'Yoga' },
-  { value: 'pilates', label: 'Pilates' },
-  { value: 'laufen', label: 'Laufen' },
-  { value: 'krafttraining', label: 'Krafttraining' },
-  { value: 'muskelaufbau', label: 'Muskelaufbau' },
-  { value: 'meditation', label: 'Meditation' },
-  { value: 'stressmanagement', label: 'Stressmanagement' },
-  { value: 'rueckenschmerzen', label: 'Rückenschmerzen' },
-  { value: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
-  { value: 'mobility', label: 'Mobility & Dehnen' },
-]
 
 const PRODUCT_TYPES = [
   { value: 'pdf',    label: 'PDF / E-Book', icon: <FileText  className="h-5 w-5" />, desc: 'Trainingsplan, Guide, etc.' },
@@ -130,6 +111,8 @@ export default function CreatorOnboardingPage() {
   const [tierCreated, setTierCreated] = useState(false)
   const [productCreated, setProductCreated] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [categoryError, setCategoryError] = useState('')
 
   useEffect(() => {
     async function check() {
@@ -153,13 +136,25 @@ export default function CreatorOnboardingPage() {
 
   async function submitProfile(data: ProfileData) {
     setProfileError('')
+    if (selectedCategories.length === 0) {
+      setCategoryError('Bitte wähle mindestens eine Kategorie')
+      return
+    }
+    setCategoryError('')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
     const slug = slugify(data.display_name) + '-' + Math.random().toString(36).slice(2, 6)
     const { data: creator, error } = await supabase
       .from('creator_profiles')
-      .insert({ user_id: user.id, display_name: data.display_name, slug, bio: data.bio ?? null, category: data.category })
+      .insert({
+        user_id: user.id,
+        display_name: data.display_name,
+        slug,
+        bio: data.bio ?? null,
+        category: selectedCategories[0],
+        categories: selectedCategories,
+      })
       .select('id')
       .single()
 
@@ -316,11 +311,10 @@ export default function CreatorOnboardingPage() {
                 error={profileForm.formState.errors.display_name?.message}
                 {...profileForm.register('display_name')}
               />
-              <Select
-                label="Kategorie"
-                options={CATEGORIES}
-                error={profileForm.formState.errors.category?.message}
-                {...profileForm.register('category')}
+              <CategoryPicker
+                selected={selectedCategories}
+                onChange={(cats) => { setSelectedCategories(cats); if (cats.length > 0) setCategoryError('') }}
+                error={categoryError}
               />
               <Textarea
                 label="Über mich (optional)"

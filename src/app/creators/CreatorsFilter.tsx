@@ -51,6 +51,7 @@ interface Creator {
   display_name: string
   bio: string | null
   category: string | null
+  categories: string[] | null
   avatar_url: string | null
 }
 
@@ -64,7 +65,8 @@ export default function CreatorsFilter({ creators, categories }: Props) {
   const [search, setSearch] = useState('')
 
   const filtered = creators.filter(c => {
-    const matchesCategory = !activeCategory || c.category === activeCategory
+    const cats = c.categories?.length ? c.categories : c.category ? [c.category] : []
+    const matchesCategory = !activeCategory || cats.includes(activeCategory)
     const matchesSearch = !search || c.display_name.toLowerCase().includes(search.toLowerCase())
     return matchesCategory && matchesSearch
   })
@@ -125,7 +127,9 @@ export default function CreatorsFilter({ creators, categories }: Props) {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((creator, i) => {
-            const gradient = creator.category ? (CATEGORY_COLORS[creator.category] ?? DEFAULT_GRADIENT) : DEFAULT_GRADIENT
+            const primaryCat = creator.categories?.[0] ?? creator.category ?? null
+            const gradient = primaryCat ? (CATEGORY_COLORS[primaryCat] ?? DEFAULT_GRADIENT) : DEFAULT_GRADIENT
+            const allCats = creator.categories?.length ? creator.categories : creator.category ? [creator.category] : []
             return (
               <Link key={creator.id} href={`/creators/${creator.slug}`}>
                 <div
@@ -141,12 +145,19 @@ export default function CreatorsFilter({ creators, categories }: Props) {
                     <div className="-mt-11 mb-3">
                       <Avatar src={creator.avatar_url} name={creator.display_name} size="lg" className="ring-4 ring-white shadow-md" />
                     </div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">{creator.display_name}</h3>
-                      {creator.category && (
-                        <Badge variant="success" className="flex-shrink-0 text-[11px]">
-                          {CATEGORY_LABELS[creator.category] ?? creator.category}
-                        </Badge>
+                    <div className="mb-2">
+                      <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors mb-1.5">{creator.display_name}</h3>
+                      {allCats.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {allCats.slice(0, 3).map(cat => (
+                            <Badge key={cat} variant="success" className="text-[10px]">
+                              {CATEGORY_LABELS[cat] ?? cat}
+                            </Badge>
+                          ))}
+                          {allCats.length > 3 && (
+                            <Badge variant="default" className="text-[10px]">+{allCats.length - 3}</Badge>
+                          )}
+                        </div>
                       )}
                     </div>
                     {creator.bio ? (

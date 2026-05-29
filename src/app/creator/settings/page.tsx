@@ -52,8 +52,13 @@ export default async function CreatorSettingsPage() {
                 <dd className="font-medium text-gray-900">{creator.display_name}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Kategorie</dt>
-                <dd className="font-medium text-gray-900">{creator.category ?? '–'}</dd>
+                <dt className="text-gray-500">Kategorien</dt>
+                <dd className="font-medium text-gray-900">
+                  {((creator.categories as string[] | null)?.length
+                    ? (creator.categories as string[])
+                    : creator.category ? [creator.category] : []
+                  ).join(', ') || '–'}
+                </dd>
               </div>
               <div className="col-span-2">
                 <dt className="text-gray-500">Profil-URL</dt>

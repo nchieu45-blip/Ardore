@@ -18,6 +18,7 @@ export interface CreatorProfile {
   slug: string
   bio: string | null
   category: string | null
+  categories: string[]
   avatar_url: string | null
   banner_url: string | null
   stripe_account_id: string | null

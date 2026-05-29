@@ -47,8 +47,8 @@ async function searchCoaches(category: string) {
   const supabase = await createServiceClient()
   const { data } = await supabase
     .from('creator_profiles')
-    .select('id, display_name, bio, category, avatar_url, slug')
-    .eq('category', category)
+    .select('id, display_name, bio, category, categories, avatar_url, slug')
+    .or(`categories.cs.{"${category}"},category.eq.${category}`)
     .limit(3)
   return data ?? []
 }

@@ -7,13 +7,15 @@ export default async function CreatorsPage() {
 
   const { data: creators } = await supabase
     .from('creator_profiles')
-    .select('id, slug, display_name, bio, category, avatar_url')
+    .select('id, slug, display_name, bio, category, categories, avatar_url')
     .order('created_at', { ascending: false })
 
   const creatorList = creators ?? []
 
   const categories = [...new Set(
-    creatorList.map((c: { category: string | null }) => c.category).filter(Boolean) as string[]
+    creatorList.flatMap((c: { category: string | null; categories: string[] | null }) =>
+      c.categories?.length ? c.categories : c.category ? [c.category] : []
+    )
   )]
 
   // Compute top coaches by total product sales
@@ -37,7 +39,7 @@ export default async function CreatorsPage() {
         .filter((c: { id: string }) => salesCounts[c.id])
         .sort((a: { id: string }, b: { id: string }) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
         .slice(0, 3)
-        .map((c: { id: string; slug: string; display_name: string; bio: string | null; category: string | null; avatar_url: string | null }, i: number) => ({ ...c, rank: i + 1 }))
+        .map((c: { id: string; slug: string; display_name: string; bio: string | null; category: string | null; categories: string[] | null; avatar_url: string | null }, i: number) => ({ ...c, rank: i + 1 }))
     : []
 
   return (
