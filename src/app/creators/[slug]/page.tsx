@@ -8,7 +8,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
-  Check, ShoppingBag, Sparkles,
+  Check, ShoppingBag, Sparkles, Pencil,
 } from 'lucide-react'
 import Link from 'next/link'
 import SubscribeButton from './SubscribeButton'
@@ -203,14 +203,24 @@ export default async function CreatorProfilePage({
             )}
           </div>
         </div>
-        {user && activeSubscription && (
-          <Link href={`/chat/${creator.id}`}>
-            <Button className="gap-2 shadow-sm">
-              <MessageCircle className="h-4 w-4" />
-              Nachricht
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {user?.id === creator.user_id && (
+            <Link href="/creator/settings/profile">
+              <Button variant="outline" className="gap-2">
+                <Pencil className="h-4 w-4" />
+                Profil bearbeiten
+              </Button>
+            </Link>
+          )}
+          {user && activeSubscription && (
+            <Link href={`/chat/${creator.id}`}>
+              <Button className="gap-2 shadow-sm">
+                <MessageCircle className="h-4 w-4" />
+                Nachricht
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
