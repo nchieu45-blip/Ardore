@@ -238,7 +238,7 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
                           <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
                         </div>
                       )}
-                      {(salesCounts[product.id] ?? 0) > 0 && (
+                      {(salesCounts[product.id] ?? 0) >= 50 && (
                         <p className="text-[10px] text-gray-400 mb-2">{salesCounts[product.id]} mal gekauft</p>
                       )}
                       <div className="flex items-center justify-between">
@@ -367,7 +367,7 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
                       </div>
                     )}
 
-                    {(salesCounts[product.id] ?? 0) > 0 && (
+                    {(salesCounts[product.id] ?? 0) >= 50 && (
                       <p className="text-[11px] text-gray-400 mb-2">
                         {salesCounts[product.id]} mal gekauft
                       </p>

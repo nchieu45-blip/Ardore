@@ -228,7 +228,7 @@ export default async function CreatorProfilePage({
                 {tiers.length} Abo-Stufe{tiers.length !== 1 ? 'n' : ''}
               </span>
             )}
-            {totalSales > 0 && (
+            {totalSales >= 50 && (
               <span className="flex items-center gap-1.5 text-sm text-gray-500">
                 <TrendingUp className="h-4 w-4 text-gray-400" />
                 {totalSales} {totalSales === 1 ? 'Kauf' : 'Käufe'}
@@ -323,7 +323,7 @@ export default async function CreatorProfilePage({
                             <StarRating rating={stats.avg} count={stats.count} size="sm" />
                           </div>
                         )}
-                        {(productSalesCounts[product.id] ?? 0) > 0 && (
+                        {(productSalesCounts[product.id] ?? 0) >= 50 && (
                           <p className="text-xs text-gray-400 mt-1">
                             {productSalesCounts[product.id]} mal gekauft
                           </p>
