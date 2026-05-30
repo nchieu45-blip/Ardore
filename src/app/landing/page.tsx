@@ -122,6 +122,71 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Wie es funktioniert ───────────────────────────────────── */}
+      <section className="py-20 px-4 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Wie es funktioniert</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">In vier Schritten vom Profil zum ersten Verkauf.</p>
+          </div>
+
+          <div className="relative">
+            {/* Connecting line (desktop) */}
+            <div className="hidden md:block absolute top-8 left-[calc(12.5%+1rem)] right-[calc(12.5%+1rem)] h-0.5 bg-gradient-to-r from-green-200 via-green-400 to-green-200" />
+
+            <div className="grid md:grid-cols-4 gap-8">
+              {[
+                {
+                  step: 1,
+                  icon: <Users className="h-5 w-5 text-green-600" />,
+                  title: 'Registrieren',
+                  desc: 'Kostenlos anmelden — keine Kreditkarte, kein Abo.',
+                },
+                {
+                  step: 2,
+                  icon: <Target className="h-5 w-5 text-green-600" />,
+                  title: 'Profil einrichten',
+                  desc: 'Kategorien, Bio, Foto und Dienstleistungen in 10 Minuten.',
+                },
+                {
+                  step: 3,
+                  icon: <Zap className="h-5 w-5 text-green-600" />,
+                  title: 'Produkte erstellen',
+                  desc: 'PDFs, Videos, Kurse oder Monats-Abos — du entscheidest.',
+                },
+                {
+                  step: 4,
+                  icon: <TrendingUp className="h-5 w-5 text-green-600" />,
+                  title: 'Verkaufen & wachsen',
+                  desc: 'Kunden finden dich über Suche, Filter und KI-Coach-Finder.',
+                },
+              ].map(s => (
+                <div key={s.step} className="flex flex-col items-center text-center">
+                  <div className="relative mb-5">
+                    <div className="h-16 w-16 rounded-2xl bg-white border-2 border-green-200 flex items-center justify-center shadow-sm">
+                      {s.icon}
+                    </div>
+                    <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">
+                      {s.step}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-1.5">{s.title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <Link href="/register?role=creator">
+              <Button size="lg" className="gap-2">
+                Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── Why coaches love Ardore ───────────────────────────────── */}
       <section className="py-20 px-4 bg-gray-50 border-t border-gray-100">
         <div className="max-w-5xl mx-auto">
