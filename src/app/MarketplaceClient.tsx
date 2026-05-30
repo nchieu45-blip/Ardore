@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Search, FileText, Video, BookOpen, Image as ImageIcon, ChevronDown,
   TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal, Users,
+  Star, BarChart2, CreditCard, ShoppingBag,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
@@ -103,6 +104,50 @@ const TRUST_BADGES = [
   { icon: <TrendingUp  className="h-4 w-4 text-green-600" />, label: 'Top Bestseller' },
 ]
 
+const TRUST_ITEMS = [
+  {
+    icon: <ShieldCheck className="h-5 w-5 text-green-600" />,
+    title: 'Verifizierte Coaches',
+    desc: 'Wir prüfen jeden Coach, der sich registriert, persönlich.',
+  },
+  {
+    icon: <Star className="h-5 w-5 text-amber-500" />,
+    title: 'Echte Bewertungen',
+    desc: 'Nur verifizierte Käufer können bewerten. Keine Fake-Reviews.',
+  },
+  {
+    icon: <BarChart2 className="h-5 w-5 text-green-600" />,
+    title: 'Transparente Verkaufszahlen',
+    desc: 'Du siehst, wie oft ein Produkt schon gekauft wurde.',
+  },
+  {
+    icon: <CreditCard className="h-5 w-5 text-green-600" />,
+    title: 'Sichere Zahlungen via Stripe',
+    desc: 'Geld-zurück-Garantie bei jedem Kauf.',
+  },
+]
+
+const HOW_IT_WORKS = [
+  {
+    step: 1,
+    icon: <Search className="h-6 w-6 text-green-600" />,
+    title: 'Suchen',
+    desc: 'Durchsuche verifizierte Health Coaches nach Kategorie oder nutze den Freitext-Suche.',
+  },
+  {
+    step: 2,
+    icon: <Sparkles className="h-6 w-6 text-green-600" />,
+    title: 'Filtern oder KI-Finder nutzen',
+    desc: 'Verfeinere mit Filtern oder lass unseren KI-Coach-Finder den perfekten Coach für dich auswählen.',
+  },
+  {
+    step: 3,
+    icon: <ShoppingBag className="h-6 w-6 text-green-600" />,
+    title: 'Direkt kaufen oder abonnieren',
+    desc: 'Kaufe Produkte einmalig oder abonniere deinen Coach für Chat-Zugang und regelmäßige Inhalte.',
+  },
+]
+
 export default function MarketplaceClient({ products, bestsellers, salesCounts, ratings }: Props) {
   const [topic, setTopic] = useState<TopicFilter>('all')
   const [type, setType] = useState<TypeFilter>('all')
@@ -192,6 +237,42 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
               <div key={b.label} className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/10 text-white/80 text-xs px-3 py-1.5 rounded-full">
                 {b.icon}
                 {b.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Trust section ───────────────────────────────────────── */}
+      <section className="bg-white border-b border-gray-100 py-10 px-4">
+        <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {TRUST_ITEMS.map(item => (
+            <div key={item.title} className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                {item.icon}
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900 text-sm mb-0.5">{item.title}</p>
+                <p className="text-xs text-gray-500 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── How it works ────────────────────────────────────────── */}
+      <section className="bg-gray-50 border-b border-gray-100 py-12 px-4">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-xl font-bold text-gray-900 text-center mb-8">So findest du deinen Coach</h2>
+          <div className="grid md:grid-cols-3 gap-5">
+            {HOW_IT_WORKS.map(s => (
+              <div key={s.step} className="bg-white rounded-2xl p-6 border border-gray-100 text-center">
+                <div className="h-12 w-12 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-4">
+                  {s.icon}
+                </div>
+                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Schritt {s.step}</p>
+                <h3 className="font-bold text-gray-900 mb-2 text-sm">{s.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>

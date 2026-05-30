@@ -1,57 +1,61 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Flame, BookOpen, Video, FileText, Star, Users, TrendingUp, Shield } from 'lucide-react'
+import {
+  Globe, ArrowRight, Share2, Rocket, CheckCircle2,
+  Target, RefreshCw, Zap, BadgePercent,
+  TrendingUp, Shield, Users, MessageCircle,
+} from 'lucide-react'
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col">
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-green-50 to-white py-20 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
-            <Flame className="h-4 w-4" />
-            Die Nr. 1 Plattform für Health Coaches in Deutschland
+
+      {/* ── Hero ──────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-green-800 py-24 px-4">
+        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-green-600/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl" />
+
+        <div className="relative max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-6">
+            <Globe className="h-3.5 w-3.5" />
+            Für Health Coaches in Deutschland
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Dein Wissen.
-            <span className="text-green-600"> Deine Community.</span>
-            <br />Dein Erfolg.
+
+          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight tracking-tight">
+            Dein zusätzlicher<br className="hidden md:block" /> Verkaufskanal —
+            <span className="text-green-300"> ohne eigene Website</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-            Ardore verbindet Fitness-, Ernährungs- und Gesundheitscoaches mit ihren Kunden.
-            Verkaufe Kurse, PDFs und Videos – oder abonniere deine Lieblingscoaches.
+
+          <p className="text-green-100/80 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
+            Egal ob du schon auf Instagram, TikTok oder Udemy verkaufst — Ardore ist dein zentraler Marktplatz für Health Coaches in Deutschland.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
             <Link href="/register?role=creator">
-              <Button size="lg" className="w-full sm:w-auto">
-                Als Coach starten
+              <Button size="lg" className="bg-white text-green-800 hover:bg-green-50 w-full sm:w-auto gap-2 font-semibold shadow-lg">
+                Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link href="/">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Marketplace entdecken
+              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 w-full sm:w-auto">
+                Marktplatz ansehen
               </Button>
             </Link>
           </div>
-          <div className="mt-4 flex justify-center">
-            <Link href="/" className="text-sm text-green-700 hover:text-green-800 font-medium underline underline-offset-2 transition-colors">
-              Oder lass die KI deinen Coach finden →
-            </Link>
-          </div>
-          <p className="text-sm text-gray-500 mt-3">Kostenlos registrieren • Keine Kreditkarte erforderlich</p>
+
+          <p className="text-green-200/50 text-sm">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="border-y border-gray-200 bg-white py-10 px-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      {/* ── Stats ─────────────────────────────────────────────────── */}
+      <section className="border-b border-gray-100 bg-white py-10 px-4">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { value: '500+', label: 'Aktive Coaches' },
+            { value: '500+',     label: 'Aktive Coaches' },
             { value: '10.000+', label: 'Zufriedene Kunden' },
-            { value: '50.000€+', label: 'Ausgezahlt' },
-            { value: '98%', label: 'Kundenzufriedenheit' },
-          ].map((stat) => (
+            { value: '50.000 €+', label: 'Ausgezahlt' },
+            { value: '10 Min.',  label: 'Bis du live bist' },
+          ].map(stat => (
             <div key={stat.label}>
               <p className="text-3xl font-bold text-green-600">{stat.value}</p>
               <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
@@ -60,34 +64,131 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* For Creators */}
+      {/* ── Two segments ──────────────────────────────────────────── */}
       <section className="py-20 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Alles, was du als Coach brauchst</h2>
-            <p className="text-gray-600 max-w-xl mx-auto">Von der Produkterstellung bis zur Auszahlung – Ardore macht es einfach.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Ardore passt zu dir — egal wo du stehst</h2>
+            <p className="text-gray-500 max-w-xl mx-auto">Ob du eine bestehende Community mitbringst oder neu anfängst.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Existing community */}
+            <div className="rounded-3xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-8">
+              <div className="h-12 w-12 rounded-2xl bg-green-600 flex items-center justify-center mb-5 shadow-md">
+                <Share2 className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Du hast schon eine Community?</h3>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                Nutze Ardore als zweiten Vertriebskanal. Deine Instagram-Follower kaufen über einen professionellen Marktplatz mit Bewertungen und Vertrauen. Du behältst deine Community, gewinnst aber zusätzlich Sichtbarkeit auf Ardore.
+              </p>
+              <ul className="space-y-2.5">
+                {[
+                  'Kunden vertrauen verifizierten Marktplätzen mehr als DMs',
+                  'Echte Bewertungen stärken deine Glaubwürdigkeit',
+                  'Neue Kunden finden dich über Suche & KI-Finder',
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Just starting */}
+            <div className="rounded-3xl bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 p-8">
+              <div className="h-12 w-12 rounded-2xl bg-gray-900 flex items-center justify-center mb-5 shadow-md">
+                <Rocket className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Du startest gerade erst?</h3>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                Spar dir tausende Euro für eine eigene Website, Stripe-Integration und Marketing. Auf Ardore bist du in 10 Minuten live und Kunden finden dich automatisch über Suche, Kategorien und unseren KI-Coach-Finder.
+              </p>
+              <ul className="space-y-2.5">
+                {[
+                  'Kein technisches Setup nötig',
+                  'Stripe-Zahlungen bereits vollständig integriert',
+                  'Automatische Sichtbarkeit im Marktplatz',
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why coaches love Ardore ───────────────────────────────── */}
+      <section className="py-20 px-4 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Warum Coaches Ardore lieben</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">Die Plattform, die Coaches wirklich brauchen — nicht nur eine weitere Website.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-5">
+            {[
+              {
+                icon: <Target className="h-5 w-5 text-green-600" />,
+                title: 'Zentrale Plattform',
+                desc: 'Coaches und Kunden finden zueinander statt durch Zufall auf Instagram. Ein Profil, alle deine Angebote.',
+              },
+              {
+                icon: <RefreshCw className="h-5 w-5 text-green-600" />,
+                title: 'Wiederkehrende Einnahmen',
+                desc: 'Monats-Abos für direkten Chat-Zugang statt nur Einmal-Verkäufe. Stabil, planbar, skalierbar.',
+              },
+              {
+                icon: <Zap className="h-5 w-5 text-green-600" />,
+                title: 'Kein Setup-Aufwand',
+                desc: 'Profil in 10 Minuten, sofort verkaufsbereit. Keine Website, kein Stripe-Setup, kein technischer Aufwand.',
+              },
+              {
+                icon: <BadgePercent className="h-5 w-5 text-green-600" />,
+                title: 'Faire Gebühren',
+                desc: 'Nur 10% pro Verkauf, keine monatlichen Kosten. Du zahlst nur, wenn du verdienst.',
+              },
+            ].map(reason => (
+              <div key={reason.title} className="bg-white rounded-2xl p-6 border border-gray-100 flex gap-4 hover:shadow-md transition-shadow duration-200">
+                <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                  {reason.icon}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">{reason.title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{reason.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── What you can offer ───────────────────────────────────── */}
+      <section className="py-20 px-4 bg-white border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Alles, was du als Coach brauchst</h2>
+            <p className="text-gray-500 max-w-lg mx-auto">Von der Produkterstellung bis zur Auszahlung — Ardore macht es einfach.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                icon: <FileText className="h-6 w-6 text-green-600" />,
-                title: 'PDFs & Guides',
-                desc: 'Lade Ernährungspläne, Trainingsprogramme und Guides hoch und verkaufe sie direkt.',
-              },
-              {
-                icon: <Video className="h-6 w-6 text-green-600" />,
-                title: 'Video-Kurse',
-                desc: 'Erstelle komplette Videokurse mit mehreren Lektionen für deine Community.',
-              },
               {
                 icon: <Users className="h-6 w-6 text-green-600" />,
                 title: 'Abonnements',
                 desc: 'Biete Monatsabos an und baue ein stabiles, wiederkehrendes Einkommen auf.',
               },
               {
+                icon: <MessageCircle className="h-6 w-6 text-green-600" />,
+                title: 'Direkter Chat',
+                desc: 'Abonnenten schreiben dir direkt — persönliche Betreuung ohne extra Tools.',
+              },
+              {
                 icon: <TrendingUp className="h-6 w-6 text-green-600" />,
                 title: 'Umsatz-Dashboard',
-                desc: 'Behalte deinen Umsatz, Abonnenten und Verkäufe immer im Blick.',
+                desc: 'Behalte deinen Umsatz, Abonnenten und Verkäufe jederzeit im Blick.',
               },
               {
                 icon: <Shield className="h-6 w-6 text-green-600" />,
@@ -95,98 +196,54 @@ export default function LandingPage() {
                 desc: 'Erhalte deine Einnahmen direkt per Stripe Connect auf dein Bankkonto.',
               },
               {
-                icon: <Star className="h-6 w-6 text-green-600" />,
-                title: 'Chat mit Abonnenten',
-                desc: 'Kommuniziere direkt mit deinen Abonnenten und baue echte Beziehungen auf.',
+                icon: <RefreshCw className="h-6 w-6 text-green-600" />,
+                title: 'Automatische Abrechnung',
+                desc: 'Stripe übernimmt alle Zahlungen, Rechnungen und Abo-Verlängerungen.',
               },
-            ].map((feature) => (
-              <Card key={feature.title} className="p-6">
-                <div className="h-12 w-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+              {
+                icon: <Target className="h-6 w-6 text-green-600" />,
+                title: 'Sichtbarkeit im Marktplatz',
+                desc: 'Kunden finden dich über Suche, Kategoriefilter und den KI-Coach-Finder.',
+              },
+            ].map(feature => (
+              <div key={feature.title} className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                <div className="h-11 w-11 bg-green-50 rounded-xl flex items-center justify-center mb-4">
                   {feature.icon}
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-sm text-gray-600">{feature.desc}</p>
-              </Card>
+                <p className="text-sm text-gray-500 leading-relaxed">{feature.desc}</p>
+              </div>
             ))}
           </div>
-          <div className="text-center mt-10">
-            <Link href="/register?role=creator">
-              <Button size="lg">Jetzt als Coach registrieren</Button>
-            </Link>
-          </div>
         </div>
       </section>
 
-      {/* For Customers */}
-      <section className="py-20 px-4 bg-green-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                Für Kunden, die das Beste wollen
-              </h2>
-              <ul className="space-y-4">
-                {[
-                  'Entdecke die besten Fitness- und Gesundheitscoaches',
-                  'Kaufe Premium-Inhalte einmalig oder im Abo',
-                  'Chatte direkt mit deinen Coaches',
-                  'Alle deine Käufe übersichtlich in einem Dashboard',
-                  'Sichere Zahlung mit Stripe',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <div className="h-5 w-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 12 12">
-                        <path d="M3.707 5.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L5 6.586 3.707 5.293z" />
-                      </svg>
-                    </div>
-                    <span className="text-gray-700">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-8">
-                <Link href="/register">
-                  <Button size="lg" variant="outline">Kostenlos registrieren</Button>
-                </Link>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { icon: <BookOpen className="h-8 w-8 text-green-600" />, label: 'Online-Kurse' },
-                { icon: <FileText className="h-8 w-8 text-green-600" />, label: 'PDF-Guides' },
-                { icon: <Video className="h-8 w-8 text-green-600" />, label: 'Video-Inhalte' },
-                { icon: <Users className="h-8 w-8 text-green-600" />, label: 'Community' },
-              ].map((item) => (
-                <div key={item.label} className="bg-white rounded-xl p-6 text-center shadow-sm border border-green-100">
-                  <div className="flex justify-center mb-3">{item.icon}</div>
-                  <p className="font-medium text-gray-800">{item.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ── CTA ───────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden py-24 px-4 bg-gradient-to-br from-green-950 via-green-900 to-green-800 text-white">
+        <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-green-600/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
 
-      {/* CTA */}
-      <section className="py-20 px-4 bg-green-600 text-white">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Bereit loszulegen?</h2>
-          <p className="text-green-100 mb-8 text-lg">
-            Registriere dich jetzt kostenlos und starte deine Journey – als Coach oder als Kunde.
+        <div className="relative max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Bereit, loszulegen?</h2>
+          <p className="text-green-100/80 mb-10 text-lg max-w-xl mx-auto leading-relaxed">
+            Erstelle dein Coach-Profil in 10 Minuten und starte deinen zweiten Verkaufskanal noch heute.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
             <Link href="/register?role=creator">
-              <Button size="lg" className="bg-white text-green-700 hover:bg-green-50 w-full sm:w-auto">
-                Coach werden
+              <Button size="lg" className="bg-white text-green-800 hover:bg-green-50 w-full sm:w-auto gap-2 font-semibold shadow-lg">
+                Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/register">
-              <Button size="lg" className="bg-green-700 text-white hover:bg-green-800 border border-green-500 w-full sm:w-auto">
-                Als Kunde registrieren
+            <Link href="/">
+              <Button size="lg" className="bg-green-700 text-white hover:bg-green-800 border border-green-600 w-full sm:w-auto">
+                Marktplatz ansehen
               </Button>
             </Link>
           </div>
+          <p className="text-green-200/50 text-sm">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
         </div>
       </section>
+
     </div>
   )
 }
