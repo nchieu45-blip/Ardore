@@ -11,8 +11,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { Upload, FileText, Video, BookOpen, Image as ImageIcon } from 'lucide-react'
+import { Upload, FileText, Video, BookOpen, Image as ImageIcon, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 
 const schema = z.object({
   title: z.string().min(3, 'Mindestens 3 Zeichen').max(100),
@@ -93,6 +94,9 @@ export default function NewProductPage() {
   const [file, setFile] = useState<File | null>(null)
   const [thumbnail, setThumbnail] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null)
+  const [selectedDuration, setSelectedDuration] = useState<string | null>(null)
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema) as AnyResolver,
@@ -147,6 +151,9 @@ export default function NewProductPage() {
         description: data.description ?? null,
         type: data.type,
         price: data.price,
+        equipment: selectedEquipment,
+        level: selectedLevel,
+        duration: selectedDuration,
         file_url: fileUrl,
         thumbnail_url: thumbnailUrl,
         is_published: false,
@@ -229,6 +236,94 @@ export default function NewProductPage() {
               hint="Mindestpreis: 0,50 €"
               {...register('price')}
             />
+          </CardContent>
+        </Card>
+
+        {/* Tags */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold text-gray-900">Tags & Filter</h2>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Equipment */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
+              <div className="flex flex-wrap gap-2">
+                {EQUIPMENT_OPTIONS.map(opt => {
+                  const active = selectedEquipment.includes(opt.value)
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedEquipment(
+                        active ? selectedEquipment.filter(v => v !== opt.value) : [...selectedEquipment, opt.value]
+                      )}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                        active
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      )}
+                    >
+                      {active && <Check className="h-3 w-3" />}
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Level */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Level</p>
+              <div className="flex flex-wrap gap-2">
+                {LEVEL_OPTIONS.map(opt => {
+                  const active = selectedLevel === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedLevel(active ? null : opt.value)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                        active
+                          ? 'bg-green-700 text-white border-green-700'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Duration — only for video / course */}
+            {(selectedType === 'video' || selectedType === 'course') && (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Dauer</p>
+                <div className="flex flex-wrap gap-2">
+                  {DURATION_OPTIONS.map(opt => {
+                    const active = selectedDuration === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSelectedDuration(active ? null : opt.value)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                          active
+                            ? 'bg-green-700 text-white border-green-700'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -8,6 +8,7 @@ import {
   Share2, Rocket, CheckCircle2, ArrowRight,
 } from 'lucide-react'
 import Link from 'next/link'
+import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
@@ -31,6 +32,9 @@ export interface MarketplaceProduct {
   type: ProductType
   price: number
   createdAt: string
+  equipment: string[]
+  level: string | null
+  duration: string | null
   creator: Creator
 }
 
@@ -137,6 +141,26 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
   const [categoryOpen, setCategoryOpen] = useState(false)
   const categoryRef = useRef<HTMLDivElement>(null)
 
+  // Advanced filters
+  const [equipment, setEquipment] = useState<string[]>([])
+  const [level, setLevel] = useState<string | null>(null)
+  const [duration, setDuration] = useState<string | null>(null)
+  const [equipmentOpen, setEquipmentOpen] = useState(false)
+  const [levelOpen, setLevelOpen] = useState(false)
+  const [durationOpen, setDurationOpen] = useState(false)
+
+  const advancedActive = equipment.length > 0 || !!level || !!duration
+
+  function resetAdvanced() {
+    setEquipment([])
+    setLevel(null)
+    setDuration(null)
+  }
+
+  function toggleEquipment(val: string) {
+    setEquipment(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
@@ -147,16 +171,19 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const isFiltered = topic !== 'all' || type !== 'all' || search !== ''
+  const isFiltered = topic !== 'all' || type !== 'all' || search !== '' || advancedActive
 
   const filtered = products
     .filter(p => {
-      const matchesTopic  = topic === 'all' || p.creator.categories.includes(topic) || p.creator.category === topic
-      const matchesType   = type  === 'all' || p.type === type
-      const matchesSearch = !search
+      const matchesTopic     = topic === 'all' || p.creator.categories.includes(topic) || p.creator.category === topic
+      const matchesType      = type  === 'all' || p.type === type
+      const matchesSearch    = !search
         || p.title.toLowerCase().includes(search.toLowerCase())
         || p.creator.display_name.toLowerCase().includes(search.toLowerCase())
-      return matchesTopic && matchesType && matchesSearch
+      const matchesEquipment = equipment.length === 0 || equipment.some(e => p.equipment.includes(e))
+      const matchesLevel     = !level || p.level === level
+      const matchesDuration  = !duration || p.duration === duration
+      return matchesTopic && matchesType && matchesSearch && matchesEquipment && matchesLevel && matchesDuration
     })
     .sort((a, b) => {
       switch (sort) {
@@ -297,8 +324,8 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
         )}
 
         {/* ── Filters ──────────────────────────────────────────────── */}
-        <div className="space-y-3 mb-8 animate-slide-up animate-delay-100">
-          {/* Category dropdown + type pills + sort — all in one row */}
+        <div className="space-y-3 mb-6 animate-slide-up animate-delay-100">
+          {/* Row 1: category + type pills + sort */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex flex-wrap gap-2 items-center">
               {/* Category dropdown */}
@@ -358,6 +385,118 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
             </div>
           </div>
+
+          {/* Row 2: advanced filter accordions */}
+          <div className="rounded-2xl border border-gray-100 bg-white divide-y divide-gray-50 overflow-hidden">
+            {/* Equipment */}
+            <div>
+              <button
+                onClick={() => setEquipmentOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  Equipment / Voraussetzungen
+                  {equipment.length > 0 && (
+                    <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{equipment.length}</span>
+                  )}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${equipmentOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {equipmentOpen && (
+                <div className="px-4 pb-4 flex flex-wrap gap-2">
+                  {EQUIPMENT_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleEquipment(opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        equipment.includes(opt.value)
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Level */}
+            <div>
+              <button
+                onClick={() => setLevelOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  Level
+                  {level && (
+                    <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                  )}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${levelOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {levelOpen && (
+                <div className="px-4 pb-4 flex flex-wrap gap-2">
+                  {LEVEL_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setLevel(level === opt.value ? null : opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        level === opt.value
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Duration */}
+            <div>
+              <button
+                onClick={() => setDurationOpen(o => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  Dauer
+                  {duration && (
+                    <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                  )}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${durationOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {durationOpen && (
+                <div className="px-4 pb-4 flex flex-wrap gap-2">
+                  {DURATION_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setDuration(duration === opt.value ? null : opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                        duration === opt.value
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Reset advanced filters */}
+          {advancedActive && (
+            <button
+              onClick={resetAdvanced}
+              className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+            >
+              Erweiterte Filter zurücksetzen
+            </button>
+          )}
         </div>
 
         {/* Result count */}

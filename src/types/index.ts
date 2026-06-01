@@ -47,6 +47,9 @@ export interface Product {
   description: string | null
   type: ProductType
   price: number
+  equipment: string[]
+  level: string | null
+  duration: string | null
   file_url: string | null
   thumbnail_url: string | null
   stripe_price_id: string | null
