@@ -5,6 +5,7 @@ import {
   Search, FileText, Video, BookOpen, Image as ImageIcon, ChevronDown,
   TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal, Users,
   Star, BarChart2, CreditCard, ShoppingBag,
+  Share2, Rocket, CheckCircle2, ArrowRight,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
@@ -127,26 +128,6 @@ const TRUST_ITEMS = [
   },
 ]
 
-const HOW_IT_WORKS = [
-  {
-    step: 1,
-    icon: <Search className="h-6 w-6 text-green-600" />,
-    title: 'Suchen',
-    desc: 'Durchsuche verifizierte Health Coaches nach Kategorie oder nutze den Freitext-Suche.',
-  },
-  {
-    step: 2,
-    icon: <Sparkles className="h-6 w-6 text-green-600" />,
-    title: 'Filtern oder KI-Finder nutzen',
-    desc: 'Verfeinere mit Filtern oder lass unseren KI-Coach-Finder den perfekten Coach für dich auswählen.',
-  },
-  {
-    step: 3,
-    icon: <ShoppingBag className="h-6 w-6 text-green-600" />,
-    title: 'Direkt kaufen oder abonnieren',
-    desc: 'Kaufe Produkte einmalig oder abonniere deinen Coach für Chat-Zugang und regelmäßige Inhalte.',
-  },
-]
 
 export default function MarketplaceClient({ products, bestsellers, salesCounts, ratings }: Props) {
   const [topic, setTopic] = useState<TopicFilter>('all')
@@ -257,25 +238,6 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ── How it works ────────────────────────────────────────── */}
-      <section className="bg-gray-50 border-b border-gray-100 py-12 px-4">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-xl font-bold text-gray-900 text-center mb-8">So findest du deinen Coach</h2>
-          <div className="grid md:grid-cols-3 gap-5">
-            {HOW_IT_WORKS.map(s => (
-              <div key={s.step} className="bg-white rounded-2xl p-6 border border-gray-100 text-center">
-                <div className="h-12 w-12 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-4">
-                  {s.icon}
-                </div>
-                <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Schritt {s.step}</p>
-                <h3 className="font-bold text-gray-900 mb-2 text-sm">{s.title}</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -467,27 +429,81 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
           </div>
         )}
 
-        {/* ── CTA banner ───────────────────────────────────────────── */}
-        {!isFiltered && products.length > 0 && (
-          <section className="mt-16 rounded-3xl bg-gradient-to-br from-green-900 to-green-700 p-10 text-center relative overflow-hidden">
-            <div className="pointer-events-none absolute -top-8 -right-8 h-48 w-48 rounded-full bg-green-600/30 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-8 -left-8 h-48 w-48 rounded-full bg-emerald-400/20 blur-2xl" />
-            <div className="relative">
-              <div className="inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-4">
-                <Users className="h-3.5 w-3.5" />
-                Für Coaches
+      </div>
+
+      {/* ── Für Coaches ──────────────────────────────────────────── */}
+      <section className="bg-gray-50 border-t border-gray-100 py-16 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Du bist Coach?</h2>
+            <p className="text-gray-500 text-sm">Ardore ist dein Verkaufskanal — ohne eigene Website.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl border border-green-100 p-7 flex flex-col">
+              <div className="h-11 w-11 rounded-xl bg-green-600 flex items-center justify-center mb-4 shadow-sm">
+                <Share2 className="h-5 w-5 text-white" />
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">Du bist Coach?</h2>
-              <p className="text-green-100/80 mb-6 max-w-md mx-auto">Verkaufe deine Kurse, PDFs und Videos auf Ardore und erreiche tausende von Kunden.</p>
-              <Link href="/landing">
-                <span className="inline-flex items-center gap-2 bg-white text-green-800 font-semibold px-6 py-3 rounded-xl hover:bg-green-50 transition-colors shadow-lg">
-                  Jetzt starten →
-                </span>
+              <h3 className="font-bold text-gray-900 mb-2">Du hast schon eine Community?</h3>
+              <p className="text-sm text-gray-500 leading-relaxed mb-5 flex-1">
+                Nutze Ardore als zweiten Vertriebskanal. Deine Follower kaufen über einen professionellen Marktplatz — mit echten Bewertungen und Vertrauen.
+              </p>
+              <Link href="/landing" className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800 transition-colors">
+                Mehr erfahren <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-          </section>
-        )}
-      </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-7 flex flex-col">
+              <div className="h-11 w-11 rounded-xl bg-gray-900 flex items-center justify-center mb-4 shadow-sm">
+                <Rocket className="h-5 w-5 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2">Du startest gerade erst?</h3>
+              <p className="text-sm text-gray-500 leading-relaxed mb-5 flex-1">
+                Spar dir tausende Euro für eine eigene Website und Stripe-Integration. Auf Ardore bist du in 10 Minuten live und Kunden finden dich automatisch.
+              </p>
+              <Link href="/landing" className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors">
+                Mehr erfahren <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── So funktioniert Ardore ───────────────────────────────── */}
+      <section className="bg-gradient-to-br from-green-950 to-green-800 py-16 px-4">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-white text-center mb-10">So funktioniert Ardore</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                step: 1,
+                icon: <Search className="h-6 w-6 text-white/90" />,
+                title: 'Coach finden',
+                desc: 'Suche, filtere nach Kategorie oder nutze den KI-Coach-Finder für eine persönliche Empfehlung.',
+              },
+              {
+                step: 2,
+                icon: <ShoppingBag className="h-6 w-6 text-white/90" />,
+                title: 'Produkt kaufen oder Abo',
+                desc: 'Kaufe Inhalte einmalig oder schließ ein Monatsabo für Chat-Zugang und regelmäßige Updates ab.',
+              },
+              {
+                step: 3,
+                icon: <CheckCircle2 className="h-6 w-6 text-white/90" />,
+                title: 'Direkt loslegen',
+                desc: 'Lade deine Inhalte sofort herunter oder chatte direkt mit deinem Coach.',
+              },
+            ].map(s => (
+              <div key={s.step} className="text-center">
+                <div className="h-14 w-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto mb-4">
+                  {s.icon}
+                </div>
+                <p className="text-[10px] font-bold text-green-300 uppercase tracking-widest mb-1.5">Schritt {s.step}</p>
+                <h3 className="font-bold text-white mb-2">{s.title}</h3>
+                <p className="text-sm text-green-100/70 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

@@ -47,20 +47,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Stats ─────────────────────────────────────────────────── */}
-      <section className="border-b border-gray-100 bg-white py-10 px-4">
-        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {[
-            { value: '500+',     label: 'Aktive Coaches' },
-            { value: '10.000+', label: 'Zufriedene Kunden' },
-            { value: '50.000 €+', label: 'Ausgezahlt' },
-            { value: '10 Min.',  label: 'Bis du live bist' },
-          ].map(stat => (
-            <div key={stat.label}>
-              <p className="text-3xl font-bold text-green-600">{stat.value}</p>
-              <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-            </div>
-          ))}
+      {/* ── Early adopter banner ──────────────────────────────────── */}
+      <section className="border-b border-green-100 bg-green-50 py-8 px-4">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-green-800 font-semibold text-lg mb-1">Frisch gestartet — werde einer der ersten Coaches</p>
+          <p className="text-green-700/70 text-sm leading-relaxed">
+            Ardore ist im Aufbau. Frühe Coaches profitieren von maximaler Sichtbarkeit, direktem Feedback und einer Plattform, die mit dir wächst.
+          </p>
         </div>
       </section>
 
