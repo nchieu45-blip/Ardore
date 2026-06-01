@@ -1,4 +1,4 @@
-import { resend, FROM } from './index'
+import { getResend, FROM } from './index'
 import {
   purchaseReceiptHtml, purchaseReceiptText, PurchaseReceiptData,
   newSubscriberHtml, newSubscriberText, NewSubscriberData,
@@ -6,7 +6,7 @@ import {
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to,
     subject: `Kaufbestätigung: ${data.productTitle}`,
@@ -16,7 +16,7 @@ export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData)
 }
 
 export async function sendNewSubscriberNotification(to: string, data: NewSubscriberData) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to,
     subject: `Neuer Abonnent: ${data.subscriberName} hat dein Abo gestartet`,
@@ -26,7 +26,7 @@ export async function sendNewSubscriberNotification(to: string, data: NewSubscri
 }
 
 export async function sendChatNotification(to: string, data: ChatNotificationData) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to,
     subject: `Neue Nachricht von ${data.senderName}`,

@@ -10,7 +10,6 @@ import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, CheckCircle2, TrendingUp, Star,
 } from 'lucide-react'
-import { SERVICE_OPTIONS } from '@/components/ui/CategoryPicker'
 import Link from 'next/link'
 import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
@@ -54,9 +53,16 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
 
 const DEFAULT_GRADIENT = 'from-green-400 to-emerald-600'
 
-const SERVICE_LABELS: Record<string, string> = Object.fromEntries(
-  SERVICE_OPTIONS.map(s => [s.value, s.label])
-)
+const SERVICE_LABELS: Record<string, string> = {
+  '1to1_coaching':   '1:1 Coaching',
+  'video_kurs':      'Video Kurs',
+  'online_kurs':     'Online Kurs',
+  'ernaehrungsplan': 'Ernährungsplan',
+  'trainingsplan':   'Trainingsplan',
+  'gruppencoaching': 'Gruppencoaching',
+  'live_sessions':   'Live Sessions',
+  'pdf_guide':       'PDF Guide',
+}
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
