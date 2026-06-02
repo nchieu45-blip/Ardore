@@ -71,12 +71,5 @@ export default async function MarketplacePage() {
     ratings[id] = { avg: sum / count, count }
   }
 
-  const bestsellers = Object.keys(salesCounts).length > 0
-    ? [...products]
-        .filter(p => salesCounts[p.id])
-        .sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
-        .slice(0, 4)
-    : []
-
-  return <MarketplaceClient products={products} bestsellers={bestsellers} salesCounts={salesCounts} ratings={ratings} />
+  return <MarketplaceClient products={products} salesCounts={salesCounts} ratings={ratings} />
 }

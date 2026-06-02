@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Search, FileText, Video, BookOpen, Image as ImageIcon, ChevronDown,
-  TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal, Users,
+  TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal,
   Star, BarChart2, CreditCard, ShoppingBag,
-  Share2, Rocket, CheckCircle2, ArrowRight,
+  Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft,
 } from 'lucide-react'
+import MarketplaceRows from './MarketplaceRows'
 import Link from 'next/link'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
-import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
@@ -40,7 +40,6 @@ export interface MarketplaceProduct {
 
 interface Props {
   products: MarketplaceProduct[]
-  bestsellers: MarketplaceProduct[]
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
 }
@@ -133,7 +132,7 @@ const TRUST_ITEMS = [
 ]
 
 
-export default function MarketplaceClient({ products, bestsellers, salesCounts, ratings }: Props) {
+export default function MarketplaceClient({ products, salesCounts, ratings }: Props) {
   const [topic, setTopic] = useState<TopicFilter>('all')
   const [type, setType] = useState<TypeFilter>('all')
   const [sort, setSort] = useState<SortKey>('popular')
@@ -157,6 +156,14 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
     setDuration(null)
   }
 
+  function clearAll() {
+    setSearch('')
+    setTopic('all')
+    setType('all')
+    setSort('popular')
+    resetAdvanced()
+  }
+
   function toggleEquipment(val: string) {
     setEquipment(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
   }
@@ -171,7 +178,7 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const isFiltered = topic !== 'all' || type !== 'all' || search !== '' || advancedActive
+  const showGridView = topic !== 'all' || type !== 'all' || search !== '' || advancedActive || sort !== 'popular'
 
   const filtered = products
     .filter(p => {
@@ -195,8 +202,6 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
         case 'price_desc':   return b.price - a.price
       }
     })
-
-  const showBestsellers = bestsellers.length > 0 && !isFiltered
 
   return (
     <div>
@@ -268,307 +273,272 @@ export default function MarketplaceClient({ products, bestsellers, salesCounts, 
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      {showGridView ? (
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Back to rows */}
+          <div className="mb-6">
+            <button
+              onClick={clearAll}
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" /> Zur Übersicht
+            </button>
+          </div>
 
-        {/* ── Bestsellers ─────────────────────────────────────────── */}
-        {showBestsellers && (
-          <section className="mb-14 animate-slide-up">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-amber-50 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-amber-500" />
+          {/* ── Filters ──────────────────────────────────────────────── */}
+          <div className="space-y-3 mb-6 animate-slide-up animate-delay-100">
+            {/* Row 1: category + type pills + sort */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex flex-wrap gap-2 items-center">
+                {/* Category dropdown */}
+                <div ref={categoryRef} className="relative">
+                  <button
+                    onClick={() => setCategoryOpen((o) => !o)}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all duration-150 ${
+                      topic !== 'all'
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 hover:text-gray-900'
+                    }`}
+                  >
+                    {topic === 'all' ? 'Kategorie' : TOPIC_FILTERS.find(f => f.key === topic)?.label}
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${categoryOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {categoryOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-40 animate-scale-in">
+                      {TOPIC_FILTERS.map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => { setTopic(key); setCategoryOpen(false) }}
+                          className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          {label}
+                          {topic === key && <Check className="h-3.5 w-3.5 text-green-600" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Bestseller</h2>
-              </div>
-              <Link href="/creators" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors flex items-center gap-1">
-                Alle Coaches <span>→</span>
-              </Link>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {bestsellers.map((product, i) => (
-                <Link key={product.id} href={`/creators/${product.creator.slug}`}>
-                  <div className={`group relative rounded-2xl overflow-hidden border-2 transition-all duration-200 bg-white hover:-translate-y-1 hover:shadow-xl ${i === 0 ? 'border-amber-300 shadow-amber-100 shadow-md' : 'border-gray-100 hover:border-gray-200'}`}>
-                    <div className={`h-32 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center relative`}>
-                      <div className="absolute inset-0 bg-black/10" />
-                      <div className="relative">{TYPE_ICONS[product.type]}</div>
-                      <span className={`absolute top-2.5 left-2.5 text-xs font-bold px-2 py-0.5 rounded-full ${i === 0 ? 'bg-amber-400 text-white' : 'bg-black/30 text-white'}`}>
-                        #{i + 1}
-                      </span>
-                      {i === 0 && (
-                        <span className="absolute top-2.5 right-2.5 text-[10px] font-semibold bg-amber-400 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <TrendingUp className="h-2.5 w-2.5" /> Bestseller
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-3.5">
-                      <p className="text-xs text-gray-400 mb-0.5 truncate">{product.creator.display_name}</p>
-                      <p className="font-semibold text-gray-900 text-sm line-clamp-2 mb-2 leading-snug">{product.title}</p>
-                      {ratings[product.id] && (
-                        <div className="mb-1">
-                          <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
-                        </div>
-                      )}
-                      {(salesCounts[product.id] ?? 0) >= 50 && (
-                        <p className="text-[10px] text-gray-400 mb-2">{salesCounts[product.id]} mal gekauft</p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-medium">{TYPE_LABELS[product.type]}</span>
-                        <span className="text-green-700 font-bold text-sm">{formatCurrency(product.price)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
 
-        {/* ── Filters ──────────────────────────────────────────────── */}
-        <div className="space-y-3 mb-6 animate-slide-up animate-delay-100">
-          {/* Row 1: category + type pills + sort */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex flex-wrap gap-2 items-center">
-              {/* Category dropdown */}
-              <div ref={categoryRef} className="relative">
-                <button
-                  onClick={() => setCategoryOpen((o) => !o)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all duration-150 ${
-                    topic !== 'all'
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 hover:text-gray-900'
-                  }`}
+                <SlidersHorizontal className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                {TYPE_FILTERS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setType(key)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
+                      type === key
+                        ? 'bg-gray-800 text-white'
+                        : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="relative flex-shrink-0">
+                <select
+                  value={sort}
+                  onChange={e => setSort(e.target.value as SortKey)}
+                  className="appearance-none pl-3 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
                 >
-                  {topic === 'all' ? 'Kategorie' : TOPIC_FILTERS.find(f => f.key === topic)?.label}
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${categoryOpen ? 'rotate-180' : ''}`} />
+                  {SORT_OPTIONS.map(({ key, label }) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Row 2: advanced filter accordions */}
+            <div className="rounded-2xl border border-gray-100 bg-white divide-y divide-gray-50 overflow-hidden">
+              {/* Equipment */}
+              <div>
+                <button
+                  onClick={() => setEquipmentOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    Equipment / Voraussetzungen
+                    {equipment.length > 0 && (
+                      <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{equipment.length}</span>
+                    )}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${equipmentOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {categoryOpen && (
-                  <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-40 animate-scale-in">
-                    {TOPIC_FILTERS.map(({ key, label }) => (
+                {equipmentOpen && (
+                  <div className="px-4 pb-4 flex flex-wrap gap-2">
+                    {EQUIPMENT_OPTIONS.map(opt => (
                       <button
-                        key={key}
-                        onClick={() => { setTopic(key); setCategoryOpen(false) }}
-                        className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        key={opt.value}
+                        onClick={() => toggleEquipment(opt.value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                          equipment.includes(opt.value)
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        }`}
                       >
-                        {label}
-                        {topic === key && <Check className="h-3.5 w-3.5 text-green-600" />}
+                        {opt.label}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              <SlidersHorizontal className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-              {TYPE_FILTERS.map(({ key, label }) => (
+              {/* Level */}
+              <div>
                 <button
-                  key={key}
-                  onClick={() => setType(key)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
-                    type === key
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-400'
-                  }`}
+                  onClick={() => setLevelOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  {label}
+                  <span className="flex items-center gap-2">
+                    Level
+                    {level && (
+                      <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                    )}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${levelOpen ? 'rotate-180' : ''}`} />
                 </button>
+                {levelOpen && (
+                  <div className="px-4 pb-4 flex flex-wrap gap-2">
+                    {LEVEL_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setLevel(level === opt.value ? null : opt.value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                          level === opt.value
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Duration */}
+              <div>
+                <button
+                  onClick={() => setDurationOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    Dauer
+                    {duration && (
+                      <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                    )}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${durationOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {durationOpen && (
+                  <div className="px-4 pb-4 flex flex-wrap gap-2">
+                    {DURATION_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setDuration(duration === opt.value ? null : opt.value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                          duration === opt.value
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Reset advanced filters */}
+            {advancedActive && (
+              <button
+                onClick={resetAdvanced}
+                className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+              >
+                Erweiterte Filter zurücksetzen
+              </button>
+            )}
+          </div>
+
+          {/* Result count */}
+          <p className="text-xs text-gray-400 font-medium mb-5 uppercase tracking-wide">
+            {filtered.length} {filtered.length === 1 ? 'Produkt' : 'Produkte'}
+          </p>
+
+          {/* ── Product grid ─────────────────────────────────────────── */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-24 animate-fade-in">
+              <div className="h-16 w-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <Search className="h-7 w-7 text-gray-300" />
+              </div>
+              <p className="text-gray-500 font-medium mb-1">Keine Produkte gefunden</p>
+              <p className="text-sm text-gray-400">Versuche andere Filter oder einen anderen Suchbegriff.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+              {filtered.map((product, i) => (
+                <Link key={product.id} href={`/creators/${product.creator.slug}`}>
+                  <div
+                    className="group rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200"
+                    style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}
+                  >
+                    {/* Thumbnail */}
+                    <div className={`relative h-40 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center flex-shrink-0 overflow-hidden`}>
+                      <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
+                      <div className="relative group-hover:scale-110 transition-transform duration-300">
+                        {TYPE_ICONS[product.type]}
+                      </div>
+                      <span className="absolute top-3 right-3 text-[10px] font-semibold bg-black/30 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
+                        {TYPE_LABELS[product.type]}
+                      </span>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <Avatar src={product.creator.avatar_url} name={product.creator.display_name} size="sm" className="h-5 w-5 text-[10px] flex-shrink-0" />
+                        <span className="text-xs text-gray-500 truncate">{product.creator.display_name}</span>
+                      </div>
+
+                      <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-2 flex-1 leading-snug">
+                        {product.title}
+                      </h3>
+
+                      {ratings[product.id] && (
+                        <div className="mb-1.5">
+                          <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
+                        </div>
+                      )}
+
+                      {(salesCounts[product.id] ?? 0) >= 50 && (
+                        <p className="text-[11px] text-gray-400 mb-2">
+                          {salesCounts[product.id]} mal gekauft
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
+                        {product.creator.category && (
+                          <span className="text-[11px] text-gray-400 truncate max-w-[100px]">{product.creator.category}</span>
+                        )}
+                        <span className="font-bold text-gray-900 text-sm ml-auto">{formatCurrency(product.price)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
-            <div className="relative flex-shrink-0">
-              <select
-                value={sort}
-                onChange={e => setSort(e.target.value as SortKey)}
-                className="appearance-none pl-3 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
-              >
-                {SORT_OPTIONS.map(({ key, label }) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Row 2: advanced filter accordions */}
-          <div className="rounded-2xl border border-gray-100 bg-white divide-y divide-gray-50 overflow-hidden">
-            {/* Equipment */}
-            <div>
-              <button
-                onClick={() => setEquipmentOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  Equipment / Voraussetzungen
-                  {equipment.length > 0 && (
-                    <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{equipment.length}</span>
-                  )}
-                </span>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${equipmentOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {equipmentOpen && (
-                <div className="px-4 pb-4 flex flex-wrap gap-2">
-                  {EQUIPMENT_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => toggleEquipment(opt.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                        equipment.includes(opt.value)
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Level */}
-            <div>
-              <button
-                onClick={() => setLevelOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  Level
-                  {level && (
-                    <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
-                  )}
-                </span>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${levelOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {levelOpen && (
-                <div className="px-4 pb-4 flex flex-wrap gap-2">
-                  {LEVEL_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setLevel(level === opt.value ? null : opt.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                        level === opt.value
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Duration */}
-            <div>
-              <button
-                onClick={() => setDurationOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  Dauer
-                  {duration && (
-                    <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">1</span>
-                  )}
-                </span>
-                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${durationOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {durationOpen && (
-                <div className="px-4 pb-4 flex flex-wrap gap-2">
-                  {DURATION_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setDuration(duration === opt.value ? null : opt.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                        duration === opt.value
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Reset advanced filters */}
-          {advancedActive && (
-            <button
-              onClick={resetAdvanced}
-              className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
-            >
-              Erweiterte Filter zurücksetzen
-            </button>
           )}
         </div>
-
-        {/* Result count */}
-        <p className="text-xs text-gray-400 font-medium mb-5 uppercase tracking-wide">
-          {filtered.length} {filtered.length === 1 ? 'Produkt' : 'Produkte'}
-        </p>
-
-        {/* ── Product grid ─────────────────────────────────────────── */}
-        {filtered.length === 0 ? (
-          <div className="text-center py-24 animate-fade-in">
-            <div className="h-16 w-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-              <Search className="h-7 w-7 text-gray-300" />
-            </div>
-            <p className="text-gray-500 font-medium mb-1">Keine Produkte gefunden</p>
-            <p className="text-sm text-gray-400">Versuche andere Filter oder einen anderen Suchbegriff.</p>
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {filtered.map((product, i) => (
-              <Link key={product.id} href={`/creators/${product.creator.slug}`}>
-                <div
-                  className="group rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200"
-                  style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}
-                >
-                  {/* Thumbnail */}
-                  <div className={`relative h-40 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center flex-shrink-0 overflow-hidden`}>
-                    <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
-                    <div className="relative group-hover:scale-110 transition-transform duration-300">
-                      {TYPE_ICONS[product.type]}
-                    </div>
-                    <span className="absolute top-3 right-3 text-[10px] font-semibold bg-black/30 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
-                      {TYPE_LABELS[product.type]}
-                    </span>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-4 flex flex-col flex-1">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <Avatar src={product.creator.avatar_url} name={product.creator.display_name} size="sm" className="h-5 w-5 text-[10px] flex-shrink-0" />
-                      <span className="text-xs text-gray-500 truncate">{product.creator.display_name}</span>
-                    </div>
-
-                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-2 flex-1 leading-snug">
-                      {product.title}
-                    </h3>
-
-                    {ratings[product.id] && (
-                      <div className="mb-1.5">
-                        <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
-                      </div>
-                    )}
-
-                    {(salesCounts[product.id] ?? 0) >= 50 && (
-                      <p className="text-[11px] text-gray-400 mb-2">
-                        {salesCounts[product.id]} mal gekauft
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
-                      {product.creator.category && (
-                        <span className="text-[11px] text-gray-400 truncate max-w-[100px]">{product.creator.category}</span>
-                      )}
-                      <span className="font-bold text-gray-900 text-sm ml-auto">{formatCurrency(product.price)}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-      </div>
+      ) : (
+        <MarketplaceRows
+          products={products}
+          salesCounts={salesCounts}
+          ratings={ratings}
+          onSetSort={setSort}
+          onSetTopic={setTopic}
+        />
+      )}
 
       {/* ── Für Coaches ──────────────────────────────────────────── */}
       <section className="bg-gray-50 border-t border-gray-100 py-16 px-4">
