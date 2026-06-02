@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  Search, FileText, Video, BookOpen, Image as ImageIcon, ChevronDown,
+  Search, ChevronDown,
   TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal,
   Star, BarChart2, CreditCard, ShoppingBag,
   Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft,
@@ -10,9 +10,7 @@ import {
 import MarketplaceRows from './MarketplaceRows'
 import Link from 'next/link'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
-import { Avatar } from '@/components/ui/Avatar'
-import { StarRating } from '@/components/ui/StarRating'
-import { formatCurrency } from '@/lib/utils'
+import { ProductCard } from '@/components/ui/ProductCard'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -84,24 +82,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'price_asc',    label: 'Preis ↑' },
   { key: 'price_desc',   label: 'Preis ↓' },
 ]
-
-const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText className="h-9 w-9 text-white/90" />,
-  video:  <Video    className="h-9 w-9 text-white/90" />,
-  course: <BookOpen className="h-9 w-9 text-white/90" />,
-  image:  <ImageIcon className="h-9 w-9 text-white/90" />,
-}
-
-const TYPE_GRADIENTS: Record<ProductType, string> = {
-  pdf:    'from-blue-500 to-blue-700',
-  video:  'from-violet-500 to-violet-700',
-  course: 'from-amber-400 to-orange-500',
-  image:  'from-pink-500 to-rose-600',
-}
-
-const TYPE_LABELS: Record<ProductType, string> = {
-  pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild',
-}
 
 const TRUST_BADGES = [
   { icon: <ShieldCheck className="h-4 w-4 text-green-600" />, label: 'Geprüfte Coaches' },
@@ -478,55 +458,13 @@ export default function MarketplaceClient({ products, salesCounts, ratings }: Pr
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {filtered.map((product, i) => (
-                <Link key={product.id} href={`/creators/${product.creator.slug}`}>
-                  <div
-                    className="group rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200"
-                    style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}
-                  >
-                    {/* Thumbnail */}
-                    <div className={`relative h-40 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center flex-shrink-0 overflow-hidden`}>
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-black/5 transition-colors" />
-                      <div className="relative group-hover:scale-110 transition-transform duration-300">
-                        {TYPE_ICONS[product.type]}
-                      </div>
-                      <span className="absolute top-3 right-3 text-[10px] font-semibold bg-black/30 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
-                        {TYPE_LABELS[product.type]}
-                      </span>
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-4 flex flex-col flex-1">
-                      <div className="flex items-center gap-2 mb-2.5">
-                        <Avatar src={product.creator.avatar_url} name={product.creator.display_name} size="sm" className="h-5 w-5 text-[10px] flex-shrink-0" />
-                        <span className="text-xs text-gray-500 truncate">{product.creator.display_name}</span>
-                      </div>
-
-                      <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 mb-2 flex-1 leading-snug">
-                        {product.title}
-                      </h3>
-
-                      {ratings[product.id] && (
-                        <div className="mb-1.5">
-                          <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
-                        </div>
-                      )}
-
-                      {(salesCounts[product.id] ?? 0) >= 50 && (
-                        <p className="text-[11px] text-gray-400 mb-2">
-                          {salesCounts[product.id]} mal gekauft
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
-                        {product.creator.category && (
-                          <span className="text-[11px] text-gray-400 truncate max-w-[100px]">{product.creator.category}</span>
-                        )}
-                        <span className="font-bold text-gray-900 text-sm ml-auto">{formatCurrency(product.price)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+              {filtered.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  salesCount={salesCounts[product.id]}
+                  rating={ratings[product.id]}
+                />
               ))}
             </div>
           )}

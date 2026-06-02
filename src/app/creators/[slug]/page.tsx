@@ -301,7 +301,7 @@ export default async function CreatorProfilePage({
               </CardContent>
             </Card>
           ) : (
-            products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number }) => {
+            products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null }) => {
               const owned = purchasedIds.has(product.id)
               const stats = ratingStats[product.id]
               const productReviews = reviewsByProduct[product.id] ?? []
@@ -311,8 +311,18 @@ export default async function CreatorProfilePage({
                     {/* Type thumbnail strip */}
                     <div className={`w-2 bg-gradient-to-b ${TYPE_GRADIENTS[product.type]} flex-shrink-0 rounded-l-2xl`} />
                     <CardContent className="flex items-start gap-4 p-5 flex-1">
-                      <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                        {TYPE_ICONS[product.type]}
+                      <div className={`relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm`}>
+                        {product.thumbnail_url ? (
+                          <img
+                            src={product.thumbnail_url}
+                            alt={product.title}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
+                            {TYPE_ICONS[product.type]}
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">

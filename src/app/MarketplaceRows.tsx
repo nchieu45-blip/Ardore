@@ -5,13 +5,10 @@ import Link from 'next/link'
 import {
   ChevronLeft, ChevronRight,
   TrendingUp, Clock, Star, Users, Sparkles,
-  FileText, Video, BookOpen, Image as ImageIcon,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-import { StarRating } from '@/components/ui/StarRating'
-import { formatCurrency } from '@/lib/utils'
+import { ProductCard, type ProductCardData } from '@/components/ui/ProductCard'
 
-type ProductType = 'pdf' | 'video' | 'course' | 'image'
 type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
 
 interface Creator {
@@ -22,40 +19,17 @@ interface Creator {
   categories: string[]
 }
 
-interface Product {
-  id: string
-  title: string
-  type: ProductType
-  price: number
+// Extends ProductCardData with sort-only fields not needed for rendering
+interface RowProduct extends ProductCardData {
   createdAt: string
-  thumbnail_url: string | null
-  creator: Creator
 }
 
 interface Props {
-  products: Product[]
+  products: RowProduct[]
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
   onSetSort: (sort: SortKey) => void
   onSetTopic: (topic: string) => void
-}
-
-const TYPE_GRADIENTS: Record<ProductType, string> = {
-  pdf:    'from-blue-500 to-blue-700',
-  video:  'from-violet-500 to-violet-700',
-  course: 'from-amber-400 to-orange-500',
-  image:  'from-pink-500 to-rose-600',
-}
-
-const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText className="h-8 w-8 text-white/90" />,
-  video:  <Video    className="h-8 w-8 text-white/90" />,
-  course: <BookOpen className="h-8 w-8 text-white/90" />,
-  image:  <ImageIcon className="h-8 w-8 text-white/90" />,
-}
-
-const TYPE_LABELS: Record<ProductType, string> = {
-  pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild',
 }
 
 const KNOWN_CATEGORY_LABELS: Record<string, string> = {
@@ -76,58 +50,9 @@ const KNOWN_CATEGORY_LABELS: Record<string, string> = {
   muskelaufbau:     'Muskelaufbau',
 }
 
-function ProductCard({
-  product,
-  salesCounts,
-  ratings,
-}: {
-  product: Product
-  salesCounts: Record<string, number>
-  ratings: Record<string, { avg: number; count: number }>
-}) {
-  return (
-    <Link href={`/creators/${product.creator.slug}`} className="flex-shrink-0 w-48 [scroll-snap-align:start]">
-      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
-        <div className={`relative h-32 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center overflow-hidden flex-shrink-0`}>
-          {product.thumbnail_url ? (
-            <img
-              src={product.thumbnail_url}
-              alt={product.title}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-black/10" />
-          )}
-          {!product.thumbnail_url && (
-            <div className="relative">{TYPE_ICONS[product.type]}</div>
-          )}
-          <span className="absolute bottom-2 right-2 text-[10px] font-semibold bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full">
-            {TYPE_LABELS[product.type]}
-          </span>
-        </div>
-        <div className="p-3 flex flex-col flex-1">
-          <p className="text-[11px] text-gray-400 truncate mb-0.5">{product.creator.display_name}</p>
-          <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug mb-2 flex-1">
-            {product.title}
-          </p>
-          {ratings[product.id] && (
-            <div className="mb-1">
-              <StarRating rating={ratings[product.id].avg} count={ratings[product.id].count} size="sm" />
-            </div>
-          )}
-          {(salesCounts[product.id] ?? 0) >= 50 && (
-            <p className="text-[10px] text-gray-400 mb-1">{salesCounts[product.id]}× gekauft</p>
-          )}
-          <p className="text-green-700 font-bold text-sm mt-auto">{formatCurrency(product.price)}</p>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
 function CoachCard({ creator, productCount }: { creator: Creator; productCount: number }) {
   return (
-    <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-40 [scroll-snap-align:start]">
+    <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-40 [scroll-snap-align:start] block">
       <div className="rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
         <Avatar
           src={creator.avatar_url}
@@ -262,7 +187,6 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 15)
 
-  // Coach aggregation: dedupe, sum sales, count products
   const coachMap = new Map<string, Creator>()
   const coachSales = new Map<string, number>()
   const coachProductCount = new Map<string, number>()
@@ -279,7 +203,6 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
     .sort((a, b) => (coachSales.get(b.slug) ?? 0) - (coachSales.get(a.slug) ?? 0))
     .slice(0, 15)
 
-  // Category rows from actual product data
   const seenCats = new Set<string>()
   for (const p of products) {
     for (const c of p.creator.categories) if (c in KNOWN_CATEGORY_LABELS) seenCats.add(c)
@@ -320,7 +243,14 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
           onShowAll={() => onSetSort('best_selling')}
         >
           {bestsellers.map(p => (
-            <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              salesCount={salesCounts[p.id]}
+              rating={ratings[p.id]}
+              compact
+              scrollSnap
+            />
           ))}
         </ScrollRow>
       )}
@@ -332,7 +262,14 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
           onShowAll={() => onSetSort('top_rated')}
         >
           {topRated.map(p => (
-            <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              salesCount={salesCounts[p.id]}
+              rating={ratings[p.id]}
+              compact
+              scrollSnap
+            />
           ))}
         </ScrollRow>
       )}
@@ -344,7 +281,14 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
           onShowAll={() => onSetSort('newest')}
         >
           {newest.map(p => (
-            <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              salesCount={salesCounts[p.id]}
+              rating={ratings[p.id]}
+              compact
+              scrollSnap
+            />
           ))}
         </ScrollRow>
       )}
@@ -368,7 +312,14 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
           onShowAll={() => onSetTopic(row.key)}
         >
           {row.items.map(p => (
-            <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              salesCount={salesCounts[p.id]}
+              rating={ratings[p.id]}
+              compact
+              scrollSnap
+            />
           ))}
         </ScrollRow>
       ))}

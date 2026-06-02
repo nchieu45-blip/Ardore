@@ -93,6 +93,8 @@ export default function NewProductPage() {
   const [error, setError] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [thumbnail, setThumbnail] = useState<File | null>(null)
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
+  const [thumbnailError, setThumbnailError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null)
@@ -349,13 +351,61 @@ export default function NewProductPage() {
             <h2 className="font-semibold text-gray-900">Vorschaubild (optional)</h2>
           </CardHeader>
           <CardContent>
-            <FileUploadZone
-              file={thumbnail}
-              onChange={setThumbnail}
-              accept=".jpg,.jpeg,.png,.webp"
-              hint="JPG, PNG, WEBP – Max. 10 MB"
-              label="Vorschaubild auswählen"
-            />
+            {thumbnailPreview ? (
+              <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                <img src={thumbnailPreview} alt="Vorschau" className="w-full h-52 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    URL.revokeObjectURL(thumbnailPreview)
+                    setThumbnail(null)
+                    setThumbnailPreview(null)
+                    setThumbnailError('')
+                  }}
+                  className="absolute top-2 right-2 h-8 w-8 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                </button>
+                <p className="absolute bottom-2 left-3 text-[11px] text-white/80 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                  {thumbnail?.name}
+                </p>
+              </div>
+            ) : (
+              <label className={cn(
+                'flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-colors',
+                'border-gray-300 hover:border-green-400 hover:bg-gray-50'
+              )}>
+                <div className="flex flex-col items-center gap-2 text-center px-4">
+                  <Upload className="h-8 w-8 text-gray-400" />
+                  <p className="text-sm font-medium text-gray-700">Vorschaubild auswählen</p>
+                  <p className="text-xs text-gray-400">JPG, PNG, WEBP – Max. 10 MB</p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (!f) return
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
+                      setThumbnailError('Nur JPG, PNG oder WEBP erlaubt')
+                      return
+                    }
+                    if (f.size > 10 * 1024 * 1024) {
+                      setThumbnailError('Datei zu groß – max. 10 MB')
+                      return
+                    }
+                    setThumbnailError('')
+                    setThumbnail(f)
+                    setThumbnailPreview(URL.createObjectURL(f))
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
+            {thumbnailError && (
+              <p className="mt-2 text-xs text-red-600">{thumbnailError}</p>
+            )}
           </CardContent>
         </Card>
 
