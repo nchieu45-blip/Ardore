@@ -1,23 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, FileText, Video, BookOpen, Edit } from 'lucide-react'
-
-const TYPE_ICONS = {
-  pdf: <FileText className="h-4 w-4" />,
-  video: <Video className="h-4 w-4" />,
-  course: <BookOpen className="h-4 w-4" />,
-}
-
-const TYPE_LABELS = {
-  pdf: 'PDF',
-  video: 'Video',
-  course: 'Kurs',
-}
+import { Card } from '@/components/ui/Card'
+import { Plus, BookOpen } from 'lucide-react'
+import ProductsPageClient from './ProductsPageClient'
 
 export default async function CreatorProductsPage() {
   const supabase = await createClient()
@@ -35,7 +22,7 @@ export default async function CreatorProductsPage() {
 
   const { data: products } = await supabase
     .from('products')
-    .select('*')
+    .select('id, title, type, price, is_published, description, created_at')
     .eq('creator_id', creator.id)
     .order('created_at', { ascending: false })
 
@@ -69,49 +56,7 @@ export default async function CreatorProductsPage() {
           </Link>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {productList.map((product: {
-            id: string
-            title: string
-            type: 'pdf' | 'video' | 'course'
-            price: number
-            is_published: boolean
-            description: string | null
-            created_at: string
-          }) => (
-            <Card key={product.id}>
-              <div className="flex items-center justify-between p-5">
-                <div className="flex items-start gap-4 min-w-0">
-                  <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0 text-green-600">
-                    {TYPE_ICONS[product.type]}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-gray-900">{product.title}</h3>
-                      <Badge variant="outline">{TYPE_LABELS[product.type]}</Badge>
-                      <Badge variant={product.is_published ? 'success' : 'default'}>
-                        {product.is_published ? 'Veröffentlicht' : 'Entwurf'}
-                      </Badge>
-                    </div>
-                    {product.description && (
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-1">{product.description}</p>
-                    )}
-                    <p className="text-xs text-gray-400 mt-1">{formatDate(product.created_at)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 flex-shrink-0 ml-4">
-                  <span className="text-lg font-semibold text-gray-900">{formatCurrency(product.price)}</span>
-                  <Link href={`/creator/products/${product.id}/edit`}>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                      Bearbeiten
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <ProductsPageClient initialProducts={productList} />
       )}
     </div>
   )

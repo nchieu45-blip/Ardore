@@ -32,6 +32,7 @@ export interface MarketplaceProduct {
   type: ProductType
   price: number
   createdAt: string
+  thumbnail_url: string | null
   equipment: string[]
   level: string | null
   duration: string | null

@@ -1,10 +1,10 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, ChevronRight,
-  TrendingUp, Clock, Star, Users,
+  TrendingUp, Clock, Star, Users, Sparkles,
   FileText, Video, BookOpen, Image as ImageIcon,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
@@ -28,6 +28,7 @@ interface Product {
   type: ProductType
   price: number
   createdAt: string
+  thumbnail_url: string | null
   creator: Creator
 }
 
@@ -47,10 +48,14 @@ const TYPE_GRADIENTS: Record<ProductType, string> = {
 }
 
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText className="h-7 w-7 text-white/90" />,
-  video:  <Video    className="h-7 w-7 text-white/90" />,
-  course: <BookOpen className="h-7 w-7 text-white/90" />,
-  image:  <ImageIcon className="h-7 w-7 text-white/90" />,
+  pdf:    <FileText className="h-8 w-8 text-white/90" />,
+  video:  <Video    className="h-8 w-8 text-white/90" />,
+  course: <BookOpen className="h-8 w-8 text-white/90" />,
+  image:  <ImageIcon className="h-8 w-8 text-white/90" />,
+}
+
+const TYPE_LABELS: Record<ProductType, string> = {
+  pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild',
 }
 
 const KNOWN_CATEGORY_LABELS: Record<string, string> = {
@@ -81,15 +86,28 @@ function ProductCard({
   ratings: Record<string, { avg: number; count: number }>
 }) {
   return (
-    <Link href={`/creators/${product.creator.slug}`} className="flex-shrink-0 w-44">
-      <div className="rounded-xl overflow-hidden border border-gray-100 bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-        <div className={`h-28 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center relative`}>
-          <div className="absolute inset-0 bg-black/10" />
-          <div className="relative">{TYPE_ICONS[product.type]}</div>
+    <Link href={`/creators/${product.creator.slug}`} className="flex-shrink-0 w-48 [scroll-snap-align:start]">
+      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
+        <div className={`relative h-32 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center overflow-hidden flex-shrink-0`}>
+          {product.thumbnail_url ? (
+            <img
+              src={product.thumbnail_url}
+              alt={product.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-black/10" />
+          )}
+          {!product.thumbnail_url && (
+            <div className="relative">{TYPE_ICONS[product.type]}</div>
+          )}
+          <span className="absolute bottom-2 right-2 text-[10px] font-semibold bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full">
+            {TYPE_LABELS[product.type]}
+          </span>
         </div>
-        <div className="p-3">
+        <div className="p-3 flex flex-col flex-1">
           <p className="text-[11px] text-gray-400 truncate mb-0.5">{product.creator.display_name}</p>
-          <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug mb-2 min-h-[2.5rem]">
+          <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug mb-2 flex-1">
             {product.title}
           </p>
           {ratings[product.id] && (
@@ -98,19 +116,19 @@ function ProductCard({
             </div>
           )}
           {(salesCounts[product.id] ?? 0) >= 50 && (
-            <p className="text-[10px] text-gray-400 mb-1">{salesCounts[product.id]} mal gekauft</p>
+            <p className="text-[10px] text-gray-400 mb-1">{salesCounts[product.id]}× gekauft</p>
           )}
-          <p className="text-green-700 font-bold text-sm">{formatCurrency(product.price)}</p>
+          <p className="text-green-700 font-bold text-sm mt-auto">{formatCurrency(product.price)}</p>
         </div>
       </div>
     </Link>
   )
 }
 
-function CoachCard({ creator }: { creator: Creator }) {
+function CoachCard({ creator, productCount }: { creator: Creator; productCount: number }) {
   return (
-    <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-36">
-      <div className="rounded-xl border border-gray-100 bg-white p-4 text-center hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+    <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-40 [scroll-snap-align:start]">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
         <Avatar
           src={creator.avatar_url}
           name={creator.display_name}
@@ -119,6 +137,11 @@ function CoachCard({ creator }: { creator: Creator }) {
         <p className="text-sm font-semibold text-gray-900 truncate">{creator.display_name}</p>
         {creator.category && (
           <p className="text-[11px] text-gray-400 mt-0.5 truncate">{creator.category}</p>
+        )}
+        {productCount > 0 && (
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            {productCount} {productCount === 1 ? 'Produkt' : 'Produkte'}
+          </p>
         )}
         <p className="text-[11px] text-green-600 font-medium mt-2">Profil ansehen →</p>
       </div>
@@ -140,6 +163,28 @@ function ScrollRow({
   showAllHref?: string
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
+
+  const updateArrows = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 4)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateArrows()
+    el.addEventListener('scroll', updateArrows, { passive: true })
+    const ro = new ResizeObserver(updateArrows)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', updateArrows)
+      ro.disconnect()
+    }
+  }, [updateArrows])
 
   return (
     <section className="mb-10">
@@ -170,29 +215,33 @@ function ScrollRow({
         )}
       </div>
 
-      <div className="relative group/row">
-        <button
-          onClick={() => scrollRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
-          className="absolute left-2 top-[calc(50%-1rem)] z-10 hidden md:flex items-center justify-center h-9 w-9 bg-white shadow-md rounded-full border border-gray-200 opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-gray-50"
-          aria-label="Scroll links"
-        >
-          <ChevronLeft className="h-4 w-4 text-gray-600" />
-        </button>
+      <div className="relative">
+        {canScrollLeft && (
+          <button
+            onClick={() => scrollRef.current?.scrollBy({ left: -340, behavior: 'smooth' })}
+            className="absolute left-1 top-[calc(50%-1.125rem)] z-10 hidden md:flex items-center justify-center h-9 w-9 bg-white shadow-lg rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+            aria-label="Scroll links"
+          >
+            <ChevronLeft className="h-4 w-4 text-gray-600" />
+          </button>
+        )}
 
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto px-4 pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          className="flex gap-3 overflow-x-auto px-4 pb-3 [scroll-snap-type:x_proximity] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {children}
         </div>
 
-        <button
-          onClick={() => scrollRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
-          className="absolute right-2 top-[calc(50%-1rem)] z-10 hidden md:flex items-center justify-center h-9 w-9 bg-white shadow-md rounded-full border border-gray-200 opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-gray-50"
-          aria-label="Scroll rechts"
-        >
-          <ChevronRight className="h-4 w-4 text-gray-600" />
-        </button>
+        {canScrollRight && (
+          <button
+            onClick={() => scrollRef.current?.scrollBy({ left: 340, behavior: 'smooth' })}
+            className="absolute right-1 top-[calc(50%-1.125rem)] z-10 hidden md:flex items-center justify-center h-9 w-9 bg-white shadow-lg rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+            aria-label="Scroll rechts"
+          >
+            <ChevronRight className="h-4 w-4 text-gray-600" />
+          </button>
+        )}
       </div>
     </section>
   )
@@ -204,29 +253,33 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
     .sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
     .slice(0, 15)
 
-  const newest = [...products]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 15)
-
   const topRated = [...products]
     .filter(p => ratings[p.id])
     .sort((a, b) => (ratings[b.id]?.avg ?? 0) - (ratings[a.id]?.avg ?? 0))
     .slice(0, 15)
 
+  const newest = [...products]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 15)
+
+  // Coach aggregation: dedupe, sum sales, count products
   const coachMap = new Map<string, Creator>()
   const coachSales = new Map<string, number>()
+  const coachProductCount = new Map<string, number>()
   for (const p of products) {
     if (!coachMap.has(p.creator.slug)) {
       coachMap.set(p.creator.slug, p.creator)
       coachSales.set(p.creator.slug, 0)
+      coachProductCount.set(p.creator.slug, 0)
     }
     coachSales.set(p.creator.slug, (coachSales.get(p.creator.slug) ?? 0) + (salesCounts[p.id] ?? 0))
+    coachProductCount.set(p.creator.slug, (coachProductCount.get(p.creator.slug) ?? 0) + 1)
   }
   const topCoaches = [...coachMap.values()]
     .sort((a, b) => (coachSales.get(b.slug) ?? 0) - (coachSales.get(a.slug) ?? 0))
     .slice(0, 15)
 
-  // Category rows derived from actual product data
+  // Category rows from actual product data
   const seenCats = new Set<string>()
   for (const p of products) {
     for (const c of p.creator.categories) if (c in KNOWN_CATEGORY_LABELS) seenCats.add(c)
@@ -240,19 +293,26 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
         .filter(p => p.creator.categories.includes(cat) || p.creator.category === cat)
         .slice(0, 15),
     }))
-    .filter(row => row.items.length >= 2)
+    .filter(row => row.items.length >= 1)
 
   if (products.length === 0) {
     return (
-      <div className="py-24 text-center text-gray-400 px-4">
-        <p className="font-medium">Noch keine Produkte vorhanden.</p>
-        <p className="text-sm mt-1">Schau bald wieder vorbei!</p>
+      <div className="py-24 text-center px-4">
+        <div className="max-w-sm mx-auto">
+          <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center mx-auto mb-6">
+            <Sparkles className="h-9 w-9 text-green-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-3">Bald geht es los!</h3>
+          <p className="text-gray-500 leading-relaxed">
+            Die ersten Coaches stellen gerade ihre Inhalte ein. Schau in Kürze wieder vorbei.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="py-8 overflow-hidden">
+    <div className="py-6 overflow-hidden">
       {bestsellers.length >= 2 && (
         <ScrollRow
           title="Bestseller"
@@ -260,18 +320,6 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
           onShowAll={() => onSetSort('best_selling')}
         >
           {bestsellers.map(p => (
-            <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
-          ))}
-        </ScrollRow>
-      )}
-
-      {newest.length >= 1 && (
-        <ScrollRow
-          title="Neu auf Ardore"
-          icon={<Clock className="h-4 w-4 text-blue-500" />}
-          onShowAll={() => onSetSort('newest')}
-        >
-          {newest.map(p => (
             <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
           ))}
         </ScrollRow>
@@ -289,6 +337,18 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
         </ScrollRow>
       )}
 
+      {newest.length >= 1 && (
+        <ScrollRow
+          title="Neu auf Ardore"
+          icon={<Clock className="h-4 w-4 text-blue-500" />}
+          onShowAll={() => onSetSort('newest')}
+        >
+          {newest.map(p => (
+            <ProductCard key={p.id} product={p} salesCounts={salesCounts} ratings={ratings} />
+          ))}
+        </ScrollRow>
+      )}
+
       {topCoaches.length >= 2 && (
         <ScrollRow
           title="Beliebte Coaches"
@@ -296,7 +356,7 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
           showAllHref="/creators"
         >
           {topCoaches.map(c => (
-            <CoachCard key={c.slug} creator={c} />
+            <CoachCard key={c.slug} creator={c} productCount={coachProductCount.get(c.slug) ?? 0} />
           ))}
         </ScrollRow>
       )}
