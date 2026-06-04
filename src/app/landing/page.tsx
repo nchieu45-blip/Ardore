@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import {
   Globe, ArrowRight, Share2, Rocket, CheckCircle2,
   Target, RefreshCw, Zap, BadgePercent,
-  TrendingUp, Shield, Users, MessageCircle,
+  TrendingUp, Shield, Users, MessageCircle, Video, Euro, CalendarCheck,
 } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -282,6 +282,81 @@ export default function LandingPage() {
                 <p className="text-sm text-gray-500 leading-relaxed">{feature.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Video coaching upsell ─────────────────────────────────── */}
+      <section className="py-20 px-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-t border-blue-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+                <Video className="h-3.5 w-3.5" />
+                Neu: 1:1 Videocoaching
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
+                Biete 1:1 Video-Sessions direkt über dein Profil an
+              </h2>
+              <p className="text-gray-600 leading-relaxed mb-6">
+                Kunden buchen eine Session, du nimmst sie an — der Videoraum wird automatisch erstellt.
+                Kein externes Tool, keine komplizierte Einrichtung.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  { icon: <CalendarCheck className="h-4 w-4 text-blue-600" />, text: 'Wöchentliche Verfügbarkeit selbst festlegen' },
+                  { icon: <Euro className="h-4 w-4 text-blue-600" />, text: 'Preis und Dauer (30–90 Min.) frei wählbar' },
+                  { icon: <Video className="h-4 w-4 text-blue-600" />, text: 'Videoraum wird automatisch erstellt und per Mail versendet' },
+                ].map(item => (
+                  <li key={item.text} className="flex items-start gap-3 text-sm text-gray-700">
+                    <span className="h-7 w-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      {item.icon}
+                    </span>
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/register?role=creator">
+                <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+                  <Video className="h-4 w-4" />
+                  Kostenlos starten
+                </Button>
+              </Link>
+            </div>
+            <div className="bg-white rounded-3xl border border-blue-100 shadow-xl p-6">
+              {/* Mockup of booking widget */}
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Video className="h-4 w-4 text-white" />
+                  <span className="text-white font-bold text-sm">1:1 Videocoaching</span>
+                </div>
+                <p className="text-white text-xl font-bold">80,00 €</p>
+                <p className="text-blue-100 text-xs">60 Minuten · Erstes Beratungsgespräch</p>
+              </div>
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Datum wählen</p>
+                <div className="grid grid-cols-7 gap-1">
+                  {['Mo','Di','Mi','Do','Fr','Sa','So'].map((d, i) => (
+                    <div key={d} className={`text-center text-[10px] font-medium py-1 rounded-lg ${i === 2 ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>{d}</div>
+                  ))}
+                  {[' ',' ','9','10','11','12','13'].map((d, i) => (
+                    <div key={i} className={`text-center text-xs py-1.5 rounded-lg font-medium ${d === '11' ? 'bg-blue-600 text-white' : d === ' ' ? '' : 'text-gray-600 hover:bg-gray-50'}`}>{d}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Uhrzeit</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {['09:00','10:00','11:00','14:00','15:00','16:00'].map((t, i) => (
+                    <div key={t} className={`text-center text-xs py-2 rounded-xl border font-medium ${i === 2 ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>{t}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="h-9 rounded-xl bg-blue-600 flex items-center justify-center gap-2">
+                <Video className="h-3.5 w-3.5 text-white" />
+                <span className="text-white text-xs font-semibold">Session für 80,00 € buchen</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

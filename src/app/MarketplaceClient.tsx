@@ -5,7 +5,7 @@ import {
   Search, ChevronDown,
   TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal,
   Star, BarChart2, CreditCard, ShoppingBag,
-  Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft,
+  Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft, Video,
 } from 'lucide-react'
 import MarketplaceRows from './MarketplaceRows'
 import Link from 'next/link'
@@ -508,6 +508,56 @@ export default function MarketplaceClient({ products, salesCounts, ratings }: Pr
               <Link href="/landing" className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors">
                 Mehr erfahren <ArrowRight className="h-3.5 w-3.5" />
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Video coaching teaser ─────────────────────────────────── */}
+      <section className="bg-white border-t border-gray-100 py-16 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 overflow-hidden">
+            <div className="grid md:grid-cols-2 gap-0 items-center">
+              <div className="p-8 md:p-10">
+                <div className="inline-flex items-center gap-2 bg-white/20 border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-full mb-5">
+                  <Video className="h-3.5 w-3.5" />
+                  1:1 Videocoaching
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-3 leading-tight">
+                  Persönliche Sessions —<br />direkt mit deinem Coach
+                </h2>
+                <p className="text-blue-100/80 text-sm leading-relaxed mb-6">
+                  Buche eine 1:1 Video-Session mit deinem Wunsch-Coach. Wähle Datum und Uhrzeit, und der Videoraum wird automatisch erstellt.
+                </p>
+                <Link href="/coaches">
+                  <button className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-colors">
+                    <Video className="h-4 w-4" />
+                    Coach finden
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </Link>
+              </div>
+              <div className="hidden md:flex items-center justify-center p-8">
+                <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-xs font-semibold text-gray-700">Session ist bereit</span>
+                  </div>
+                  <div className="aspect-video rounded-xl bg-gray-900 flex items-center justify-center mb-3">
+                    <Video className="h-10 w-10 text-white/30" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-green-700">ML</span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-900">Max Lange</p>
+                      <p className="text-[10px] text-gray-400">Fitness · 60 Min</p>
+                    </div>
+                    <span className="ml-auto text-xs font-bold text-green-700">80 €</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

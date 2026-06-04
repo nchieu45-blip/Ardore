@@ -24,6 +24,7 @@ export interface CoachData {
   createdAt: string
   productCount: number
   rating: { avg: number; count: number } | null
+  hasVideoCoaching: boolean
 }
 
 export default async function CoachesPage() {
@@ -48,7 +49,7 @@ export default async function CoachesPage() {
 
   const creatorIds = creators.map(c => c.id)
 
-  const [productsRes, reviewsRes] = await Promise.all([
+  const [productsRes, reviewsRes, coachingOffersRes] = await Promise.all([
     creatorIds.length > 0
       ? supabase
           .from('products')
@@ -61,7 +62,18 @@ export default async function CoachesPage() {
           .from('reviews')
           .select('product_id, rating')
       : Promise.resolve({ data: [] }),
+    creatorIds.length > 0
+      ? supabase
+          .from('coaching_offers')
+          .select('creator_id')
+          .eq('is_enabled', true)
+          .in('creator_id', creatorIds)
+      : Promise.resolve({ data: [] }),
   ])
+
+  const videoCoachingIds = new Set(
+    (coachingOffersRes.data ?? []).map((o: { creator_id: string }) => o.creator_id)
+  )
 
   // product count per creator + product→creator lookup for ratings
   const productToCreator: Record<string, string> = {}
@@ -97,6 +109,7 @@ export default async function CoachesPage() {
     createdAt: c.created_at,
     productCount: productCounts[c.id] ?? 0,
     rating: ratings[c.id] ?? null,
+    hasVideoCoaching: videoCoachingIds.has(c.id),
   }))
 
   return (
