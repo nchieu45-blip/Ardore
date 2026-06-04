@@ -474,8 +474,6 @@ export default function MarketplaceClient({ products, salesCounts, ratings }: Pr
           products={products}
           salesCounts={salesCounts}
           ratings={ratings}
-          onSetSort={setSort}
-          onSetTopic={setTopic}
         />
       )}
 

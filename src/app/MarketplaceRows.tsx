@@ -9,8 +9,6 @@ import {
 import { Avatar } from '@/components/ui/Avatar'
 import { ProductCard, type ProductCardData } from '@/components/ui/ProductCard'
 
-type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
-
 interface Creator {
   display_name: string
   avatar_url: string | null
@@ -28,8 +26,6 @@ interface Props {
   products: RowProduct[]
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
-  onSetSort: (sort: SortKey) => void
-  onSetTopic: (topic: string) => void
 }
 
 const KNOWN_CATEGORY_LABELS: Record<string, string> = {
@@ -172,7 +168,7 @@ function ScrollRow({
   )
 }
 
-export default function MarketplaceRows({ products, salesCounts, ratings, onSetSort, onSetTopic }: Props) {
+export default function MarketplaceRows({ products, salesCounts, ratings }: Props) {
   const bestsellers = [...products]
     .filter(p => salesCounts[p.id])
     .sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
@@ -240,7 +236,7 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
         <ScrollRow
           title="Bestseller"
           icon={<TrendingUp className="h-4 w-4 text-amber-500" />}
-          onShowAll={() => onSetSort('best_selling')}
+          showAllHref="/marketplace?sort=best_selling"
         >
           {bestsellers.map(p => (
             <ProductCard
@@ -259,7 +255,7 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
         <ScrollRow
           title="Top bewertet"
           icon={<Star className="h-4 w-4 text-amber-400" />}
-          onShowAll={() => onSetSort('top_rated')}
+          showAllHref="/marketplace?sort=top_rated"
         >
           {topRated.map(p => (
             <ProductCard
@@ -278,7 +274,7 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
         <ScrollRow
           title="Neu auf Ardore"
           icon={<Clock className="h-4 w-4 text-blue-500" />}
-          onShowAll={() => onSetSort('newest')}
+          showAllHref="/marketplace?sort=newest"
         >
           {newest.map(p => (
             <ProductCard
@@ -309,7 +305,7 @@ export default function MarketplaceRows({ products, salesCounts, ratings, onSetS
         <ScrollRow
           key={row.key}
           title={row.label}
-          onShowAll={() => onSetTopic(row.key)}
+          showAllHref={`/marketplace?category=${row.key}`}
         >
           {row.items.map(p => (
             <ProductCard
