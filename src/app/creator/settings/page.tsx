@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { CreditCard, Tag, User, ExternalLink } from 'lucide-react'
+import { CreditCard, Tag, User, ExternalLink, Video } from 'lucide-react'
 
 export default async function CreatorSettingsPage() {
   const supabase = await createClient()
@@ -26,6 +26,12 @@ export default async function CreatorSettingsPage() {
     .order('price_monthly', { ascending: true })
 
   const tierList = tiers ?? []
+
+  const { data: coachingOffer } = await supabase
+    .from('coaching_offers')
+    .select('is_enabled, price_cents, duration_minutes')
+    .eq('creator_id', creator.id)
+    .single()
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -109,6 +115,31 @@ export default async function CreatorSettingsPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Video coaching */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Video className="h-5 w-5 text-gray-500" />
+                <h2 className="font-semibold text-gray-900">Videocoaching</h2>
+              </div>
+              <Link href="/creator/settings/videocoaching">
+                <Button variant="outline" size="sm">Einrichten</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className={`h-3 w-3 rounded-full ${coachingOffer?.is_enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className="text-sm text-gray-700">
+                {coachingOffer?.is_enabled
+                  ? `Aktiv · ${coachingOffer.duration_minutes} Min · ${((coachingOffer.price_cents ?? 0) / 100).toFixed(2)} €`
+                  : 'Nicht aktiviert – richte 1:1 Sessions für Kunden ein'}
+              </span>
+            </div>
           </CardContent>
         </Card>
 

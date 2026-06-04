@@ -3,6 +3,8 @@ import {
   purchaseReceiptHtml, purchaseReceiptText, PurchaseReceiptData,
   newSubscriberHtml, newSubscriberText, NewSubscriberData,
   chatNotificationHtml, chatNotificationText, ChatNotificationData,
+  bookingConfirmationHtml, bookingConfirmationText, BookingConfirmationData,
+  sessionReminderHtml, sessionReminderText, SessionReminderData,
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
@@ -32,5 +34,28 @@ export async function sendChatNotification(to: string, data: ChatNotificationDat
     subject: `Neue Nachricht von ${data.senderName}`,
     html: chatNotificationHtml(data),
     text: chatNotificationText(data),
+  })
+}
+
+export async function sendBookingConfirmation(to: string, data: BookingConfirmationData) {
+  const subject = data.role === 'buyer'
+    ? `Buchungsbestätigung: Session mit ${data.coachName}`
+    : `Neue Buchung: Session mit ${data.coachName}`
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject,
+    html: bookingConfirmationHtml(data),
+    text: bookingConfirmationText(data),
+  })
+}
+
+export async function sendSessionReminder(to: string, data: SessionReminderData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Session-Erinnerung: ${data.minutesUntil <= 60 ? `in ${data.minutesUntil} Min.` : 'morgen'} mit ${data.coachName}`,
+    html: sessionReminderHtml(data),
+    text: sessionReminderText(data),
   })
 }

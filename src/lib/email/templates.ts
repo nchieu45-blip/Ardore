@@ -144,3 +144,87 @@ export function chatNotificationHtml(d: ChatNotificationData) {
 export function chatNotificationText(d: ChatNotificationData) {
   return `Hey ${d.recipientName},\n\n${d.senderName} hat dir geschrieben:\n\n"${d.messagePreview}"\n\nNachricht lesen: ${d.chatUrl}\n\n– Das Ardore-Team`
 }
+
+// ─── Booking confirmation ─────────────────────────────────────────────────────
+
+export interface BookingConfirmationData {
+  recipientName: string
+  coachName: string
+  scheduledDate: string
+  scheduledTime: string
+  durationMinutes: number
+  sessionUrl: string
+  role: 'buyer' | 'creator'
+}
+
+export function bookingConfirmationHtml(d: BookingConfirmationData) {
+  const isBuyer = d.role === 'buyer'
+  const heading = isBuyer
+    ? `Dein Videocoaching ist gebucht! 🎉`
+    : `Neue Buchung von ${d.coachName} 📅`
+  const intro = isBuyer
+    ? `Hey ${d.recipientName}, deine Session mit <strong>${d.coachName}</strong> ist bestätigt.`
+    : `Hey ${d.recipientName}, du hast eine neue Buchung erhalten.`
+
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">${heading}</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">${intro}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">${isBuyer ? 'Dein Coach' : 'Kunde'}</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:8px;">${d.coachName}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Datum</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:8px;">${d.scheduledDate}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Uhrzeit</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:8px;">${d.scheduledTime} Uhr</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Dauer</td>
+        <td style="font-size:13px;color:#111827;text-align:right;">${d.durationMinutes} Minuten</td>
+      </tr>
+    </table>
+    <p style="text-align:center;margin:0 0 16px;">${button(d.sessionUrl, 'Zur Session →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Du erhältst den Link zum Videoraum kurz vor der Session per E-Mail.
+    </p>
+  `)
+}
+
+export function bookingConfirmationText(d: BookingConfirmationData) {
+  const isBuyer = d.role === 'buyer'
+  const other = isBuyer ? `Coach ${d.coachName}` : `Kunde ${d.coachName}`
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${other} ist bestätigt.\n\nDatum: ${d.scheduledDate}\nUhrzeit: ${d.scheduledTime} Uhr\nDauer: ${d.durationMinutes} Minuten\n\nSession-Link: ${d.sessionUrl}\n\n– Das Ardore-Team`
+}
+
+// ─── Session reminder ─────────────────────────────────────────────────────────
+
+export interface SessionReminderData {
+  recipientName: string
+  coachName: string
+  scheduledTime: string
+  minutesUntil: number
+  sessionUrl: string
+}
+
+export function sessionReminderHtml(d: SessionReminderData) {
+  const timeLabel = d.minutesUntil <= 60 ? `in ${d.minutesUntil} Minuten` : `in ${Math.round(d.minutesUntil / 60)} Stunden`
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Deine Session startet bald ⏰</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hey ${d.recipientName}, deine Videocoaching-Session mit <strong>${d.coachName}</strong> beginnt ${timeLabel} um <strong>${d.scheduledTime} Uhr</strong>.
+    </p>
+    <p style="text-align:center;margin:0 0 20px;">${button(d.sessionUrl, 'Session beitreten →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Teste dein Mikrofon und deine Kamera vor der Session.
+    </p>
+  `)
+}
+
+export function sessionReminderText(d: SessionReminderData) {
+  const timeLabel = d.minutesUntil <= 60 ? `in ${d.minutesUntil} Minuten` : `in ${Math.round(d.minutesUntil / 60)} Stunden`
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel} um ${d.scheduledTime} Uhr.\n\nJetzt beitreten: ${d.sessionUrl}\n\n– Das Ardore-Team`
+}
