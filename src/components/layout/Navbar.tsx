@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut } from 'lucide-react'
+import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video } from 'lucide-react'
 import type { Profile } from '@/types'
 
 interface NavbarProps {
@@ -94,9 +94,21 @@ export function Navbar({ user }: NavbarProps) {
                         Dashboard
                       </Link>
                       {user.role === 'creator' && (
-                        <Link href="/creator/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                          <Settings className="h-4 w-4 text-gray-400" />
-                          Einstellungen
+                        <>
+                          <Link href="/creator/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Video className="h-4 w-4 text-gray-400" />
+                            Buchungen
+                          </Link>
+                          <Link href="/creator/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Settings className="h-4 w-4 text-gray-400" />
+                            Einstellungen
+                          </Link>
+                        </>
+                      )}
+                      {user.role === 'buyer' && (
+                        <Link href="/buyer/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Video className="h-4 w-4 text-gray-400" />
+                          Meine Sessions
                         </Link>
                       )}
                       <div className="border-t border-gray-100 mt-1 pt-1">
