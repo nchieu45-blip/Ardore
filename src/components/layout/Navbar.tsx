@@ -47,6 +47,9 @@ export function Navbar({ user }: NavbarProps) {
             <Link href="/marketplace" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
               Marketplace
             </Link>
+            <Link href="/coaches" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+              Coaches
+            </Link>
             <Link href="/landing" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
               Für Coaches
             </Link>
@@ -119,6 +122,9 @@ export function Navbar({ user }: NavbarProps) {
             </Link>
             <Link href="/marketplace" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
               Marketplace
+            </Link>
+            <Link href="/coaches" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
+              Coaches
             </Link>
             <Link href="/landing" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
               Für Coaches
