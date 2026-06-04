@@ -9,8 +9,10 @@ import { formatCurrency } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, CheckCircle2, TrendingUp, Star,
+  ChevronRight,
 } from 'lucide-react'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
 import ReviewSection from './ReviewSection'
@@ -104,6 +106,29 @@ function normalizeProfile(raw: ReviewProfile | ReviewProfile[] | null): ReviewPr
   return Array.isArray(raw) ? raw[0] ?? null : raw
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const supabase = await createClient()
+  const { data: c } = await supabase
+    .from('creator_profiles')
+    .select('display_name, bio, avatar_url')
+    .eq('slug', slug)
+    .single()
+
+  if (!c) return { title: 'Coach – Ardore' }
+  const title = `${c.display_name} – Coach auf Ardore`
+  const description = c.bio?.slice(0, 160) ?? `Entdecke Produkte und Abonnements von ${c.display_name} auf Ardore`
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: c.avatar_url ? [{ url: c.avatar_url }] : [],
+    },
+  }
+}
+
 export default async function CreatorProfilePage({
   params,
 }: {
@@ -188,14 +213,25 @@ export default async function CreatorProfilePage({
     : DEFAULT_GRADIENT
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Banner */}
-      <div className={`relative bg-gradient-to-br ${bannerGradient} rounded-3xl h-48 mb-20 overflow-hidden animate-fade-in`}>
-        <div className="absolute inset-0 bg-black/10" />
-        <div className="absolute -bottom-6 -right-6 h-40 w-40 rounded-full bg-white/10" />
-        <div className="absolute -top-8 -left-8 h-32 w-32 rounded-full bg-white/10" />
+    <div className="min-h-screen bg-gray-50/40">
+      {/* Full-width banner */}
+      <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-56 sm:h-64 overflow-hidden animate-fade-in`}>
+        {creator.banner_url && (
+          <img src={creator.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
+        <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
+        {/* Breadcrumb in banner */}
+        <div className="absolute top-4 left-0 right-0 max-w-5xl mx-auto px-4">
+          <nav className="flex items-center gap-1.5 text-sm text-white/70" aria-label="Breadcrumb">
+            <Link href="/coaches" className="hover:text-white transition-colors">Coaches</Link>
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span className="text-white/90 font-medium">{creator.display_name}</span>
+          </nav>
+        </div>
         {allCategories.length > 0 && (
-          <div className="absolute top-4 right-4 flex flex-wrap gap-1.5 justify-end max-w-[60%]">
+          <div className="absolute bottom-4 right-4 flex flex-wrap gap-1.5 justify-end max-w-[60%]">
             {allCategories.slice(0, 3).map(cat => (
               <span key={cat} className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
                 {CATEGORY_LABELS[cat] ?? cat}
@@ -203,70 +239,94 @@ export default async function CreatorProfilePage({
             ))}
           </div>
         )}
-        {/* Avatar */}
-        <div className="absolute -bottom-14 left-6">
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4">
+        {/* Avatar overlapping banner */}
+        <div className="relative -mt-16 mb-4 flex items-end justify-between flex-wrap gap-4">
           <Avatar
             src={creator.avatar_url}
             name={creator.display_name}
             size="xl"
             className="ring-4 ring-white shadow-xl"
           />
-        </div>
-      </div>
-
-      {/* Profile header */}
-      <div className="flex items-start justify-between mb-8 animate-slide-up">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-1">{creator.display_name}</h1>
-          {creator.bio && (
-            <p className="text-gray-500 max-w-lg leading-relaxed">{creator.bio}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-3 mt-3">
-            {products.length > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <ShoppingBag className="h-4 w-4 text-gray-400" />
-                {products.length} {products.length === 1 ? 'Produkt' : 'Produkte'}
-              </span>
+          <div className="flex items-center gap-2 pb-1">
+            {user?.id === creator.user_id && (
+              <Link href="/creator/settings/profile">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Pencil className="h-3.5 w-3.5" />
+                  Bearbeiten
+                </Button>
+              </Link>
             )}
-            {tiers.length > 0 && (
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <Sparkles className="h-4 w-4 text-gray-400" />
-                {tiers.length} Abo-Stufe{tiers.length !== 1 ? 'n' : ''}
-              </span>
-            )}
-            {totalSales >= 50 && (
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <TrendingUp className="h-4 w-4 text-gray-400" />
-                {totalSales} {totalSales === 1 ? 'Kauf' : 'Käufe'}
-              </span>
-            )}
-            {overallAvgRating !== null && (
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                {overallAvgRating.toFixed(1)} ({totalReviewCount} {totalReviewCount === 1 ? 'Bewertung' : 'Bewertungen'})
-              </span>
+            {user && activeSubscription && (
+              <Link href={`/chat/${creator.id}`}>
+                <Button size="sm" className="gap-1.5 shadow-sm">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Nachricht
+                </Button>
+              </Link>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {user?.id === creator.user_id && (
-            <Link href="/creator/settings/profile">
-              <Button variant="outline" className="gap-2">
-                <Pencil className="h-4 w-4" />
-                Profil bearbeiten
-              </Button>
-            </Link>
-          )}
-          {user && activeSubscription && (
-            <Link href={`/chat/${creator.id}`}>
-              <Button className="gap-2 shadow-sm">
-                <MessageCircle className="h-4 w-4" />
-                Nachricht
-              </Button>
-            </Link>
+
+        {/* Profile header */}
+        <div className="mb-6 animate-slide-up">
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">{creator.display_name}</h1>
+          {creator.bio && (
+            <p className="text-gray-500 max-w-2xl leading-relaxed text-base">{creator.bio}</p>
           )}
         </div>
-      </div>
+
+        {/* Stats strip */}
+        {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null) && (
+          <div className="flex flex-wrap items-center gap-4 mb-8 pb-6 border-b border-gray-100 animate-slide-up animate-delay-100">
+            {products.length > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center">
+                  <ShoppingBag className="h-4 w-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{products.length}</p>
+                  <p className="text-gray-500 text-xs">{products.length === 1 ? 'Produkt' : 'Produkte'}</p>
+                </div>
+              </div>
+            )}
+            {totalSales >= 10 && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{totalSales}</p>
+                  <p className="text-gray-500 text-xs">Verkäufe</p>
+                </div>
+              </div>
+            )}
+            {overallAvgRating !== null && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{overallAvgRating.toFixed(1)}</p>
+                  <p className="text-gray-500 text-xs">{totalReviewCount} Bewertung{totalReviewCount !== 1 ? 'en' : ''}</p>
+                </div>
+              </div>
+            )}
+            {tiers.length > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{tiers.length}</p>
+                  <p className="text-gray-500 text-xs">Abo-Stufe{tiers.length !== 1 ? 'n' : ''}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       {services.length > 0 && (
         <div className="mb-8 animate-slide-up animate-delay-100">
@@ -285,7 +345,7 @@ export default async function CreatorProfilePage({
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-8 pb-16">
         {/* Products */}
         <div className="lg:col-span-2 space-y-4 animate-slide-up animate-delay-100">
           <h2 className="text-xl font-bold text-gray-900">Produkte</h2>
@@ -465,5 +525,6 @@ export default async function CreatorProfilePage({
         </div>
       </div>
     </div>
+  </div>
   )
 }
