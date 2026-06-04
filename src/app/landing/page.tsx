@@ -37,7 +37,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-green-100/80 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Egal ob du schon auf Instagram, TikTok oder Udemy verkaufst — Ardore ist dein zentraler Marktplatz für Health Coaches in Deutschland.
+            Egal ob du schon auf anderen Plattformen oder sozialen Medien aktiv bist — Ardore ist dein zentraler Marktplatz für Health Coaches in Deutschland.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
@@ -83,11 +83,11 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">Du hast schon eine Community?</h3>
               <p className="text-gray-600 leading-relaxed mb-6">
-                Nutze Ardore als zweiten Vertriebskanal. Deine Instagram-Follower kaufen über einen professionellen Marktplatz mit Bewertungen und Vertrauen. Du behältst deine Community, gewinnst aber zusätzlich Sichtbarkeit auf Ardore.
+                Nutze Ardore als zweiten Vertriebskanal. Deine bestehende Community kauft über einen professionellen Marktplatz mit Bewertungen und Vertrauen. Du behältst dein Publikum, gewinnst aber zusätzlich Sichtbarkeit auf Ardore.
               </p>
               <ul className="space-y-2.5">
                 {[
-                  'Kunden vertrauen verifizierten Marktplätzen mehr als DMs',
+                  'Kunden vertrauen einem strukturierten Marktplatz mehr als privaten Nachrichten',
                   'Echte Bewertungen stärken deine Glaubwürdigkeit',
                   'Neue Kunden finden dich über Suche & KI-Finder',
                 ].map(item => (
@@ -202,7 +202,7 @@ export default function LandingPage() {
               {
                 icon: <Target className="h-5 w-5 text-green-600" />,
                 title: 'Zentrale Plattform',
-                desc: 'Coaches und Kunden finden zueinander statt durch Zufall auf Instagram. Ein Profil, alle deine Angebote.',
+                desc: 'Coaches und Kunden finden zueinander — strukturiert statt durch Zufall. Ein Profil, alle deine Angebote.',
               },
               {
                 icon: <RefreshCw className="h-5 w-5 text-green-600" />,

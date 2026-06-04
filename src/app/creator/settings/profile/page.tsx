@@ -11,7 +11,7 @@ import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { CategoryPicker, ServicePicker } from '@/components/ui/CategoryPicker'
 import { getInitials } from '@/lib/utils'
-import { ArrowLeft, Camera, Check } from 'lucide-react'
+import { ArrowLeft, Camera, GraduationCap, Plus, X } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/lib/toast'
 
@@ -38,6 +38,8 @@ export default function ProfileSettingsPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [categoryError, setCategoryError] = useState('')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const [qualifications, setQualifications] = useState<string[]>([])
+  const [qualInput, setQualInput] = useState('')
 
   // Images: current URLs + selected files + local previews
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -64,7 +66,7 @@ export default function ProfileSettingsPage() {
 
       const { data: creator } = await supabase
         .from('creator_profiles')
-        .select('id, display_name, bio, category, categories, services, avatar_url, banner_url')
+        .select('id, display_name, bio, category, categories, services, qualifications, avatar_url, banner_url')
         .eq('user_id', user.id)
         .single()
 
@@ -80,6 +82,7 @@ export default function ProfileSettingsPage() {
           : creator.category ? [creator.category] : []
       )
       setSelectedServices((creator.services as string[] | null) ?? [])
+      setQualifications((creator.qualifications as string[] | null) ?? [])
 
       reset({
         display_name: creator.display_name,
@@ -164,6 +167,7 @@ export default function ProfileSettingsPage() {
         category: selectedCategories[0] ?? null,
         categories: selectedCategories,
         services: selectedServices,
+        qualifications: qualifications.filter(q => q.trim().length > 0),
         avatar_url: newAvatarUrl,
         banner_url: newBannerUrl,
       })
@@ -297,6 +301,64 @@ export default function ProfileSettingsPage() {
               selected={selectedServices}
               onChange={setSelectedServices}
             />
+
+            {/* Qualifications */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                Qualifikationen &amp; Zertifikate
+              </label>
+              <p className="text-xs text-gray-400 mb-3">
+                Füge deine Ausbildung, Studium oder Zertifikate hinzu. Coaches mit hinterlegten Qualifikationen erhalten ein Badge auf ihrem Profil.
+              </p>
+              {qualifications.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {qualifications.map((q, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 bg-green-50 border border-green-200 text-green-800 text-xs font-medium rounded-full">
+                      <GraduationCap className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      {q}
+                      <button
+                        type="button"
+                        onClick={() => setQualifications(prev => prev.filter((_, j) => j !== i))}
+                        className="h-4 w-4 rounded-full hover:bg-green-200 flex items-center justify-center transition-colors ml-0.5"
+                        aria-label="Entfernen"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={qualInput}
+                  onChange={e => setQualInput(e.target.value)}
+                  onKeyDown={e => {
+                    if ((e.key === 'Enter' || e.key === ',') && qualInput.trim()) {
+                      e.preventDefault()
+                      setQualifications(prev => [...prev, qualInput.trim()])
+                      setQualInput('')
+                    }
+                  }}
+                  placeholder="z.B. B.Sc. Sportwissenschaft, Personal Trainer IHK…"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 hover:border-gray-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (qualInput.trim()) {
+                      setQualifications(prev => [...prev, qualInput.trim()])
+                      setQualInput('')
+                    }
+                  }}
+                  disabled={!qualInput.trim()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Hinzufügen
+                </button>
+              </div>
+            </div>
 
             <div className="flex flex-col gap-1.5">
               <Textarea

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, X, Star, Package, ArrowRight, Users,
+  Search, X, Star, Package, ArrowRight, Users, GraduationCap,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
@@ -94,9 +94,17 @@ function CoachCard({ coach }: { coach: CoachData }) {
 
           {/* Name + category badges */}
           <div className="mb-2.5">
-            <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors mb-1.5">
-              {coach.display_name}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+              <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">
+                {coach.display_name}
+              </h3>
+              {coach.qualifications.length > 0 && (
+                <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <GraduationCap className="h-3 w-3" />
+                  Qualifiziert
+                </span>
+              )}
+            </div>
             {allCats.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {allCats.slice(0, 3).map(cat => (

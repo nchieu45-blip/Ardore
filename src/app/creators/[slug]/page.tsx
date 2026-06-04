@@ -9,7 +9,7 @@ import { formatCurrency } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, CheckCircle2, TrendingUp, Star,
-  ChevronRight,
+  ChevronRight, GraduationCap,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -208,6 +208,7 @@ export default async function CreatorProfilePage({
     ? (creator.categories as string[])
     : creator.category ? [creator.category] : []
   const services: string[] = (creator.services as string[] | null) ?? []
+  const qualifications: string[] = (creator.qualifications as string[] | null) ?? []
   const bannerGradient = primaryCategory
     ? (CATEGORY_GRADIENTS[primaryCategory] ?? DEFAULT_GRADIENT)
     : DEFAULT_GRADIENT
@@ -272,7 +273,15 @@ export default async function CreatorProfilePage({
 
         {/* Profile header */}
         <div className="mb-6 animate-slide-up">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">{creator.display_name}</h1>
+          <div className="flex items-center gap-3 flex-wrap mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
+            {qualifications.length > 0 && (
+              <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                <GraduationCap className="h-3.5 w-3.5" />
+                Qualifiziert
+              </span>
+            )}
+          </div>
           {creator.bio && (
             <p className="text-gray-500 max-w-2xl leading-relaxed text-base">{creator.bio}</p>
           )}
@@ -327,6 +336,29 @@ export default async function CreatorProfilePage({
             )}
           </div>
         )}
+
+      {qualifications.length > 0 && (
+        <div className="mb-6 animate-slide-up animate-delay-100">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Qualifikationen</h2>
+            <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              <GraduationCap className="h-3 w-3" />
+              Qualifiziert
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {qualifications.map((q, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium"
+              >
+                <GraduationCap className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                {q}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {services.length > 0 && (
         <div className="mb-8 animate-slide-up animate-delay-100">

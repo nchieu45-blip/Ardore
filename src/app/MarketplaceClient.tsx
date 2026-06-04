@@ -92,8 +92,8 @@ const TRUST_BADGES = [
 const TRUST_ITEMS = [
   {
     icon: <ShieldCheck className="h-5 w-5 text-green-600" />,
-    title: 'Verifizierte Coaches',
-    desc: 'Wir prüfen jeden Coach, der sich registriert, persönlich.',
+    title: 'Qualifizierte Coaches',
+    desc: 'Coaches können ihre Ausbildung und Zertifikate hinterlegen — so erkennst du echte Qualifikation auf einen Blick.',
   },
   {
     icon: <Star className="h-5 w-5 text-amber-500" />,
