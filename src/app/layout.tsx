@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { Toaster } from '@/components/ui/Toaster'
 import { createClient } from '@/lib/supabase/server'
 
 const geistSans = Geist({
@@ -46,6 +47,7 @@ export default async function RootLayout({
           {children}
         </main>
         <Footer />
+        <Toaster />
       </body>
     </html>
   )
