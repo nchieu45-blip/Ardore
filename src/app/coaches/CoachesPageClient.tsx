@@ -241,12 +241,12 @@ export default function CoachesPageClient({ coaches }: Props) {
       {/* ── Sticky filter bar ─────────────────────────────────────── */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {/* Category pills */}
             <button
               onClick={() => go({ category: 'all' })}
               className={cn(
-                'px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all',
+                'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                 category === 'all'
                   ? 'bg-gray-900 text-white border-gray-900'
                   : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
@@ -259,7 +259,7 @@ export default function CoachesPageClient({ coaches }: Props) {
                 key={cat}
                 onClick={() => go({ category: category === cat ? 'all' : cat })}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all',
+                  'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                   category === cat
                     ? 'bg-gray-900 text-white border-gray-900'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
@@ -270,13 +270,13 @@ export default function CoachesPageClient({ coaches }: Props) {
             ))}
 
             {/* Sort options */}
-            <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+            <div className="ml-auto flex items-center gap-1.5 flex-shrink-0 pl-2">
               {SORT_OPTIONS.map(({ key, label }) => (
                 <button
                   key={key}
                   onClick={() => go({ sort: key })}
                   className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                    'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                     sort === key
                       ? 'bg-green-600 text-white border-green-600'
                       : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'

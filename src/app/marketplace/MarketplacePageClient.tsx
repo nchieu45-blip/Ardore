@@ -203,14 +203,14 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       {/* ── Sticky filter bar ─────────────────────────────────────── */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
             {/* Category dropdown */}
-            <div ref={categoryRef} className="relative">
+            <div ref={categoryRef} className="relative flex-shrink-0">
               <button
                 onClick={() => setCategoryOpen(o => !o)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all',
+                  'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                   category !== 'all'
                     ? 'bg-gray-900 text-white border-gray-900'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
@@ -235,7 +235,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
               )}
             </div>
 
-            <div className="h-4 w-px bg-gray-200 flex-shrink-0 hidden sm:block" />
+            <div className="h-4 w-px bg-gray-200 flex-shrink-0" />
 
             {/* Type pills */}
             {TYPE_OPTIONS.map(({ key, label }) => (
@@ -243,7 +243,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 key={key}
                 onClick={() => go({ type: key, page: 1 })}
                 className={cn(
-                  'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                  'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                   type === key
                     ? 'bg-gray-800 text-white border-gray-800'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
@@ -254,11 +254,11 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             ))}
 
             {/* Right side: advanced + sort + reset */}
-            <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+            <div className="ml-auto flex items-center gap-2 flex-shrink-0 pl-2">
               <button
                 onClick={() => setAdvancedOpen(o => !o)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                   (level || equipment.length > 0 || duration)
                     ? 'bg-green-50 text-green-700 border-green-200'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
@@ -273,7 +273,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 )}
               </button>
 
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <select
                   value={sort}
                   onChange={e => go({ sort: e.target.value, page: 1 })}
@@ -289,7 +289,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
               {(activeFilterCount > 0 || search) && (
                 <button
                   onClick={resetAll}
-                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors whitespace-nowrap"
                 >
                   <X className="h-3 w-3" />
                   Reset
