@@ -1,8 +1,14 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+
+export const metadata: Metadata = {
+  title: 'Mein Bereich',
+  description: 'Deine gekauften Produkte, Abonnements und Bibliothek auf Ardore.',
+}
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatCurrency, formatDate } from '@/lib/utils'

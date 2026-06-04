@@ -1,7 +1,17 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import MarketplacePageClient from './MarketplacePageClient'
+
+export const metadata: Metadata = {
+  title: 'Marketplace',
+  description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von den besten Coaches Deutschlands.',
+  openGraph: {
+    title: 'Marketplace – Ardore',
+    description: 'Digitale Produkte von Fitness- und Gesundheitscoaches.',
+  },
+}
 
 export default async function MarketplacePage() {
   const supabase = await createClient()

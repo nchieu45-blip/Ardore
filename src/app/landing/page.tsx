@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import {
@@ -5,6 +6,15 @@ import {
   Target, RefreshCw, Zap, BadgePercent,
   TrendingUp, Shield, Users, MessageCircle,
 } from 'lucide-react'
+
+export const metadata: Metadata = {
+  title: 'Für Coaches – Werde Creator',
+  description: 'Verkaufe Trainingspläne, Kurse und Ernährungspläne auf Ardore. Starte kostenlos und baue deine Fitness-Community auf.',
+  openGraph: {
+    title: 'Für Coaches – Ardore',
+    description: 'Monetarisiere dein Wissen. Starte kostenlos.',
+  },
+}
 
 export default function LandingPage() {
   return (

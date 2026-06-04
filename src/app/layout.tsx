@@ -16,9 +16,31 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://ardore.de'
+
 export const metadata: Metadata = {
-  title: 'Ardore – Fitness & Gesundheitscoaches',
-  description: 'Die Plattform für Fitness-, Ernährungs- und Gesundheitscoaches in Deutschland.',
+  metadataBase: new URL(BASE_URL),
+  title: {
+    default: 'Ardore – Fitness & Gesundheitscoaches',
+    template: '%s – Ardore',
+  },
+  description: 'Entdecke Fitness-, Ernährungs- und Gesundheitscoaches in Deutschland. Kaufe digitale Produkte, abonniere deinen Lieblingscoach und erreiche deine Ziele.',
+  keywords: ['Fitness', 'Gesundheitscoach', 'Ernährung', 'Online Coaching', 'Trainingsplan', 'Deutschland'],
+  authors: [{ name: 'Ardore' }],
+  openGraph: {
+    type: 'website',
+    locale: 'de_DE',
+    url: BASE_URL,
+    siteName: 'Ardore',
+    title: 'Ardore – Fitness & Gesundheitscoaches',
+    description: 'Entdecke Coaches, kaufe Trainingspläne und Kurse. Die Plattform für Fitness-Community in Deutschland.',
+    images: [{ url: '/og-default.png', width: 1200, height: 630, alt: 'Ardore' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Ardore – Fitness & Gesundheitscoaches',
+    description: 'Entdecke Coaches, kaufe Trainingspläne und Kurse.',
+  },
 }
 
 export default async function RootLayout({

@@ -1,8 +1,14 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+
+export const metadata: Metadata = {
+  title: 'Creator Dashboard',
+  description: 'Verwalte deine Produkte, Abonnements und Einnahmen auf Ardore.',
+}
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { TrendingUp, Users, ShoppingBag, Plus, ExternalLink, AlertCircle, MessageCircle, Settings2 } from 'lucide-react'

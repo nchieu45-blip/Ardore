@@ -1,6 +1,16 @@
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
 import CoachesPageClient from './CoachesPageClient'
+
+export const metadata: Metadata = {
+  title: 'Coaches entdecken',
+  description: 'Finde deinen Coach: Fitness, Ernährung, Yoga, Mental Health und mehr. Durchsuche hunderte zertifizierter Coaches in Deutschland.',
+  openGraph: {
+    title: 'Coaches entdecken – Ardore',
+    description: 'Finde den richtigen Coach für deine Ziele.',
+  },
+}
 
 export interface CoachData {
   id: string
