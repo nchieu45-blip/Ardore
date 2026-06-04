@@ -1,0 +1,337 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { cn } from '@/lib/utils'
+
+interface Props {
+  creatorId: string
+  offer: {
+    price_cents: number
+    duration_minutes: number
+    description: string | null
+  }
+  currentUserEmail?: string | null
+  currentUserName?: string | null
+}
+
+type Step = 'date' | 'time' | 'form' | 'success'
+
+const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+const DAY_SHORT   = ['So','Mo','Di','Mi','Do','Fr','Sa']
+
+function formatDate(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
+function buildCalendarDays(year: number, month: number) {
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  return { firstDay, daysInMonth }
+}
+
+export default function BookingWidget({ creatorId, offer, currentUserEmail, currentUserName }: Props) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const [calYear,  setCalYear]  = useState(today.getFullYear())
+  const [calMonth, setCalMonth] = useState(today.getMonth())
+  const [selected, setSelected] = useState<Date | null>(null)
+  const [slots,    setSlots]    = useState<string[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [chosenSlot,   setChosenSlot]   = useState<string | null>(null)
+  const [step,    setStep]    = useState<Step>('date')
+  const [name,    setName]    = useState(currentUserName ?? '')
+  const [email,   setEmail]   = useState(currentUserEmail ?? '')
+  const [notes,   setNotes]   = useState('')
+  const [booking, setBooking] = useState(false)
+  const [bookingId, setBookingId] = useState<string | null>(null)
+
+  async function fetchSlots(date: Date) {
+    setSlotsLoading(true)
+    setSlots([])
+    try {
+      const res = await fetch(`/api/coaching/slots?creatorId=${creatorId}&date=${formatDate(date)}`)
+      const json = await res.json() as { slots: string[] }
+      setSlots(json.slots ?? [])
+    } catch {
+      setSlots([])
+    } finally {
+      setSlotsLoading(false)
+    }
+  }
+
+  function selectDate(date: Date) {
+    setSelected(date)
+    setChosenSlot(null)
+    setStep('time')
+    fetchSlots(date)
+  }
+
+  function prevMonth() {
+    if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11) }
+    else setCalMonth(m => m - 1)
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0) }
+    else setCalMonth(m => m + 1)
+  }
+
+  async function book() {
+    if (!selected || !chosenSlot || !name.trim() || !email.trim()) return
+    setBooking(true)
+    try {
+      const res = await fetch('/api/coaching/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId,
+          date: formatDate(selected),
+          time: chosenSlot,
+          name: name.trim(),
+          email: email.trim(),
+          notes: notes.trim() || null,
+        }),
+      })
+      const json = await res.json() as { bookingId?: string; error?: string }
+      if (!res.ok) throw new Error(json.error ?? 'Buchungsfehler')
+      setBookingId(json.bookingId ?? null)
+      setStep('success')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Buchungsfehler')
+    } finally {
+      setBooking(false)
+    }
+  }
+
+  const price = (offer.price_cents / 100).toFixed(2).replace('.', ',')
+  const { firstDay, daysInMonth } = buildCalendarDays(calYear, calMonth)
+
+  // Disable navigating to past months
+  const canPrevMonth = calYear > today.getFullYear() || calMonth > today.getMonth()
+
+  // Max 3 months ahead
+  const maxDate = new Date(today)
+  maxDate.setMonth(maxDate.getMonth() + 3)
+
+  function isDayDisabled(day: number) {
+    const d = new Date(calYear, calMonth, day)
+    d.setHours(0, 0, 0, 0)
+    return d < today || d > maxDate
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-green-200 bg-white overflow-hidden shadow-sm">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-green-600 to-emerald-600 px-5 py-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Video className="h-4.5 w-4.5 text-white" />
+          <h3 className="font-bold text-white">1:1 Videocoaching</h3>
+        </div>
+        <div className="flex items-center gap-3 text-green-100 text-sm">
+          <span className="font-semibold text-white text-lg">{price} €</span>
+          <span>·</span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5" />
+            {offer.duration_minutes} Min
+          </span>
+        </div>
+        {offer.description && (
+          <p className="text-green-100/80 text-xs mt-2 leading-relaxed">{offer.description}</p>
+        )}
+      </div>
+
+      <div className="p-5">
+        {step === 'success' ? (
+          <div className="text-center py-4">
+            <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="h-7 w-7 text-green-600" />
+            </div>
+            <p className="font-bold text-gray-900 mb-1">Buchung bestätigt!</p>
+            <p className="text-sm text-gray-500 mb-1">
+              Du erhältst eine Bestätigung an <strong>{email}</strong>.
+            </p>
+            <p className="text-sm text-gray-500">
+              Der Videoraum-Link wird kurz vor der Session per E-Mail zugesendet.
+            </p>
+            {bookingId && (
+              <a
+                href={`/session/${bookingId}`}
+                className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium text-green-600 hover:text-green-700"
+              >
+                <Video className="h-4 w-4" />
+                Session-Seite öffnen
+              </a>
+            )}
+          </div>
+        ) : step === 'date' || step === 'time' ? (
+          <>
+            {/* Calendar */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                {step === 'time' ? (
+                  <button
+                    onClick={() => { setStep('date'); setSelected(null); setSlots([]) }}
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Datum ändern
+                  </button>
+                ) : (
+                  <span className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-green-600" />
+                    Datum wählen
+                  </span>
+                )}
+                {step === 'date' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={prevMonth}
+                      disabled={!canPrevMonth}
+                      className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="h-4 w-4 text-gray-500" />
+                    </button>
+                    <span className="text-sm font-medium text-gray-700 min-w-28 text-center">
+                      {MONTH_NAMES[calMonth]} {calYear}
+                    </span>
+                    <button
+                      onClick={nextMonth}
+                      className="p-1 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      <ChevronRight className="h-4 w-4 text-gray-500" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {step === 'date' ? (
+                <>
+                  <div className="grid grid-cols-7 mb-1">
+                    {DAY_SHORT.map(d => (
+                      <div key={d} className="text-center text-[10px] font-medium text-gray-400 py-1">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-0.5">
+                    {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                      const d = new Date(calYear, calMonth, day)
+                      const disabled = isDayDisabled(day)
+                      const isSelected = selected && formatDate(d) === formatDate(selected)
+                      return (
+                        <button
+                          key={day}
+                          disabled={disabled}
+                          onClick={() => selectDate(d)}
+                          className={cn(
+                            'aspect-square flex items-center justify-center text-sm rounded-lg transition-all font-medium',
+                            disabled     ? 'text-gray-200 cursor-not-allowed' :
+                            isSelected   ? 'bg-green-600 text-white' :
+                            'text-gray-700 hover:bg-green-50 hover:text-green-700'
+                          )}
+                        >
+                          {day}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              ) : (
+                /* Time slots */
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-green-600" />
+                    {selected?.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </p>
+                  {slotsLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 text-green-600 animate-spin" />
+                    </div>
+                  ) : slots.length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-sm text-gray-500 mb-2">Keine freien Termine an diesem Tag.</p>
+                      <button
+                        onClick={() => { setStep('date'); setSelected(null) }}
+                        className="text-sm text-green-600 hover:text-green-700 font-medium"
+                      >
+                        Anderen Tag wählen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {slots.map(slot => (
+                        <button
+                          key={slot}
+                          onClick={() => { setChosenSlot(slot); setStep('form') }}
+                          className={cn(
+                            'py-2.5 rounded-xl text-sm font-medium border transition-all',
+                            chosenSlot === slot
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:text-green-700'
+                          )}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Booking form */
+          <div className="space-y-4">
+            <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-1">
+              <button
+                onClick={() => setStep('time')}
+                className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Zurück
+              </button>
+              <span>·</span>
+              <span className="font-medium text-gray-700">
+                {selected?.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} um {chosenSlot} Uhr
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail *</label>
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="deine@email.de" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nachricht / Ziele (optional)</label>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Was möchtest du in der Session erreichen?"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors hover:border-gray-400 resize-none"
+              />
+            </div>
+
+            <Button
+              onClick={book}
+              disabled={booking || !name.trim() || !email.trim()}
+              className="w-full gap-2"
+            >
+              {booking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+              {booking ? 'Wird gebucht…' : `Session für ${price} € buchen`}
+            </Button>
+
+            <p className="text-[11px] text-gray-400 text-center">
+              Du erhältst sofort eine Bestätigungs-E-Mail.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

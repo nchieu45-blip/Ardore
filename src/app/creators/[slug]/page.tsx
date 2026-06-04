@@ -16,6 +16,7 @@ import type { Metadata } from 'next'
 import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
 import ReviewSection from './ReviewSection'
+import BookingWidget from './BookingWidget'
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -156,6 +157,14 @@ export default async function CreatorProfilePage({
 
   const products = productsData ?? []
   const productIds = products.map((p: { id: string }) => p.id)
+
+  const { data: coachingOfferData } = await supabase
+    .from('coaching_offers')
+    .select('is_enabled, price_cents, duration_minutes, description')
+    .eq('creator_id', creator.id)
+    .single()
+
+  const coachingOffer = coachingOfferData?.is_enabled ? coachingOfferData : null
 
   const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
@@ -469,8 +478,18 @@ export default async function CreatorProfilePage({
           )}
         </div>
 
-        {/* Subscription tiers */}
-        <div className="space-y-4 animate-slide-up animate-delay-200">
+        {/* Sidebar: booking + tiers */}
+        <div className="space-y-6 animate-slide-up animate-delay-200">
+          {coachingOffer && (
+            <BookingWidget
+              creatorId={creator.id}
+              offer={coachingOffer}
+              currentUserEmail={user?.email ?? null}
+              currentUserName={currentProfile?.full_name ?? null}
+            />
+          )}
+
+          <div className="space-y-4">
           <h2 className="text-xl font-bold text-gray-900">Abonnements</h2>
 
           {tiers.length === 0 ? (
@@ -554,6 +573,7 @@ export default async function CreatorProfilePage({
               )
             })
           )}
+        </div>
         </div>
       </div>
     </div>
