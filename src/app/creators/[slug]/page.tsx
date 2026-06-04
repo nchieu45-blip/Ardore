@@ -311,7 +311,7 @@ export default async function CreatorProfilePage({
                     {/* Type thumbnail strip */}
                     <div className={`w-2 bg-gradient-to-b ${TYPE_GRADIENTS[product.type]} flex-shrink-0 rounded-l-2xl`} />
                     <CardContent className="flex items-start gap-4 p-5 flex-1">
-                      <div className={`relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm`}>
+                      <Link href={`/products/${product.id}`} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
                         {product.thumbnail_url ? (
                           <img
                             src={product.thumbnail_url}
@@ -323,10 +323,12 @@ export default async function CreatorProfilePage({
                             {TYPE_ICONS[product.type]}
                           </div>
                         )}
-                      </div>
+                      </Link>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900 leading-snug">{product.title}</h3>
+                          <Link href={`/products/${product.id}`} className="hover:text-green-700 transition-colors">
+                            <h3 className="font-semibold text-gray-900 leading-snug">{product.title}</h3>
+                          </Link>
                           <span className="flex-shrink-0 text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                             {TYPE_LABELS[product.type]}
                           </span>
