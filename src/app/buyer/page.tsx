@@ -71,7 +71,7 @@ export default async function BuyerDashboardPage() {
             <p className="text-green-100/70 mt-2">Deine Käufe, Abonnements und Chats auf einen Blick.</p>
           </div>
           <div className="animate-slide-up animate-delay-200 flex gap-2">
-            <Link href="/creators">
+            <Link href="/coaches">
               <Button className="bg-white text-green-800 hover:bg-green-50 shadow-lg gap-2">
                 <Compass className="h-4 w-4" />
                 Coaches entdecken
@@ -128,7 +128,7 @@ export default async function BuyerDashboardPage() {
                   </div>
                   <p className="font-medium text-gray-700 mb-1">Noch keine Abonnements</p>
                   <p className="text-sm text-gray-400 mb-4">Abonniere einen Coach für exklusive Inhalte und Chat-Zugang.</p>
-                  <Link href="/creators">
+                  <Link href="/coaches">
                     <Button size="sm" variant="outline">
                       <Search className="h-3.5 w-3.5" />
                       Coaches entdecken

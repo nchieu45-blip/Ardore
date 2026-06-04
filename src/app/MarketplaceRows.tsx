@@ -293,7 +293,7 @@ export default function MarketplaceRows({ products, salesCounts, ratings }: Prop
         <ScrollRow
           title="Beliebte Coaches"
           icon={<Users className="h-4 w-4 text-green-600" />}
-          showAllHref="/creators"
+          showAllHref="/coaches"
         >
           {topCoaches.map(c => (
             <CoachCard key={c.slug} creator={c} productCount={coachProductCount.get(c.slug) ?? 0} />

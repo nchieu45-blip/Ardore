@@ -19,7 +19,7 @@ export function Footer() {
           <div>
             <h3 className="text-white font-medium mb-3">Plattform</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/creators" className="hover:text-white transition-colors">Coaches entdecken</Link></li>
+              <li><Link href="/coaches" className="hover:text-white transition-colors">Coaches entdecken</Link></li>
               <li><Link href="/register?role=creator" className="hover:text-white transition-colors">Creator werden</Link></li>
               <li><Link href="/register" className="hover:text-white transition-colors">Registrieren</Link></li>
             </ul>

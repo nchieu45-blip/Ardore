@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
@@ -17,7 +17,22 @@ export function Navbar({ user }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
+
+  function navCls(href: string) {
+    const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    return active
+      ? 'px-3 py-2 text-sm rounded-lg font-medium bg-green-50 text-green-700 transition-all'
+      : 'px-3 py-2 text-sm rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all'
+  }
+
+  function mobileNavCls(href: string) {
+    const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    return active
+      ? 'flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
+      : 'flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -41,16 +56,16 @@ export function Navbar({ user }: NavbarProps) {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
-            <Link href="/" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+            <Link href="/" className={navCls('/')}>
               Startseite
             </Link>
-            <Link href="/marketplace" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+            <Link href="/marketplace" className={navCls('/marketplace')}>
               Marketplace
             </Link>
-            <Link href="/coaches" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+            <Link href="/coaches" className={navCls('/coaches')}>
               Coaches
             </Link>
-            <Link href="/landing" className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+            <Link href="/landing" className={navCls('/landing')}>
               Für Coaches
             </Link>
 
@@ -117,16 +132,16 @@ export function Navbar({ user }: NavbarProps) {
       {menuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm">
           <div className="px-4 py-3 space-y-1">
-            <Link href="/" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
+            <Link href="/" className={mobileNavCls('/')} onClick={() => setMenuOpen(false)}>
               Startseite
             </Link>
-            <Link href="/marketplace" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
+            <Link href="/marketplace" className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
               Marketplace
             </Link>
-            <Link href="/coaches" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
+            <Link href="/coaches" className={mobileNavCls('/coaches')} onClick={() => setMenuOpen(false)}>
               Coaches
             </Link>
-            <Link href="/landing" className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
+            <Link href="/landing" className={mobileNavCls('/landing')} onClick={() => setMenuOpen(false)}>
               Für Coaches
             </Link>
             {user ? (

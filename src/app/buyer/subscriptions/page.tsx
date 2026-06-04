@@ -29,7 +29,7 @@ export default async function SubscriptionsPage() {
       {subList.length === 0 ? (
         <Card className="text-center py-16">
           <p className="text-gray-500 mb-4">Du hast noch keine Abonnements.</p>
-          <Link href="/creators">
+          <Link href="/coaches">
             <Button>Coaches entdecken</Button>
           </Link>
         </Card>
