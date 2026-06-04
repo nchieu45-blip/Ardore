@@ -13,6 +13,7 @@ import { CategoryPicker, ServicePicker } from '@/components/ui/CategoryPicker'
 import { getInitials } from '@/lib/utils'
 import { ArrowLeft, Camera, Check } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from '@/lib/toast'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyResolver = any
@@ -34,8 +35,6 @@ export default function ProfileSettingsPage() {
   const [creatorId, setCreatorId] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState('')
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [categoryError, setCategoryError] = useState('')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
@@ -135,9 +134,7 @@ export default function ProfileSettingsPage() {
   }
 
   async function onSubmit(data: FormData) {
-    setError('')
     setImageError('')
-    setSaved(false)
     if (selectedCategories.length === 0) {
       setCategoryError('Bitte wähle mindestens eine Kategorie')
       return
@@ -173,7 +170,7 @@ export default function ProfileSettingsPage() {
       .eq('id', creatorId)
 
     if (updateError) {
-      setError('Speichern fehlgeschlagen. Bitte versuche es erneut.')
+      toast.error('Speichern fehlgeschlagen. Bitte versuche es erneut.')
       return
     }
 
@@ -182,8 +179,7 @@ export default function ProfileSettingsPage() {
     setBannerUrl(newBannerUrl)
     setAvatarFile(null)
     setBannerFile(null)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    toast.success('Profil gespeichert')
   }
 
   if (loading) {
@@ -317,25 +313,12 @@ export default function ProfileSettingsPage() {
           </CardContent>
         </Card>
 
-        {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-            {error}
-          </div>
-        )}
-
         <div className="flex items-center gap-3">
           <Link href="/creator/settings">
             <Button type="button" variant="outline">Abbrechen</Button>
           </Link>
           <Button type="submit" loading={isSubmitting} className="flex-1 sm:flex-none sm:min-w-36">
-            {saved ? (
-              <>
-                <Check className="h-4 w-4" />
-                Gespeichert
-              </>
-            ) : (
-              'Änderungen speichern'
-            )}
+            Änderungen speichern
           </Button>
         </div>
       </form>

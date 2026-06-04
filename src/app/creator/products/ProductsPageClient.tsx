@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { FileText, Video, BookOpen, Image as ImageIcon, Edit, Globe, EyeOff } from 'lucide-react'
+import { toast } from '@/lib/toast'
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   pdf:    <FileText className="h-4 w-4" />,
@@ -46,9 +47,11 @@ export default function ProductsPageClient({ initialProducts }: { initialProduct
         body: JSON.stringify({ is_published: newValue }),
       })
       if (!res.ok) throw new Error()
+      toast.success(newValue ? 'Produkt veröffentlicht' : 'Produkt zurückgezogen')
       router.refresh()
     } catch {
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_published: product.is_published } : p))
+      toast.error('Änderung fehlgeschlagen. Bitte versuche es erneut.')
     } finally {
       setToggling(null)
     }

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
+import { toast } from '@/lib/toast'
 import Link from 'next/link'
 
 const MAX_THUMB_BYTES = 10 * 1024 * 1024
@@ -59,7 +60,6 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 export default function EditProductForm({ product }: { product: Product }) {
   const router = useRouter()
   const supabase = createClient()
-  const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(product.equipment ?? [])
   const [selectedLevel, setSelectedLevel] = useState<string | null>(product.level)
@@ -110,7 +110,6 @@ export default function EditProductForm({ product }: { product: Product }) {
   const displayThumbUrl = thumbnailPreview ?? (removeThumb ? null : product.thumbnail_url)
 
   async function save(data: FormData, isPublished: boolean) {
-    setError('')
     setSaving(true)
     try {
       let finalThumbnailUrl: string | null | undefined = undefined
@@ -158,10 +157,12 @@ export default function EditProductForm({ product }: { product: Product }) {
         const json = await res.json()
         throw new Error(json.error ?? 'Fehler beim Speichern')
       }
+      const label = isPublished ? 'Veröffentlicht' : 'Als Entwurf gespeichert'
+      toast.success(`Produkt ${label.toLowerCase()}`)
       router.push('/creator/products')
       router.refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ein Fehler ist aufgetreten')
+      toast.error(e instanceof Error ? e.message : 'Ein Fehler ist aufgetreten')
       setSaving(false)
     }
   }
@@ -358,12 +359,6 @@ export default function EditProductForm({ product }: { product: Product }) {
             )}
           </CardContent>
         </Card>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
-            {error}
-          </div>
-        )}
 
         {/* Actions */}
         <Card>
