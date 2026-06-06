@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -35,7 +35,7 @@ function formatDate(d: Date) {
 }
 
 function buildCalendarDays(year: number, month: number) {
-  const firstDay = new Date(year, month, 1).getDay()
+  const firstDay    = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   return { firstDay, daysInMonth }
 }
@@ -57,11 +57,32 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   const [booking, setBooking] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)
 
+  // Days with at least one available slot in the current month view
+  const [availableDays, setAvailableDays] = useState<Set<number>>(new Set())
+  const [daysLoading,   setDaysLoading]   = useState(false)
+
+  const fetchAvailableDays = useCallback(async (year: number, month: number) => {
+    setDaysLoading(true)
+    try {
+      const res  = await fetch(`/api/coaching/available-days?creatorId=${creatorId}&year=${year}&month=${month}`)
+      const json = await res.json() as { days: number[] }
+      setAvailableDays(new Set(json.days ?? []))
+    } catch {
+      setAvailableDays(new Set())
+    } finally {
+      setDaysLoading(false)
+    }
+  }, [creatorId])
+
+  useEffect(() => {
+    fetchAvailableDays(calYear, calMonth)
+  }, [calYear, calMonth, fetchAvailableDays])
+
   async function fetchSlots(date: Date) {
     setSlotsLoading(true)
     setSlots([])
     try {
-      const res = await fetch(`/api/coaching/slots?creatorId=${creatorId}&date=${formatDate(date)}`)
+      const res  = await fetch(`/api/coaching/slots?creatorId=${creatorId}&date=${formatDate(date)}`)
       const json = await res.json() as { slots: string[] }
       setSlots(json.slots ?? [])
     } catch {
@@ -87,24 +108,23 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
     else setCalMonth(m => m + 1)
   }
 
-  // Use subscriber allowance if they have sessions remaining
-  const useSubscription = !!subscriberSessions && subscriberSessions.remaining > 0
-  const effectivePrice  = useSubscription ? 0 : offer.price_cents
+  const useSubscription   = !!subscriberSessions && subscriberSessions.remaining > 0
+  const price             = (offer.price_cents / 100).toFixed(2).replace('.', ',')
 
   async function book() {
     if (!selected || !chosenSlot || !name.trim() || !email.trim()) return
     setBooking(true)
     try {
-      const res = await fetch('/api/coaching/book', {
-        method: 'POST',
+      const res  = await fetch('/api/coaching/book', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorId,
-          date: formatDate(selected),
-          time: chosenSlot,
-          name: name.trim(),
-          email: email.trim(),
-          notes: notes.trim() || null,
+          date:           formatDate(selected),
+          time:           chosenSlot,
+          name:           name.trim(),
+          email:          email.trim(),
+          notes:          notes.trim() || null,
           subscriptionId: useSubscription ? subscriberSessions!.subscriptionId : undefined,
         }),
       })
@@ -119,23 +139,14 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
     }
   }
 
-  const price         = (offer.price_cents / 100).toFixed(2).replace('.', ',')
-  const effectivePriceLabel = useSubscription
-    ? 'Kostenlos (inklusive)'
-    : `${price} €`
   const { firstDay, daysInMonth } = buildCalendarDays(calYear, calMonth)
-
-  // Disable navigating to past months
   const canPrevMonth = calYear > today.getFullYear() || calMonth > today.getMonth()
 
-  // Max 3 months ahead
-  const maxDate = new Date(today)
-  maxDate.setMonth(maxDate.getMonth() + 3)
-
-  function isDayDisabled(day: number) {
+  // Max date is enforced server-side; we just need to keep today as minimum
+  function isDayPast(day: number) {
     const d = new Date(calYear, calMonth, day)
     d.setHours(0, 0, 0, 0)
-    return d < today || d > maxDate
+    return d < today
   }
 
   return (
@@ -150,7 +161,10 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
           {useSubscription ? (
             <span className="font-semibold text-white text-base">
               Kostenlos
-              <span className="ml-1.5 text-xs font-normal text-green-100/70">({subscriberSessions!.remaining} von {subscriberSessions!.total} Session{subscriberSessions!.total !== 1 ? 's' : ''} {subscriberSessions!.period === 'week' ? 'diese Woche' : 'diesen Monat'} verbleibend)</span>
+              <span className="ml-1.5 text-xs font-normal text-green-100/70">
+                ({subscriberSessions!.remaining} von {subscriberSessions!.total} Session{subscriberSessions!.total !== 1 ? 's' : ''}{' '}
+                {subscriberSessions!.period === 'week' ? 'diese Woche' : 'diesen Monat'} verbleibend)
+              </span>
             </span>
           ) : (
             <span className="font-semibold text-white text-lg">{price} €</span>
@@ -191,7 +205,6 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
           </div>
         ) : step === 'date' || step === 'time' ? (
           <>
-            {/* Calendar */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-3">
                 {step === 'time' ? (
@@ -240,29 +253,43 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
                   <div className="grid grid-cols-7 gap-0.5">
                     {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
                     {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                      const d = new Date(calYear, calMonth, day)
-                      const disabled = isDayDisabled(day)
+                      const past       = isDayPast(day)
+                      const hasSlots   = !past && availableDays.has(day)
+                      const noSlots    = !past && !daysLoading && !availableDays.has(day)
+                      const d          = new Date(calYear, calMonth, day)
                       const isSelected = selected && formatDate(d) === formatDate(selected)
+                      const disabled   = past || (!daysLoading && noSlots)
+
                       return (
                         <button
                           key={day}
                           disabled={disabled}
-                          onClick={() => selectDate(d)}
+                          onClick={() => !disabled && selectDate(d)}
                           className={cn(
-                            'aspect-square flex items-center justify-center text-sm rounded-lg transition-all font-medium',
-                            disabled     ? 'text-gray-200 cursor-not-allowed' :
-                            isSelected   ? 'bg-green-600 text-white' :
-                            'text-gray-700 hover:bg-green-50 hover:text-green-700'
+                            'aspect-square flex flex-col items-center justify-center text-sm rounded-lg transition-all font-medium relative',
+                            past          ? 'text-gray-200 cursor-not-allowed' :
+                            isSelected    ? 'bg-green-600 text-white' :
+                            hasSlots      ? 'text-gray-800 hover:bg-green-50 hover:text-green-700' :
+                            daysLoading   ? 'text-gray-300' :
+                            'text-gray-200 cursor-not-allowed'
                           )}
                         >
                           {day}
+                          {hasSlots && !isSelected && (
+                            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500" />
+                          )}
                         </button>
                       )
                     })}
                   </div>
+                  {daysLoading && (
+                    <div className="flex items-center justify-center gap-1.5 mt-2 text-xs text-gray-400">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Verfügbarkeit wird geladen…
+                    </div>
+                  )}
                 </>
               ) : (
-                /* Time slots */
                 <div>
                   <p className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
                     <Clock className="h-4 w-4 text-green-600" />
@@ -305,7 +332,6 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
             </div>
           </>
         ) : (
-          /* Booking form */
           <div className="space-y-4">
             <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-1">
               <button

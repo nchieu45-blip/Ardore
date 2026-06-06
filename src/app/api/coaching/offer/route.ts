@@ -13,17 +13,23 @@ export async function POST(req: NextRequest) {
     .single()
   if (!creator) return NextResponse.json({ error: 'Creator nicht gefunden' }, { status: 404 })
 
-  const { is_enabled, price_cents, duration_minutes, description } = await req.json()
+  const {
+    is_enabled, price_cents, duration_minutes, description,
+    buffer_minutes, min_notice_hours, max_horizon_days,
+  } = await req.json()
 
   const { data, error } = await supabase
     .from('coaching_offers')
     .upsert({
-      creator_id: creator.id,
-      is_enabled: !!is_enabled,
-      price_cents: Math.max(0, Number(price_cents) || 8000),
+      creator_id:       creator.id,
+      is_enabled:       !!is_enabled,
+      price_cents:      Math.max(0, Number(price_cents) || 8000),
       duration_minutes: Number(duration_minutes) || 60,
-      description: description?.trim() || null,
-      updated_at: new Date().toISOString(),
+      description:      description?.trim() || null,
+      buffer_minutes:   [0, 15, 30].includes(Number(buffer_minutes)) ? Number(buffer_minutes) : 0,
+      min_notice_hours: Math.max(0, Number(min_notice_hours) || 24),
+      max_horizon_days: Math.max(1, Number(max_horizon_days) || 60),
+      updated_at:       new Date().toISOString(),
     }, { onConflict: 'creator_id' })
     .select()
     .single()

@@ -19,10 +19,10 @@ export default async function VideoCoachingSettingsPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
-  const [offerRes, slotsRes] = await Promise.all([
+  const [offerRes, slotsRes, overridesRes] = await Promise.all([
     supabase
       .from('coaching_offers')
-      .select('is_enabled, price_cents, duration_minutes, description')
+      .select('is_enabled, price_cents, duration_minutes, description, buffer_minutes, min_notice_hours, max_horizon_days')
       .eq('creator_id', creator.id)
       .single(),
     supabase
@@ -31,6 +31,11 @@ export default async function VideoCoachingSettingsPage() {
       .eq('creator_id', creator.id)
       .order('day_of_week')
       .order('start_time'),
+    supabase
+      .from('date_overrides')
+      .select('date, type, start_time, end_time')
+      .eq('creator_id', creator.id)
+      .order('date'),
   ])
 
   return (
@@ -54,8 +59,14 @@ export default async function VideoCoachingSettingsPage() {
       </div>
 
       <VideoCoachingForm
-        initialOffer={offerRes.data ?? null}
+        initialOffer={(offerRes.data as {
+          is_enabled: boolean; price_cents: number; duration_minutes: number
+          description: string | null; buffer_minutes: number; min_notice_hours: number; max_horizon_days: number
+        } | null) ?? null}
         initialSlots={(slotsRes.data ?? []) as { day_of_week: number; start_time: string; end_time: string }[]}
+        initialDateOverrides={(overridesRes.data ?? []) as {
+          date: string; type: 'available' | 'unavailable'; start_time: string | null; end_time: string | null
+        }[]}
       />
     </div>
   )
