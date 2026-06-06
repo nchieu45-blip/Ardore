@@ -38,6 +38,8 @@ export interface SubscriptionTier {
   features: string[]
   is_active: boolean
   created_at: string
+  included_video_sessions: number
+  video_session_period: 'week' | 'month' | null
 }
 
 export interface Product {

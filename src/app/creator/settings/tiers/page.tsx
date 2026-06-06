@@ -12,17 +12,22 @@ import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Plus, Trash2, Pencil, Eye, EyeOff } from 'lucide-react'
+import { Plus, Trash2, Pencil, Eye, EyeOff, Video } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { SubscriptionTier } from '@/types'
 
 const schema = z.object({
   name: z.string().min(2, 'Mindestens 2 Zeichen').max(50),
   description: z.string().max(300).optional(),
   price_monthly: z.coerce.number().int('Nur ganze Zahlen').min(0, 'Mindestens 0').max(999),
+  included_video_sessions: z.coerce.number().int().min(0).max(100).default(0),
+  video_session_period: z.enum(['week', 'month']).default('month'),
 })
 
 type FormData = z.infer<typeof schema>
+
+const PERIOD_LABELS = { week: 'pro Woche', month: 'pro Monat' }
 
 function TierForm({
   defaultValues,
@@ -34,10 +39,19 @@ function TierForm({
   onCancel: () => void
 }) {
   const [error, setError] = useState('')
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const {
+    register, handleSubmit, watch,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
     resolver: zodResolver(schema) as AnyResolver,
-    defaultValues,
+    defaultValues: {
+      included_video_sessions: 0,
+      video_session_period: 'month',
+      ...defaultValues,
+    },
   })
+
+  const sessions = Number(watch('included_video_sessions') ?? 0)
 
   async function onSubmit(data: FormData) {
     setError('')
@@ -70,6 +84,52 @@ function TierForm({
         placeholder="Was ist in diesem Abo enthalten?"
         {...register('description')}
       />
+
+      {/* Video session benefit */}
+      <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 space-y-3">
+        <div className="flex items-center gap-2 mb-0.5">
+          <Video className="h-4 w-4 text-blue-500" />
+          <span className="text-sm font-medium text-gray-700">1:1 Video-Sessions inkludiert</span>
+          <span className="text-xs text-gray-400">(optional)</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Anzahl Sessions</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              placeholder="0"
+              {...register('included_video_sessions')}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+            {errors.included_video_sessions && (
+              <p className="text-xs text-red-500 mt-1">{errors.included_video_sessions.message}</p>
+            )}
+          </div>
+          <div className={cn('transition-opacity duration-150', sessions === 0 && 'opacity-40')}>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Zeitraum</label>
+            <select
+              {...register('video_session_period')}
+              disabled={sessions === 0}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400 disabled:cursor-not-allowed"
+            >
+              <option value="month">pro Monat</option>
+              <option value="week">pro Woche</option>
+            </select>
+          </div>
+        </div>
+        {sessions > 0 && (
+          <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-lg">
+            <Video className="h-3 w-3" />
+            <span>
+              Abonnenten erhalten <strong>{sessions}</strong> kostenlose Session{sessions !== 1 ? 's' : ''} {PERIOD_LABELS[watch('video_session_period') ?? 'month']}
+            </span>
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3">{error}</div>
       )}
@@ -129,6 +189,8 @@ export default function TiersPage() {
       price_monthly: data.price_monthly,
       features: [],
       is_active: true,
+      included_video_sessions: data.included_video_sessions,
+      video_session_period: data.included_video_sessions > 0 ? data.video_session_period : null,
     }).select().single()
 
     if (error) throw new Error(error.message)
@@ -143,6 +205,8 @@ export default function TiersPage() {
         name: data.name,
         description: data.description ?? null,
         price_monthly: data.price_monthly,
+        included_video_sessions: data.included_video_sessions,
+        video_session_period: data.included_video_sessions > 0 ? data.video_session_period : null,
       })
       .eq('id', id)
       .select()
@@ -176,7 +240,7 @@ export default function TiersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Abo-Preisstufen</h1>
-          <p className="text-gray-500">Erstelle monatliche Abonnement-Angebote für deine Kunden</p>
+          <p className="text-gray-500">Monatliche Abonnements — optional mit inkludierten Video-Sessions</p>
         </div>
         <Button onClick={() => { setShowCreateForm(true); setEditingId(null) }}>
           <Plus className="h-4 w-4" />
@@ -211,6 +275,8 @@ export default function TiersPage() {
                       name: tier.name,
                       description: tier.description ?? '',
                       price_monthly: tier.price_monthly,
+                      included_video_sessions: tier.included_video_sessions ?? 0,
+                      video_session_period: tier.video_session_period ?? 'month',
                     }}
                     onSave={(data) => handleEdit(tier.id, data)}
                     onCancel={() => setEditingId(null)}
@@ -226,34 +292,42 @@ export default function TiersPage() {
                   </div>
                 </CardContent>
               ) : (
-                <div className={`flex items-center justify-between p-5 ${!tier.is_active ? 'opacity-60' : ''}`}>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">{tier.name}</h3>
-                      <Badge variant={tier.is_active ? 'success' : 'default'}>
-                        {tier.is_active ? 'Aktiv' : 'Inaktiv'}
-                      </Badge>
+                <div className={`p-5 ${!tier.is_active ? 'opacity-60' : ''}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium text-gray-900">{tier.name}</h3>
+                        <Badge variant={tier.is_active ? 'success' : 'default'}>
+                          {tier.is_active ? 'Aktiv' : 'Inaktiv'}
+                        </Badge>
+                      </div>
+                      {tier.description && (
+                        <p className="text-sm text-gray-500">{tier.description}</p>
+                      )}
+                      {(tier.included_video_sessions ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 mt-1.5 bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                          <Video className="h-3 w-3" />
+                          {tier.included_video_sessions} Session{tier.included_video_sessions !== 1 ? 's' : ''} {PERIOD_LABELS[tier.video_session_period ?? 'month']}
+                        </span>
+                      )}
                     </div>
-                    {tier.description && (
-                      <p className="text-sm text-gray-500 mt-1">{tier.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold text-gray-900">{formatCurrency(tier.price_monthly)}/Mo.</span>
-                    <button
-                      onClick={() => { setEditingId(tier.id); setShowCreateForm(false) }}
-                      className="text-gray-400 hover:text-blue-500 transition-colors"
-                      title="Bearbeiten"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => toggleTier(tier.id, tier.is_active)}
-                      className={`transition-colors ${tier.is_active ? 'text-gray-400 hover:text-amber-500' : 'text-amber-500 hover:text-green-600'}`}
-                      title={tier.is_active ? 'Deaktivieren' : 'Reaktivieren'}
-                    >
-                      {tier.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="font-semibold text-gray-900">{formatCurrency(tier.price_monthly)}/Mo.</span>
+                      <button
+                        onClick={() => { setEditingId(tier.id); setShowCreateForm(false) }}
+                        className="text-gray-400 hover:text-blue-500 transition-colors"
+                        title="Bearbeiten"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => toggleTier(tier.id, tier.is_active)}
+                        className={`transition-colors ${tier.is_active ? 'text-gray-400 hover:text-amber-500' : 'text-amber-500 hover:text-green-600'}`}
+                        title={tier.is_active ? 'Deaktivieren' : 'Reaktivieren'}
+                      >
+                        {tier.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

@@ -5,12 +5,13 @@ import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StarRating } from '@/components/ui/StarRating'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, CheckCircle2, TrendingUp, Star,
   ChevronRight, GraduationCap,
 } from 'lucide-react'
+
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import SubscribeButton from './SubscribeButton'
@@ -212,6 +213,39 @@ export default async function CreatorProfilePage({
     ? allReviewsFlat.reduce((sum, r) => sum + r.rating, 0) / totalReviewCount
     : null
 
+  // Compute remaining subscription sessions for logged-in subscriber
+  let subscriberSessions: {
+    subscriptionId: string; remaining: number; total: number; period: 'week' | 'month'
+  } | null = null
+
+  if (activeSubscription && coachingOffer) {
+    const activeTier = tiers.find((t: { id: string }) => t.id === activeSubscription.tier_id) as
+      { id: string; included_video_sessions?: number; video_session_period?: string | null } | undefined
+    const total  = activeTier?.included_video_sessions ?? 0
+    const period = (activeTier?.video_session_period ?? 'month') as 'week' | 'month'
+
+    if (total > 0) {
+      const now = new Date()
+      let periodStart: Date
+      if (period === 'week') {
+        const daysToMon = (now.getDay() + 6) % 7
+        periodStart = new Date(now)
+        periodStart.setDate(now.getDate() - daysToMon)
+        periodStart.setHours(0, 0, 0, 0)
+      } else {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      }
+      const { count } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('subscription_id', activeSubscription.id)
+        .neq('status', 'cancelled')
+        .gte('created_at', periodStart.toISOString())
+      const used = count ?? 0
+      subscriberSessions = { subscriptionId: activeSubscription.id, remaining: Math.max(0, total - used), total, period }
+    }
+  }
+
   const primaryCategory = (creator.categories as string[] | null)?.[0] ?? creator.category ?? null
   const allCategories: string[] = (creator.categories as string[] | null)?.length
     ? (creator.categories as string[])
@@ -386,196 +420,217 @@ export default async function CreatorProfilePage({
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-8 pb-16">
-        {/* Products */}
-        <div className="lg:col-span-2 space-y-4 animate-slide-up animate-delay-100">
-          <h2 className="text-xl font-bold text-gray-900">Produkte</h2>
+      {/* ── Adaptive content grid ──────────────────────────────── */}
+      {(() => {
+        const hasProducts = products.length > 0
+        const hasTiers    = tiers.length > 0
+        const hasSidebar  = hasTiers || !!coachingOffer
 
-          {products.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-14">
-                <div className="h-14 w-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-                  <ShoppingBag className="h-7 w-7 text-gray-300" />
-                </div>
-                <p className="font-medium text-gray-700 mb-1">Noch keine Produkte</p>
-                <p className="text-sm text-gray-400">Schau bald wieder vorbei!</p>
-              </CardContent>
-            </Card>
-          ) : (
-            products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null }) => {
-              const owned = purchasedIds.has(product.id)
-              const stats = ratingStats[product.id]
-              const productReviews = reviewsByProduct[product.id] ?? []
-              return (
-                <Card key={product.id} className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                  <div className="flex gap-0">
-                    {/* Type thumbnail strip */}
-                    <div className={`w-2 bg-gradient-to-b ${TYPE_GRADIENTS[product.type]} flex-shrink-0 rounded-l-2xl`} />
-                    <CardContent className="flex items-start gap-4 p-5 flex-1">
-                      <Link href={`/products/${product.id}`} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
-                        {product.thumbnail_url ? (
-                          <img
-                            src={product.thumbnail_url}
-                            alt={product.title}
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
-                            {TYPE_ICONS[product.type]}
-                          </div>
-                        )}
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Link href={`/products/${product.id}`} className="hover:text-green-700 transition-colors">
-                            <h3 className="font-semibold text-gray-900 leading-snug">{product.title}</h3>
+        if (!hasProducts && !hasSidebar) return null
+
+        return (
+          <div className={cn('pb-16', hasProducts && hasSidebar && 'grid lg:grid-cols-3 gap-8')}>
+
+            {/* Products column */}
+            {hasProducts && (
+              <div className={cn('space-y-4 animate-slide-up animate-delay-100', hasSidebar && 'lg:col-span-2')}>
+                {products.length > 0 && (
+                  <h2 className="text-xl font-bold text-gray-900">Produkte</h2>
+                )}
+                {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null }) => {
+                  const owned = purchasedIds.has(product.id)
+                  const stats = ratingStats[product.id]
+                  const productReviews = reviewsByProduct[product.id] ?? []
+                  return (
+                    <Card key={product.id} className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                      <div className="flex gap-0">
+                        <div className={`w-2 bg-gradient-to-b ${TYPE_GRADIENTS[product.type]} flex-shrink-0 rounded-l-2xl`} />
+                        <CardContent className="flex items-start gap-4 p-5 flex-1">
+                          <Link href={`/products/${product.id}`} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
+                            {product.thumbnail_url ? (
+                              <img src={product.thumbnail_url} alt={product.title} className="absolute inset-0 w-full h-full object-cover" />
+                            ) : (
+                              <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
+                                {TYPE_ICONS[product.type]}
+                              </div>
+                            )}
                           </Link>
-                          <span className="flex-shrink-0 text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-                            {TYPE_LABELS[product.type]}
-                          </span>
-                        </div>
-                        {product.description && (
-                          <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{product.description}</p>
-                        )}
-                        {stats && stats.count > 0 && (
-                          <div className="mt-2 mb-1">
-                            <StarRating rating={stats.avg} count={stats.count} size="sm" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Link href={`/products/${product.id}`} className="hover:text-green-700 transition-colors">
+                                <h3 className="font-semibold text-gray-900 leading-snug">{product.title}</h3>
+                              </Link>
+                              <span className="flex-shrink-0 text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {TYPE_LABELS[product.type]}
+                              </span>
+                            </div>
+                            {product.description && (
+                              <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{product.description}</p>
+                            )}
+                            {stats && stats.count > 0 && (
+                              <div className="mt-2 mb-1">
+                                <StarRating rating={stats.avg} count={stats.count} size="sm" />
+                              </div>
+                            )}
+                            {(productSalesCounts[product.id] ?? 0) >= 50 && (
+                              <p className="text-xs text-gray-400 mt-1">{productSalesCounts[product.id]} mal gekauft</p>
+                            )}
                           </div>
-                        )}
-                        {(productSalesCounts[product.id] ?? 0) >= 50 && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            {productSalesCounts[product.id]} mal gekauft
-                          </p>
-                        )}
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <span className="font-bold text-gray-900 text-base">{formatCurrency(product.price)}</span>
+                            {owned ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
+                                <Check className="h-3 w-3" /> Gekauft
+                              </span>
+                            ) : user ? (
+                              <BuyButton productId={product.id} price={product.price} />
+                            ) : (
+                              <Link href="/login"><Button size="sm">Kaufen</Button></Link>
+                            )}
+                          </div>
+                        </CardContent>
                       </div>
-                      <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                        <span className="font-bold text-gray-900 text-base">{formatCurrency(product.price)}</span>
-                        {owned ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
-                            <Check className="h-3 w-3" /> Gekauft
-                          </span>
-                        ) : user ? (
-                          <BuyButton productId={product.id} price={product.price} />
-                        ) : (
-                          <Link href="/login">
-                            <Button size="sm">Kaufen</Button>
-                          </Link>
-                        )}
-                      </div>
-                    </CardContent>
-                  </div>
-                  <ReviewSection
-                    productId={product.id}
-                    reviews={productReviews}
-                    hasPurchased={owned}
-                    currentUserId={user?.id ?? null}
+                      <ReviewSection
+                        productId={product.id}
+                        reviews={productReviews}
+                        hasPurchased={owned}
+                        currentUserId={user?.id ?? null}
+                        currentUserName={currentProfile?.full_name ?? null}
+                        currentUserAvatar={currentProfile?.avatar_url ?? null}
+                      />
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Sidebar: booking widget + subscription tiers */}
+            {hasSidebar && (
+              <div className="space-y-6 animate-slide-up animate-delay-200">
+                {coachingOffer && (
+                  <BookingWidget
+                    creatorId={creator.id}
+                    offer={coachingOffer}
+                    currentUserEmail={user?.email ?? null}
                     currentUserName={currentProfile?.full_name ?? null}
-                    currentUserAvatar={currentProfile?.avatar_url ?? null}
+                    subscriberSessions={subscriberSessions}
                   />
-                </Card>
-              )
-            })
-          )}
-        </div>
+                )}
 
-        {/* Sidebar: booking + tiers */}
-        <div className="space-y-6 animate-slide-up animate-delay-200">
-          {coachingOffer && (
-            <BookingWidget
-              creatorId={creator.id}
-              offer={coachingOffer}
-              currentUserEmail={user?.email ?? null}
-              currentUserName={currentProfile?.full_name ?? null}
-            />
-          )}
+                {hasTiers && (
+                  <div className="space-y-4">
+                    <h2 className="text-xl font-bold text-gray-900">Abonnements</h2>
+                    {tiers.map((tier: {
+                      id: string
+                      name: string
+                      description: string | null
+                      price_monthly: number
+                      features: string[]
+                      included_video_sessions?: number
+                      video_session_period?: 'week' | 'month' | null
+                    }, i: number) => {
+                      const isSubscribed     = activeSubscription?.tier_id === tier.id
+                      const isFeatured       = i === 0 && tiers.length > 1
+                      const tierSessions     = tier.included_video_sessions ?? 0
+                      const sessionPeriod    = tier.video_session_period ?? 'month'
+                      const periodLabel      = sessionPeriod === 'week' ? 'pro Woche' : 'pro Monat'
+                      const remainingForTier = isSubscribed ? subscriberSessions?.remaining ?? null : null
 
-          <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Abonnements</h2>
-
-          {tiers.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-10">
-                <p className="text-sm text-gray-400">Kein Abo verfügbar.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            tiers.map((tier: {
-              id: string
-              name: string
-              description: string | null
-              price_monthly: number
-              features: string[]
-            }, i: number) => {
-              const isSubscribed = !!activeSubscription
-              const isFeatured = i === 0 && tiers.length > 1
-
-              return (
-                <div
-                  key={tier.id}
-                  className={`rounded-2xl border-2 overflow-hidden transition-all duration-200 ${
-                    isSubscribed
-                      ? 'border-green-400 shadow-md shadow-green-100'
-                      : isFeatured
-                      ? 'border-green-300 shadow-md'
-                      : 'border-gray-100 hover:border-gray-200'
-                  }`}
-                >
-                  {isFeatured && !isSubscribed && (
-                    <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
-                      <Sparkles className="h-3 w-3" /> Beliebt
-                    </div>
-                  )}
-                  {isSubscribed && (
-                    <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
-                      <Check className="h-3 w-3" /> Aktives Abo
-                    </div>
-                  )}
-                  <div className="bg-white p-5">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold text-gray-900">{tier.name}</h3>
-                      <div className="text-right">
-                        {tier.price_monthly === 0 ? (
-                          <span className="text-lg font-bold text-green-600">Kostenlos</span>
-                        ) : (
-                          <>
-                            <span className="text-2xl font-bold text-gray-900">{tier.price_monthly}€</span>
-                            <span className="text-xs text-gray-400">/Mo</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {tier.description && (
-                      <p className="text-sm text-gray-500 mb-4 leading-relaxed">{tier.description}</p>
-                    )}
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-4 bg-gray-50 rounded-xl px-3 py-2.5">
-                      <MessageCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                      <span>Chat mit dem Coach freigeschaltet</span>
-                    </div>
-                    {isSubscribed ? (
-                      <Link href={`/chat/${creator.id}`} className="block">
-                        <Button className="w-full gap-2">
-                          <MessageCircle className="h-4 w-4" />
-                          Zum Chat
-                        </Button>
-                      </Link>
-                    ) : user ? (
-                      <SubscribeButton tierId={tier.id} creatorId={creator.id} />
-                    ) : (
-                      <Link href="/login" className="block">
-                        <Button size="sm" className="w-full gap-1.5">
-                          <Lock className="h-3.5 w-3.5" />
-                          Anmelden zum Abonnieren
-                        </Button>
-                      </Link>
-                    )}
+                      return (
+                        <div
+                          key={tier.id}
+                          className={cn(
+                            'rounded-2xl border-2 overflow-hidden transition-all duration-200',
+                            isSubscribed   ? 'border-green-400 shadow-md shadow-green-100'
+                            : isFeatured   ? 'border-green-300 shadow-md'
+                            : 'border-gray-100 hover:border-gray-200'
+                          )}
+                        >
+                          {isFeatured && !isSubscribed && (
+                            <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
+                              <Sparkles className="h-3 w-3" /> Beliebt
+                            </div>
+                          )}
+                          {isSubscribed && (
+                            <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
+                              <Check className="h-3 w-3" /> Aktives Abo
+                            </div>
+                          )}
+                          <div className="bg-white p-5">
+                            <div className="flex items-start justify-between mb-2">
+                              <h3 className="font-bold text-gray-900">{tier.name}</h3>
+                              <div className="text-right">
+                                {tier.price_monthly === 0 ? (
+                                  <span className="text-lg font-bold text-green-600">Kostenlos</span>
+                                ) : (
+                                  <>
+                                    <span className="text-2xl font-bold text-gray-900">{tier.price_monthly}€</span>
+                                    <span className="text-xs text-gray-400">/Mo</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {tier.description && (
+                              <p className="text-sm text-gray-500 mb-3 leading-relaxed">{tier.description}</p>
+                            )}
+                            {/* Benefits */}
+                            <div className="space-y-2 mb-4">
+                              <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2.5">
+                                <MessageCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                <span>Chat mit dem Coach freigeschaltet</span>
+                              </div>
+                              {tierSessions > 0 && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 rounded-xl px-3 py-2.5">
+                                  <Video className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                  <span>
+                                    <strong>{tierSessions}</strong> Video-Session{tierSessions !== 1 ? 's' : ''} {periodLabel} inkludiert
+                                    {remainingForTier !== null && (
+                                      <span className="ml-1.5 text-blue-600 font-semibold">
+                                        ({remainingForTier} verbleibend)
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {isSubscribed ? (
+                              <div className="space-y-2">
+                                <Link href={`/chat/${creator.id}`} className="block">
+                                  <Button className="w-full gap-2">
+                                    <MessageCircle className="h-4 w-4" />
+                                    Zum Chat
+                                  </Button>
+                                </Link>
+                                {tierSessions > 0 && (
+                                  <Link href={`#booking`} className="block" onClick={e => { e.preventDefault(); document.querySelector('[data-booking-widget]')?.scrollIntoView({ behavior: 'smooth' }) }}>
+                                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                                      <Video className="h-3.5 w-3.5" />
+                                      Session buchen
+                                    </Button>
+                                  </Link>
+                                )}
+                              </div>
+                            ) : user ? (
+                              <SubscribeButton tierId={tier.id} creatorId={creator.id} />
+                            ) : (
+                              <Link href="/login" className="block">
+                                <Button size="sm" className="w-full gap-1.5">
+                                  <Lock className="h-3.5 w-3.5" />
+                                  Anmelden zum Abonnieren
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
-                </div>
-              )
-            })
-          )}
-        </div>
-        </div>
-      </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   </div>
   )

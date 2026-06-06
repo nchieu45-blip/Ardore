@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { creatorId, date, time, name, email, notes } = body
+  const { creatorId, date, time, name, email, notes, subscriptionId } = body
 
   if (!creatorId || !date || !time || !name || !email) {
     return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
@@ -11,6 +11,48 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Validate subscription-based booking: verify allowance
+  let isSubscriptionSession = false
+  let resolvedSubscriptionId: string | null = null
+
+  if (subscriptionId && user) {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('id, buyer_id, status, subscription_tiers(included_video_sessions, video_session_period)')
+      .eq('id', subscriptionId)
+      .single()
+
+    if (sub && sub.buyer_id === user.id && sub.status === 'active') {
+      const tier = Array.isArray(sub.subscription_tiers) ? sub.subscription_tiers[0] : sub.subscription_tiers
+      const total: number  = (tier as { included_video_sessions: number } | null)?.included_video_sessions ?? 0
+      const period: string = (tier as { video_session_period: string | null } | null)?.video_session_period ?? 'month'
+
+      if (total > 0) {
+        const now = new Date()
+        let periodStart: Date
+        if (period === 'week') {
+          const daysToMon = (now.getDay() + 6) % 7
+          periodStart = new Date(now)
+          periodStart.setDate(now.getDate() - daysToMon)
+          periodStart.setHours(0, 0, 0, 0)
+        } else {
+          periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        }
+        const { count } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('subscription_id', subscriptionId)
+          .neq('status', 'cancelled')
+          .gte('created_at', periodStart.toISOString())
+        const used = count ?? 0
+        if (used < total) {
+          isSubscriptionSession = true
+          resolvedSubscriptionId = subscriptionId
+        }
+      }
+    }
+  }
 
   const { data: offer } = await supabase
     .from('coaching_offers')
@@ -68,13 +110,15 @@ export async function POST(req: NextRequest) {
       buyer_id:         user?.id ?? null,
       scheduled_at:     scheduledAt.toISOString(),
       duration_minutes: offer.duration_minutes,
-      price_cents:      offer.price_cents,
-      status:           'confirmed',
-      daily_room_name:  dailyRoomName,
-      daily_room_url:   dailyRoomUrl,
-      buyer_email:      email,
-      buyer_name:       name,
-      notes:            notes?.trim() || null,
+      status:                  'confirmed',
+      daily_room_name:         dailyRoomName,
+      daily_room_url:          dailyRoomUrl,
+      buyer_email:             email,
+      buyer_name:              name,
+      notes:                   notes?.trim() || null,
+      subscription_id:         resolvedSubscriptionId,
+      is_subscription_session: isSubscriptionSession,
+      price_cents:             isSubscriptionSession ? 0 : offer.price_cents,
     })
     .select()
     .single()

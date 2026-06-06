@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 
+interface SubscriberSessions {
+  subscriptionId: string
+  remaining: number
+  total: number
+  period: 'week' | 'month'
+}
+
 interface Props {
   creatorId: string
   offer: {
@@ -15,6 +22,7 @@ interface Props {
   }
   currentUserEmail?: string | null
   currentUserName?: string | null
+  subscriberSessions?: SubscriberSessions | null
 }
 
 type Step = 'date' | 'time' | 'form' | 'success'
@@ -32,7 +40,7 @@ function buildCalendarDays(year: number, month: number) {
   return { firstDay, daysInMonth }
 }
 
-export default function BookingWidget({ creatorId, offer, currentUserEmail, currentUserName }: Props) {
+export default function BookingWidget({ creatorId, offer, currentUserEmail, currentUserName, subscriberSessions }: Props) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -79,6 +87,10 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
     else setCalMonth(m => m + 1)
   }
 
+  // Use subscriber allowance if they have sessions remaining
+  const useSubscription = !!subscriberSessions && subscriberSessions.remaining > 0
+  const effectivePrice  = useSubscription ? 0 : offer.price_cents
+
   async function book() {
     if (!selected || !chosenSlot || !name.trim() || !email.trim()) return
     setBooking(true)
@@ -93,6 +105,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
           name: name.trim(),
           email: email.trim(),
           notes: notes.trim() || null,
+          subscriptionId: useSubscription ? subscriberSessions!.subscriptionId : undefined,
         }),
       })
       const json = await res.json() as { bookingId?: string; error?: string }
@@ -106,7 +119,10 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
     }
   }
 
-  const price = (offer.price_cents / 100).toFixed(2).replace('.', ',')
+  const price         = (offer.price_cents / 100).toFixed(2).replace('.', ',')
+  const effectivePriceLabel = useSubscription
+    ? 'Kostenlos (inklusive)'
+    : `${price} €`
   const { firstDay, daysInMonth } = buildCalendarDays(calYear, calMonth)
 
   // Disable navigating to past months
@@ -123,15 +139,22 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   }
 
   return (
-    <div className="rounded-2xl border-2 border-green-200 bg-white overflow-hidden shadow-sm">
+    <div className="rounded-2xl border-2 border-green-200 bg-white overflow-hidden shadow-sm" data-booking-widget>
       {/* Header */}
       <div className="bg-gradient-to-br from-green-600 to-emerald-600 px-5 py-4">
         <div className="flex items-center gap-2 mb-1">
           <Video className="h-4.5 w-4.5 text-white" />
           <h3 className="font-bold text-white">1:1 Videocoaching</h3>
         </div>
-        <div className="flex items-center gap-3 text-green-100 text-sm">
-          <span className="font-semibold text-white text-lg">{price} €</span>
+        <div className="flex items-center gap-3 text-green-100 text-sm flex-wrap">
+          {useSubscription ? (
+            <span className="font-semibold text-white text-base">
+              Kostenlos
+              <span className="ml-1.5 text-xs font-normal text-green-100/70">({subscriberSessions!.remaining} von {subscriberSessions!.total} Session{subscriberSessions!.total !== 1 ? 's' : ''} {subscriberSessions!.period === 'week' ? 'diese Woche' : 'diesen Monat'} verbleibend)</span>
+            </span>
+          ) : (
+            <span className="font-semibold text-white text-lg">{price} €</span>
+          )}
           <span>·</span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
@@ -323,7 +346,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
               className="w-full gap-2"
             >
               {booking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-              {booking ? 'Wird gebucht…' : `Session für ${price} € buchen`}
+              {booking ? 'Wird gebucht…' : `Session ${useSubscription ? 'kostenlos buchen' : `für ${price} € buchen`}`}
             </Button>
 
             <p className="text-[11px] text-gray-400 text-center">
