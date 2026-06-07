@@ -51,7 +51,7 @@ export default async function BuyerDashboardPage() {
       .limit(5),
     supabase
       .from('subscriptions')
-      .select('*, creator:creator_profiles(id, display_name, slug, avatar_url, category), tier:subscription_tiers(name, price_monthly)')
+      .select('*, creator:creator_profiles(id, display_name, slug, avatar_url, category), tier:subscription_tiers(name, price_monthly, included_video_sessions, video_session_period)')
       .eq('buyer_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
@@ -59,6 +59,36 @@ export default async function BuyerDashboardPage() {
 
   const purchases = purchasesRes.data ?? []
   const subscriptions = subscriptionsRes.data ?? []
+
+  // Compute remaining sessions for subscriptions that include video sessions
+  const now = new Date()
+  const sessionsMap: Record<string, { remaining: number; total: number; period: string }> = {}
+  await Promise.all(
+    subscriptions
+      .filter((s: { tier: { included_video_sessions?: number } | null }) => (s.tier?.included_video_sessions ?? 0) > 0)
+      .map(async (sub: { id: string; tier: { included_video_sessions: number; video_session_period: string | null } | null }) => {
+        const tier   = sub.tier!
+        const total  = tier.included_video_sessions
+        const period = tier.video_session_period ?? 'month'
+        let periodStart: Date
+        if (period === 'week') {
+          const daysToMon = (now.getDay() + 6) % 7
+          periodStart = new Date(now)
+          periodStart.setDate(now.getDate() - daysToMon)
+          periodStart.setHours(0, 0, 0, 0)
+        } else {
+          periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        }
+        const { count } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('subscription_id', sub.id)
+          .neq('status', 'cancelled')
+          .gte('created_at', periodStart.toISOString())
+        const used = count ?? 0
+        sessionsMap[sub.id] = { remaining: Math.max(0, total - used), total, period }
+      })
+  )
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'dort'
 
@@ -147,31 +177,53 @@ export default async function BuyerDashboardPage() {
                 {subscriptions.map((sub: {
                   id: string
                   creator: { id: string; display_name: string; slug: string; avatar_url: string | null; category: string | null } | null
-                  tier: { name: string; price_monthly: number } | null
+                  tier: { name: string; price_monthly: number; included_video_sessions?: number; video_session_period?: string | null } | null
                   current_period_end: string
-                }) => (
-                  <Card key={sub.id} className="hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md hover:border-green-200">
-                    <CardContent className="flex items-center gap-4 p-4">
-                      <Avatar src={sub.creator?.avatar_url} name={sub.creator?.display_name ?? '?'} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{sub.creator?.display_name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {sub.tier?.name}
-                          {sub.tier?.price_monthly ? ` · ${formatCurrency(sub.tier.price_monthly)}/Mo` : ' · Kostenlos'}
-                          {' · bis '}{formatDate(sub.current_period_end)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Link href={`/chat/${sub.creator?.id}`}>
-                          <Button size="sm" variant="outline" className="gap-1.5">
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            Chat
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                }) => {
+                  const sessions = sessionsMap[sub.id] ?? null
+                  const periodLabel = sessions?.period === 'week' ? 'diese Woche' : 'diesen Monat'
+                  return (
+                    <Card key={sub.id} className="hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md hover:border-green-200">
+                      <CardContent className="flex items-start gap-4 p-4">
+                        <Avatar src={sub.creator?.avatar_url} name={sub.creator?.display_name ?? '?'} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 truncate">{sub.creator?.display_name}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {sub.tier?.name}
+                            {sub.tier?.price_monthly ? ` · ${formatCurrency(sub.tier.price_monthly)}/Mo` : ' · Kostenlos'}
+                            {' · bis '}{formatDate(sub.current_period_end)}
+                          </p>
+                          {sessions && (
+                            <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
+                              sessions.remaining > 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              <Video className="h-3 w-3" />
+                              {sessions.remaining > 0
+                                ? `${sessions.remaining}/${sessions.total} Sessions ${periodLabel}`
+                                : `Sessions ${periodLabel} verbraucht`}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {sessions && sessions.remaining > 0 && (
+                            <Link href={`/creators/${sub.creator?.slug}`}>
+                              <Button size="sm" variant="outline" className="gap-1.5">
+                                <Video className="h-3.5 w-3.5" />
+                                Buchen
+                              </Button>
+                            </Link>
+                          )}
+                          <Link href={`/chat/${sub.creator?.id}`}>
+                            <Button size="sm" variant="outline" className="gap-1.5">
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              Chat
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </div>

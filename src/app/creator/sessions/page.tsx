@@ -25,6 +25,7 @@ interface BookingRow {
   scheduled_at: string
   duration_minutes: number
   price_cents: number
+  is_subscription_session: boolean
   status: string
   notes: string | null
 }
@@ -43,7 +44,7 @@ export default async function CreatorSessionsPage() {
 
   const { data: bookings } = await supabase
     .from('bookings')
-    .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, status, notes')
+    .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, notes')
     .eq('creator_id', creator.id)
     .order('scheduled_at', { ascending: false })
 
@@ -53,9 +54,8 @@ export default async function CreatorSessionsPage() {
   const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
   const past     = rows.filter(b => b.status !== 'confirmed' || new Date(b.scheduled_at).getTime() <= now)
 
-  const totalRevenue = rows
-    .filter(b => b.status !== 'cancelled')
-    .reduce((sum, b) => sum + b.price_cents, 0)
+  const totalRevenue    = rows.filter(b => b.status !== 'cancelled' && !b.is_subscription_session).reduce((sum, b) => sum + b.price_cents, 0)
+  const aboSessionCount = rows.filter(b => b.status !== 'cancelled' && b.is_subscription_session).length
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -69,7 +69,7 @@ export default async function CreatorSessionsPage() {
 
       {/* Stats row */}
       {rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="rounded-xl bg-green-50 p-4 text-center">
             <p className="text-2xl font-bold text-green-700">{upcoming.length}</p>
             <p className="text-xs text-green-600 mt-0.5">Bevorstehend</p>
@@ -78,9 +78,13 @@ export default async function CreatorSessionsPage() {
             <p className="text-2xl font-bold text-blue-700">{rows.filter(b => b.status === 'completed').length}</p>
             <p className="text-xs text-blue-600 mt-0.5">Abgeschlossen</p>
           </div>
+          <div className="rounded-xl bg-purple-50 p-4 text-center">
+            <p className="text-2xl font-bold text-purple-700">{aboSessionCount}</p>
+            <p className="text-xs text-purple-600 mt-0.5">Abo-Sessions</p>
+          </div>
           <div className="rounded-xl bg-gray-50 p-4 text-center">
             <p className="text-2xl font-bold text-gray-700">{(totalRevenue / 100).toFixed(0)} €</p>
-            <p className="text-xs text-gray-500 mt-0.5">Gesamtumsatz</p>
+            <p className="text-xs text-gray-500 mt-0.5">Umsatz (bezahlt)</p>
           </div>
         </div>
       )}
@@ -119,10 +123,11 @@ export default async function CreatorSessionsPage() {
 }
 
 function CreatorSessionCard({ booking: b, now }: { booking: BookingRow; now: number }) {
-  const scheduledAt = new Date(b.scheduled_at)
-  const endAt       = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
-  const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
+  const scheduledAt  = new Date(b.scheduled_at)
+  const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
+  const isLive       = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
+  const isAboSession = b.is_subscription_session
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
@@ -153,7 +158,14 @@ function CreatorSessionCard({ booking: b, now }: { booking: BookingRow; now: num
           {b.notes && (
             <p className="text-xs text-gray-400 mt-2 italic line-clamp-2">„{b.notes}"</p>
           )}
-          <p className="text-sm font-medium text-gray-700 mt-1">{price} €</p>
+          {isAboSession ? (
+            <span className="inline-flex items-center gap-1 mt-1 bg-purple-50 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">
+              <Video className="h-3 w-3" />
+              Abo-Session (inklusiv)
+            </span>
+          ) : (
+            <p className="text-sm font-medium text-gray-700 mt-1">{price} €</p>
+          )}
         </div>
         <Link
           href={`/session/${b.id}`}

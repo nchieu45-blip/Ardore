@@ -23,6 +23,7 @@ interface BookingRow {
   scheduled_at: string
   duration_minutes: number
   price_cents: number
+  is_subscription_session: boolean
   status: string
   daily_room_url: string | null
   creator_profiles: { display_name: string; slug: string; avatar_url: string | null } | null
@@ -35,7 +36,7 @@ export default async function BuyerSessionsPage() {
 
   const { data: bookings } = await supabase
     .from('bookings')
-    .select('id, scheduled_at, duration_minutes, price_cents, status, daily_room_url, creator_profiles(display_name, slug, avatar_url)')
+    .select('id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, daily_room_url, creator_profiles(display_name, slug, avatar_url)')
     .eq('buyer_id', user.id)
     .order('scheduled_at', { ascending: false })
 
@@ -93,6 +94,7 @@ function SessionCard({ booking: b, now }: { booking: BookingRow; now: number }) 
   const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const creator     = b.creator_profiles
+  const isAboSession = b.is_subscription_session
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
@@ -123,7 +125,14 @@ function SessionCard({ booking: b, now }: { booking: BookingRow; now: number }) 
               {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr · {b.duration_minutes} Min
             </span>
           </div>
-          <p className="text-sm text-gray-400 mt-1">{price} €</p>
+          {isAboSession ? (
+            <span className="inline-flex items-center gap-1 mt-1 bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
+              <Video className="h-3 w-3" />
+              Inklusiv (Abo)
+            </span>
+          ) : (
+            <p className="text-sm text-gray-400 mt-1">{price} €</p>
+          )}
         </div>
         <Link
           href={`/session/${b.id}`}
