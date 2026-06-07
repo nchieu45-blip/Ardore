@@ -170,8 +170,9 @@ export default function CoachesPageClient({ coaches }: Props) {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
-  const category = searchParams.get('category') ?? 'all'
-  const sort     = (searchParams.get('sort') as SortKey) ?? 'newest'
+  const category      = searchParams.get('category') ?? 'all'
+  const sort          = (searchParams.get('sort') as SortKey) ?? 'newest'
+  const videocoaching = searchParams.get('videocoaching') === 'true'
   const [search, setSearch] = useState('')
 
   // Build available category list from actual coach data
@@ -183,12 +184,14 @@ export default function CoachesPageClient({ coaches }: Props) {
     ),
   ].filter(cat => cat in CATEGORY_LABELS)
 
-  function buildUrl(overrides: { category?: string; sort?: string } = {}): string {
+  function buildUrl(overrides: { category?: string; sort?: string; videocoaching?: boolean } = {}): string {
     const cat = overrides.category ?? category
     const s   = overrides.sort ?? sort
+    const vc  = overrides.videocoaching !== undefined ? overrides.videocoaching : videocoaching
     const params = new URLSearchParams()
-    if (cat !== 'all')      params.set('category', cat)
-    if (s !== 'newest')     params.set('sort', s)
+    if (cat !== 'all') params.set('category', cat)
+    if (s !== 'newest') params.set('sort', s)
+    if (vc) params.set('videocoaching', 'true')
     const qs = params.toString()
     return `/coaches${qs ? '?' + qs : ''}`
   }
@@ -204,7 +207,8 @@ export default function CoachesPageClient({ coaches }: Props) {
       const matchesSearch = !search
         || c.display_name.toLowerCase().includes(search.toLowerCase())
         || (c.bio ?? '').toLowerCase().includes(search.toLowerCase())
-      return matchesCat && matchesSearch
+      const matchesVC     = !videocoaching || c.hasVideoCoaching
+      return matchesCat && matchesSearch && matchesVC
     })
     .sort((a, b) => {
       switch (sort) {
@@ -261,13 +265,26 @@ export default function CoachesPageClient({ coaches }: Props) {
               onClick={() => go({ category: 'all' })}
               className={cn(
                 'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                category === 'all'
+                category === 'all' && !videocoaching
                   ? 'bg-gray-900 text-white border-gray-900'
                   : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
               )}
             >
               Alle
             </button>
+            <button
+              onClick={() => go({ videocoaching: !videocoaching, category: 'all' })}
+              className={cn(
+                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                videocoaching
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+              )}
+            >
+              <Video className="h-3 w-3" />
+              1:1 Sessions
+            </button>
+            <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
             {availableCategories.map(cat => (
               <button
                 key={cat}
@@ -322,7 +339,7 @@ export default function CoachesPageClient({ coaches }: Props) {
               Versuche andere Filter oder einen anderen Suchbegriff.
             </p>
             <button
-              onClick={() => { setSearch(''); go({ category: 'all', sort: 'newest' }) }}
+              onClick={() => { setSearch(''); go({ category: 'all', sort: 'newest', videocoaching: false }) }}
               className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
             >
               Filter zurücksetzen
