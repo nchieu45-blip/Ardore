@@ -274,7 +274,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     Bereits gekauft
                   </div>
                 ) : user ? (
-                  <BuyButtonLarge productId={id} price={product.price} />
+                  <BuyButtonLarge
+                    productId={id}
+                    price={product.price}
+                    title={product.title}
+                    type={type}
+                    thumbnailUrl={product.thumbnail_url}
+                    creatorId={creator.id}
+                    creatorName={creator.display_name}
+                    creatorSlug={creator.slug}
+                  />
                 ) : (
                   <Link href="/login" className="block">
                     <Button size="lg" className="w-full">Anmelden &amp; kaufen</Button>

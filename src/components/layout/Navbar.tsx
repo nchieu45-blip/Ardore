@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
+import NavbarCartIcon from '@/components/NavbarCartIcon'
 import type { Profile } from '@/types'
 
 interface NavbarProps {
@@ -75,6 +76,7 @@ export function Navbar({ user }: NavbarProps) {
                 <Link href={dashboardPath} className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
                   Dashboard
                 </Link>
+                <NavbarCartIcon />
                 <NavbarNotificationBell userId={user.id} />
                 <div className="relative ml-1">
                   <button
@@ -135,6 +137,7 @@ export function Navbar({ user }: NavbarProps) {
               </>
             ) : (
               <div className="flex items-center gap-2 ml-2">
+                <NavbarCartIcon />
                 <Link href="/login">
                   <Button variant="ghost" size="sm">Anmelden</Button>
                 </Link>
@@ -145,8 +148,9 @@ export function Navbar({ user }: NavbarProps) {
             )}
           </div>
 
-          {/* Mobile: bell + hamburger */}
+          {/* Mobile: cart + bell + hamburger */}
           <div className="md:hidden flex items-center gap-1">
+            <NavbarCartIcon />
             {user && <NavbarNotificationBell userId={user.id} />}
             <button className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer'
 import { Toaster } from '@/components/ui/Toaster'
 import CookieBanner from '@/components/CookieBanner'
 import { FavoritesProvider } from '@/components/FavoritesProvider'
+import CartDrawer from '@/components/CartDrawer'
 import { createClient } from '@/lib/supabase/server'
 
 const geistSans = Geist({
@@ -75,6 +76,7 @@ export default async function RootLayout({
         <Footer />
         <Toaster />
         <CookieBanner />
+        <CartDrawer />
       </body>
     </html>
   )

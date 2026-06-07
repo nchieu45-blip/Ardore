@@ -21,6 +21,9 @@ interface Props {
   products: BestsellerProduct[]
   purchasedIds: string[]
   isLoggedIn: boolean
+  creatorId: string
+  creatorName: string
+  creatorSlug: string
 }
 
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
@@ -37,7 +40,7 @@ const TYPE_LABELS: Record<ProductType, string> = {
   image: 'Bild',
 }
 
-export default function BestsellerSection({ products, purchasedIds, isLoggedIn }: Props) {
+export default function BestsellerSection({ products, purchasedIds, isLoggedIn, creatorId, creatorName, creatorSlug }: Props) {
   const purchasedSet = new Set(purchasedIds)
 
   return (
@@ -85,7 +88,7 @@ export default function BestsellerSection({ products, purchasedIds, isLoggedIn }
                   {owned ? (
                     <Badge variant="success">Gekauft</Badge>
                   ) : isLoggedIn ? (
-                    <BuyButton productId={product.id} price={product.price} />
+                    <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} />
                   ) : (
                     <Link href="/login">
                       <Button size="sm">Kaufen</Button>

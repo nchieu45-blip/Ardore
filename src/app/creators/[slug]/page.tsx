@@ -487,7 +487,16 @@ export default async function CreatorProfilePage({
                                 <Check className="h-3 w-3" /> Gekauft
                               </span>
                             ) : user ? (
-                              <BuyButton productId={product.id} price={product.price} />
+                              <BuyButton
+                                productId={product.id}
+                                price={product.price}
+                                title={product.title}
+                                type={product.type}
+                                thumbnailUrl={product.thumbnail_url}
+                                creatorId={creator.id}
+                                creatorName={creator.display_name}
+                                creatorSlug={creator.slug}
+                              />
                             ) : (
                               <Link href="/login"><Button size="sm">Kaufen</Button></Link>
                             )}

@@ -23,6 +23,9 @@ interface Props {
   products: Product[]
   purchasedIds: string[]
   isLoggedIn: boolean
+  creatorId: string
+  creatorName: string
+  creatorSlug: string
 }
 
 type Filter = 'all' | ProductType
@@ -49,7 +52,7 @@ const TYPE_LABELS: Record<ProductType, string> = {
   image: 'Bild',
 }
 
-export default function ProductsFilter({ products, purchasedIds, isLoggedIn }: Props) {
+export default function ProductsFilter({ products, purchasedIds, isLoggedIn, creatorId, creatorName, creatorSlug }: Props) {
   const [active, setActive] = useState<Filter>('all')
 
   const purchasedSet = new Set(purchasedIds)
@@ -106,7 +109,7 @@ export default function ProductsFilter({ products, purchasedIds, isLoggedIn }: P
                     {owned ? (
                       <Badge variant="success">Gekauft</Badge>
                     ) : isLoggedIn ? (
-                      <BuyButton productId={product.id} price={product.price} />
+                      <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} />
                     ) : (
                       <Link href="/login">
                         <Button size="sm">Kaufen</Button>

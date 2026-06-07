@@ -30,38 +30,65 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session
       const meta = session.metadata ?? {}
 
-      if (session.mode === 'payment' && meta.product_id && meta.buyer_id) {
-        await supabase.from('purchases').insert({
-          buyer_id: meta.buyer_id,
-          product_id: meta.product_id,
-          amount_paid: (session.amount_total ?? 0) / 100,
-          stripe_payment_intent_id: session.payment_intent as string ?? null,
-        })
+      if (session.mode === 'payment' && meta.buyer_id) {
+        // Support both legacy single product_id and new comma-separated product_ids
+        const productIds: string[] = meta.product_ids
+          ? meta.product_ids.split(',').filter(Boolean)
+          : meta.product_id ? [meta.product_id] : []
 
-        // Purchase receipt
-        const [buyerRes, productRes] = await Promise.all([
-          supabase.auth.admin.getUserById(meta.buyer_id),
-          supabase
+        if (productIds.length > 0) {
+          const totalPaid = (session.amount_total ?? 0) / 100
+          const paymentIntentId = (session.payment_intent as string) ?? null
+
+          // Fetch all products to get prices for per-item amount_paid
+          const { data: productRows } = await supabase
             .from('products')
-            .select('title, creator:creator_profiles(display_name)')
-            .eq('id', meta.product_id)
-            .single(),
-        ])
+            .select('id, price, title, creator:creator_profiles(display_name)')
+            .in('id', productIds)
 
-        const buyerEmail = buyerRes.data.user?.email
-        const buyerName = buyerRes.data.user?.user_metadata?.full_name ?? 'Kunde'
-        const product = productRes.data
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const creatorName = (product?.creator as any)?.display_name ?? 'Anbieter'
+          const productMap = new Map(
+            (productRows ?? []).map((p: { id: string; price: number; title: string; creator: unknown }) => [p.id, p])
+          )
+          const priceSum = [...productMap.values()].reduce(
+            (sum: number, p: { price: number }) => sum + p.price, 0
+          )
 
-        if (buyerEmail && product) {
-          await sendPurchaseReceipt(buyerEmail, {
-            buyerName,
-            productTitle: product.title,
-            amountPaid: (session.amount_total ?? 0) / 100,
-            creatorName,
-            libraryUrl: `${APP_URL}/buyer/library`,
-          }).catch(console.error)
+          await supabase.from('purchases').insert(
+            productIds.map(pid => {
+              const p = productMap.get(pid) as { id: string; price: number } | undefined
+              // Distribute total proportionally if prices differ from checkout total (e.g. promo)
+              const amount = priceSum > 0 && p
+                ? (p.price / priceSum) * totalPaid
+                : totalPaid / productIds.length
+              return {
+                buyer_id: meta.buyer_id,
+                product_id: pid,
+                amount_paid: Math.round(amount * 100) / 100,
+                stripe_payment_intent_id: paymentIntentId,
+              }
+            })
+          )
+
+          // Send receipt — one email per product (fire-and-forget)
+          const buyerRes = await supabase.auth.admin.getUserById(meta.buyer_id)
+          const buyerEmail = buyerRes.data.user?.email
+          const buyerName = buyerRes.data.user?.user_metadata?.full_name ?? 'Kunde'
+
+          if (buyerEmail) {
+            for (const pid of productIds) {
+              const p = productMap.get(pid) as { title: string; creator: unknown } | undefined
+              if (!p) continue
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const creatorName = (p.creator as any)?.display_name ?? 'Anbieter'
+              sendPurchaseReceipt(buyerEmail, {
+                buyerName,
+                productTitle: p.title,
+                amountPaid: totalPaid / productIds.length,
+                creatorName,
+                libraryUrl: `${APP_URL}/buyer/library`,
+              }).catch(console.error)
+            }
+          }
         }
       }
 

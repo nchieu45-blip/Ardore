@@ -10,47 +10,85 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   }
 
-  const { productId } = await req.json()
+  const body = await req.json()
 
-  const { data: product } = await supabase
+  // Support both legacy { productId } and new { items: [{ productId }] }
+  const rawItems: { productId: string }[] = body.items
+    ?? (body.productId ? [{ productId: body.productId }] : [])
+
+  if (rawItems.length === 0) {
+    return NextResponse.json({ error: 'Keine Produkte' }, { status: 400 })
+  }
+
+  const productIds = rawItems.map(i => i.productId)
+
+  const { data: products } = await supabase
     .from('products')
-    .select('*, creator:creator_profiles(stripe_account_id, stripe_account_active)')
-    .eq('id', productId)
-    .single()
+    .select('id, title, price, creator_id, creator:creator_profiles(stripe_account_id, stripe_account_active)')
+    .in('id', productIds)
 
-  if (!product) {
-    return NextResponse.json({ error: 'Produkt nicht gefunden' }, { status: 404 })
+  if (!products || products.length === 0) {
+    return NextResponse.json({ error: 'Produkte nicht gefunden' }, { status: 404 })
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+
+  type FoundProduct = { id: string; title: string; price: number; creator_id: string; creator: unknown }
+
+  // Build Stripe line items in the same order as the cart
+  const lineItems = (productIds
+    .map(id => (products as FoundProduct[]).find(p => p.id === id))
+    .filter((p): p is FoundProduct => !!p))
+    .map(p => ({
+      price_data: {
+        currency: 'eur',
+        product_data: { name: p.title },
+        unit_amount: Math.round(p.price * 100),
+      },
+      quantity: 1 as const,
+    }))
+
+  // Use Connect transfer only when every item is from the same creator with an active account
+  type ProductRow = {
+    id: string
+    creator_id: string
+    creator: { stripe_account_id: string | null; stripe_account_active: boolean | null } | null
+      | { stripe_account_id: string | null; stripe_account_active: boolean | null }[]
+  }
+
+  const creatorIds = [...new Set((products as ProductRow[]).map(p => p.creator_id))]
+  const singleCreator = creatorIds.length === 1
+
+  const firstProduct = products[0] as ProductRow
+  const creatorRaw = firstProduct.creator
+  const creatorInfo = Array.isArray(creatorRaw) ? creatorRaw[0] : creatorRaw
+
+  const useConnect =
+    singleCreator &&
+    !!creatorInfo?.stripe_account_id &&
+    !!creatorInfo?.stripe_account_active
+
+  const totalCents = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount, 0)
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     locale: 'de',
     customer_email: user.email,
-    line_items: [
-      {
-        price_data: {
-          currency: 'eur',
-          product_data: { name: product.title },
-          unit_amount: Math.round(product.price * 100),
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: lineItems,
     metadata: {
-      product_id: productId,
       buyer_id: user.id,
-      creator_id: product.creator_id,
+      product_ids: productIds.join(','),
+      // Keep legacy field for single-product backward compat with webhook
+      ...(productIds.length === 1 ? { product_id: productIds[0], creator_id: creatorIds[0] } : {}),
     },
     success_url: `${appUrl}/buyer/library?success=1`,
-    cancel_url: `${appUrl}/creators`,
-    ...(product.creator?.stripe_account_id && product.creator?.stripe_account_active
+    cancel_url: `${appUrl}/marketplace`,
+    ...(useConnect
       ? {
           payment_intent_data: {
-            application_fee_amount: Math.round(product.price * 100 * 0.05),
-            transfer_data: { destination: product.creator.stripe_account_id },
+            application_fee_amount: Math.round(totalCents * 0.05),
+            transfer_data: { destination: creatorInfo!.stripe_account_id! },
           },
         }
       : {}),
