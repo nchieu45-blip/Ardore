@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
+import type { CoachingCoach } from './MarketplaceRows'
 
 export const metadata: Metadata = {
   title: 'Ardore – Fitness & Gesundheitscoaches',
@@ -10,13 +11,21 @@ export const metadata: Metadata = {
 export default async function MarketplacePage() {
   const supabase = await createClient()
 
-  const { data: productsData } = await supabase
-    .from('products')
-    .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, equipment, level, duration, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
+  const [productsData, coachingOffersData] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, equipment, level, duration, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
+      .eq('is_published', true)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('coaching_offers')
+      .select('creator_id, price_cents, duration_minutes, creator_profiles(id, slug, display_name, avatar_url, category, categories)')
+      .eq('is_enabled', true)
+      .order('price_cents', { ascending: true })
+      .limit(20),
+  ])
 
-  const products: MarketplaceProduct[] = (productsData ?? []).map((p: {
+  const products: MarketplaceProduct[] = (productsData.data ?? []).map((p: {
     id: string
     title: string
     description: string | null
@@ -52,6 +61,26 @@ export default async function MarketplacePage() {
     }
   })
 
+  const coachingCoaches: CoachingCoach[] = (coachingOffersData.data ?? []).flatMap((o: {
+    creator_id: string
+    price_cents: number
+    duration_minutes: number
+    creator_profiles: { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null } | { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null }[] | null
+  }) => {
+    const cp = Array.isArray(o.creator_profiles) ? o.creator_profiles[0] : o.creator_profiles
+    if (!cp) return []
+    return [{
+      id:               cp.id,
+      slug:             cp.slug,
+      display_name:     cp.display_name,
+      avatar_url:       cp.avatar_url,
+      category:         cp.category,
+      categories:       cp.categories ?? [],
+      price_cents:      o.price_cents,
+      duration_minutes: o.duration_minutes,
+    }]
+  })
+
   const productIds = products.map(p => p.id)
 
   const [salesRes, reviewsRes] = await Promise.all([
@@ -79,5 +108,12 @@ export default async function MarketplacePage() {
     ratings[id] = { avg: sum / count, count }
   }
 
-  return <MarketplaceClient products={products} salesCounts={salesCounts} ratings={ratings} />
+  return (
+    <MarketplaceClient
+      products={products}
+      salesCounts={salesCounts}
+      ratings={ratings}
+      coachingCoaches={coachingCoaches}
+    />
+  )
 }

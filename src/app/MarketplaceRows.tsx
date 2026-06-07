@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, ChevronRight,
-  TrendingUp, Clock, Star, Users, Sparkles,
+  TrendingUp, Clock, Star, Users, Sparkles, Video,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { ProductCard, type ProductCardData } from '@/components/ui/ProductCard'
@@ -17,6 +17,17 @@ interface Creator {
   categories: string[]
 }
 
+export interface CoachingCoach {
+  id: string
+  slug: string
+  display_name: string
+  avatar_url: string | null
+  category: string | null
+  categories: string[]
+  price_cents: number
+  duration_minutes: number
+}
+
 // Extends ProductCardData with sort-only fields not needed for rendering
 interface RowProduct extends ProductCardData {
   createdAt: string
@@ -26,6 +37,7 @@ interface Props {
   products: RowProduct[]
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
+  coachingCoaches?: CoachingCoach[]
 }
 
 const KNOWN_CATEGORY_LABELS: Record<string, string> = {
@@ -65,6 +77,49 @@ function CoachCard({ creator, productCount }: { creator: Creator; productCount: 
           </p>
         )}
         <p className="text-[11px] text-green-600 font-medium mt-2">Profil ansehen →</p>
+      </div>
+    </Link>
+  )
+}
+
+function LiveCoachCard({ coach }: { coach: CoachingCoach }) {
+  const priceEur = Math.round(coach.price_cents / 100)
+  const label = coach.categories[0]
+    ? (KNOWN_CATEGORY_LABELS[coach.categories[0]] ?? coach.categories[0])
+    : coach.category
+      ? (KNOWN_CATEGORY_LABELS[coach.category] ?? coach.category)
+      : null
+
+  return (
+    <Link
+      href={`/creators/${coach.slug}`}
+      className="flex-shrink-0 w-52 [scroll-snap-align:start] block"
+    >
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
+        <div className="flex items-center gap-3 mb-3">
+          <Avatar
+            src={coach.avatar_url}
+            name={coach.display_name}
+            className="h-11 w-11 text-sm flex-shrink-0"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">{coach.display_name}</p>
+            {label && <p className="text-[11px] text-gray-400 truncate">{label}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+            <Video className="h-2.5 w-2.5" />
+            1:1 Videocoaching
+          </span>
+        </div>
+        <div className="mt-auto flex items-center justify-between">
+          <div>
+            <p className="text-[11px] text-gray-400">{coach.duration_minutes} Min.</p>
+            <p className="text-sm font-bold text-gray-900">ab {priceEur} €</p>
+          </div>
+          <p className="text-[11px] text-blue-600 font-semibold">Buchen →</p>
+        </div>
       </div>
     </Link>
   )
@@ -168,7 +223,7 @@ function ScrollRow({
   )
 }
 
-export default function MarketplaceRows({ products, salesCounts, ratings }: Props) {
+export default function MarketplaceRows({ products, salesCounts, ratings, coachingCoaches = [] }: Props) {
   const bestsellers = [...products]
     .filter(p => salesCounts[p.id])
     .sort((a, b) => (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0))
@@ -297,6 +352,18 @@ export default function MarketplaceRows({ products, salesCounts, ratings }: Prop
         >
           {topCoaches.map(c => (
             <CoachCard key={c.slug} creator={c} productCount={coachProductCount.get(c.slug) ?? 0} />
+          ))}
+        </ScrollRow>
+      )}
+
+      {coachingCoaches.length >= 1 && (
+        <ScrollRow
+          title="1:1 Live-Coaching"
+          icon={<Video className="h-4 w-4 text-blue-500" />}
+          showAllHref="/coaches?videocoaching=true"
+        >
+          {coachingCoaches.map(c => (
+            <LiveCoachCard key={c.id} coach={c} />
           ))}
         </ScrollRow>
       )}
