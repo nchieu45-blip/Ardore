@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
+import HeartButton from '@/components/HeartButton'
 import type { CoachData } from './page'
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -66,7 +67,9 @@ function CoachCard({ coach }: { coach: CoachData }) {
   const allCats    = coach.categories.length ? coach.categories : coach.category ? [coach.category] : []
 
   return (
-    <Link href={`/creators/${coach.slug}`} className="group block h-full">
+    <div className="relative group h-full">
+      <HeartButton type="coach" itemId={coach.id} className="absolute top-3 right-3 z-10" />
+      <Link href={`/creators/${coach.slug}`} className="group block h-full">
       <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
         {/* Gradient banner */}
         <div className={`h-20 bg-gradient-to-br ${gradient} relative overflow-hidden flex-shrink-0`}>
@@ -163,6 +166,7 @@ function CoachCard({ coach }: { coach: CoachData }) {
         </div>
       </div>
     </Link>
+    </div>
   )
 }
 

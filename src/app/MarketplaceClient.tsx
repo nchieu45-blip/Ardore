@@ -16,6 +16,7 @@ import CoachFinderWidget from '@/components/CoachFinderWidget'
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
 interface Creator {
+  id: string
   display_name: string
   avatar_url: string | null
   slug: string

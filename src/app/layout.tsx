@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Toaster } from '@/components/ui/Toaster'
 import CookieBanner from '@/components/CookieBanner'
+import { FavoritesProvider } from '@/components/FavoritesProvider'
 import { createClient } from '@/lib/supabase/server'
 
 const geistSans = Geist({
@@ -66,9 +67,11 @@ export default async function RootLayout({
     <html lang="de" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <Navbar user={profile} />
-        <main className="flex-1">
-          {children}
-        </main>
+        <FavoritesProvider userId={profile?.id ?? null}>
+          <main className="flex-1">
+            {children}
+          </main>
+        </FavoritesProvider>
         <Footer />
         <Toaster />
         <CookieBanner />

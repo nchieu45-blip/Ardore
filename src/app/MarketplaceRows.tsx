@@ -8,8 +8,10 @@ import {
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { ProductCard, type ProductCardData } from '@/components/ui/ProductCard'
+import HeartButton from '@/components/HeartButton'
 
 interface Creator {
+  id: string
   display_name: string
   avatar_url: string | null
   slug: string
@@ -61,7 +63,8 @@ const KNOWN_CATEGORY_LABELS: Record<string, string> = {
 function CoachCard({ creator, productCount }: { creator: Creator; productCount: number }) {
   return (
     <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-40 [scroll-snap-align:start] block">
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+      <div className="relative rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+        <HeartButton type="coach" itemId={creator.id} className="absolute top-2 right-2" />
         <Avatar
           src={creator.avatar_url}
           name={creator.display_name}
@@ -95,7 +98,8 @@ function LiveCoachCard({ coach }: { coach: CoachingCoach }) {
       href={`/creators/${coach.slug}`}
       className="flex-shrink-0 w-52 [scroll-snap-align:start] block"
     >
-      <div className="rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
+      <div className="relative rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
+        <HeartButton type="coach" itemId={coach.id} className="absolute top-2 right-2" />
         <div className="flex items-center gap-3 mb-3">
           <Avatar
             src={coach.avatar_url}

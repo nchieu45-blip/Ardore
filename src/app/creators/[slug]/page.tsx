@@ -18,6 +18,7 @@ import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
 import ReviewSection from './ReviewSection'
 import BookingWidget from './BookingWidget'
+import HeartButton from '@/components/HeartButton'
 
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness',
@@ -295,6 +296,9 @@ export default async function CreatorProfilePage({
             className="ring-4 ring-white shadow-xl"
           />
           <div className="flex items-center gap-2 pb-1">
+            {user?.id !== creator.user_id && (
+              <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
+            )}
             {user?.id === creator.user_id && (
               <Link href="/creator/settings/profile">
                 <Button variant="outline" size="sm" className="gap-1.5">

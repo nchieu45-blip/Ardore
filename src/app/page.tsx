@@ -52,6 +52,7 @@ export default async function MarketplacePage() {
       level: p.level ?? null,
       duration: p.duration ?? null,
       creator: {
+        id: p.creator_id,
         display_name: cp?.display_name ?? '',
         avatar_url: cp?.avatar_url ?? null,
         slug: cp?.slug ?? '',

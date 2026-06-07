@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video } from 'lucide-react'
+import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import type { Profile } from '@/types'
 
@@ -94,6 +94,10 @@ export function Navbar({ user }: NavbarProps) {
                       <Link href={dashboardPath} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                         <LayoutDashboard className="h-4 w-4 text-gray-400" />
                         Dashboard
+                      </Link>
+                      <Link href="/buyer/favorites" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                        <Heart className="h-4 w-4 text-gray-400" />
+                        Meine Favoriten
                       </Link>
                       {user.role === 'creator' && (
                         <>

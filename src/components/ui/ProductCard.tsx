@@ -5,6 +5,7 @@ import { FileText, Play, GraduationCap, Image as ImageIcon } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
+import HeartButton from '@/components/HeartButton'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -46,6 +47,7 @@ export interface ProductCardData {
   price: number
   thumbnail_url: string | null
   creator: {
+    id: string
     display_name: string
     avatar_url: string | null
     slug: string
@@ -120,6 +122,7 @@ export function ProductCard({
           <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full">
             {TYPE_LABELS[product.type]}
           </span>
+          <HeartButton type="product" itemId={product.id} className="absolute top-2 left-2" />
         </div>
 
         {/* ── Content ───────────────────────────────────── */}
