@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video } from 'lucide-react'
+import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import type { Profile } from '@/types'
 
 interface NavbarProps {
@@ -74,7 +75,8 @@ export function Navbar({ user }: NavbarProps) {
                 <Link href={dashboardPath} className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
                   Dashboard
                 </Link>
-                <div className="relative ml-2">
+                <NavbarNotificationBell userId={user.id} />
+                <div className="relative ml-1">
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
@@ -139,10 +141,13 @@ export function Navbar({ user }: NavbarProps) {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <button className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* Mobile: bell + hamburger */}
+          <div className="md:hidden flex items-center gap-1">
+            {user && <NavbarNotificationBell userId={user.id} />}
+            <button className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </div>
 

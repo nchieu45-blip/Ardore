@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createNotification } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -38,6 +39,27 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Notify the creator (fire-and-forget)
+  ;(async () => {
+    const { data: product } = await supabase
+      .from('products')
+      .select('title, creator_profiles!inner(user_id)')
+      .eq('id', productId)
+      .single()
+    if (!product) return
+    const raw = (product as unknown as { title: string; creator_profiles: { user_id: string } | { user_id: string }[] }).creator_profiles
+    const cp  = Array.isArray(raw) ? raw[0] : raw
+    if (!cp?.user_id) return
+    const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating)
+    await createNotification({
+      userId: cp.user_id,
+      type: 'new_review',
+      title: 'Neue Bewertung',
+      message: `${stars}  Jemand hat „${(product as unknown as { title: string }).title}" bewertet.`,
+      link: '/creator',
+    })
+  })().catch(() => {})
 
   return NextResponse.json({ review: data })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendPurchaseReceipt, sendNewSubscriberNotification } from '@/lib/email/send'
+import { createNotification } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
@@ -146,13 +147,22 @@ export async function notifyNewSubscriber(
     const tier = tierRes.data
 
     if (tier) {
-      await sendNewSubscriberNotification(creatorEmail, {
-        creatorName,
-        subscriberName,
-        tierName: tier.name,
-        priceMonthly: tier.price_monthly,
-        dashboardUrl: `${APP_URL}/creator`,
-      })
+      await Promise.allSettled([
+        sendNewSubscriberNotification(creatorEmail, {
+          creatorName,
+          subscriberName,
+          tierName: tier.name,
+          priceMonthly: tier.price_monthly,
+          dashboardUrl: `${APP_URL}/creator`,
+        }),
+        createNotification({
+          userId: creatorUserId,
+          type: 'new_subscriber',
+          title: 'Neuer Abonnent',
+          message: `${subscriberName} hat „${tier.name}" abonniert.`,
+          link: '/creator',
+        }),
+      ])
     }
   } catch (err) {
     console.error('[notifyNewSubscriber]', err)

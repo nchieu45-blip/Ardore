@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendChatNotification } from '@/lib/email/send'
+import { createNotification } from '@/lib/notifications'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
 // Don't send another notification if sender already sent one in this window
@@ -111,12 +112,21 @@ async function sendNotification({
     const buyerName = buyerRes.data.user?.user_metadata?.full_name ?? 'Abonnent'
     if (!buyerEmail) return
 
-    await sendChatNotification(buyerEmail, {
-      recipientName: buyerName,
-      senderName: creatorName,
-      messagePreview: messageContent,
-      chatUrl: `${APP_URL}/chat/${creatorId}`,
-    })
+    await Promise.allSettled([
+      sendChatNotification(buyerEmail, {
+        recipientName: buyerName,
+        senderName: creatorName,
+        messagePreview: messageContent,
+        chatUrl: `${APP_URL}/chat/${creatorId}`,
+      }),
+      createNotification({
+        userId: lastBuyerMsg.sender_id,
+        type: 'new_message',
+        title: `Neue Nachricht von ${creatorName}`,
+        message: messageContent.slice(0, 120),
+        link: `/chat/${creatorId}`,
+      }),
+    ])
   } else {
     // Buyer sent a message → notify the creator
     const creatorEmailRes = await admin.auth.admin.getUserById(creatorUserId)
@@ -126,11 +136,20 @@ async function sendNotification({
     const senderRes = await admin.auth.admin.getUserById(senderId)
     const senderName = senderRes.data.user?.user_metadata?.full_name ?? 'Abonnent'
 
-    await sendChatNotification(creatorEmail, {
-      recipientName: creatorName,
-      senderName,
-      messagePreview: messageContent,
-      chatUrl: `${APP_URL}/creator/chat/${senderId}`,
-    })
+    await Promise.allSettled([
+      sendChatNotification(creatorEmail, {
+        recipientName: creatorName,
+        senderName,
+        messagePreview: messageContent,
+        chatUrl: `${APP_URL}/creator/chat/${senderId}`,
+      }),
+      createNotification({
+        userId: creatorUserId,
+        type: 'new_message',
+        title: `Neue Nachricht von ${senderName}`,
+        message: messageContent.slice(0, 120),
+        link: `/creator/chat/${senderId}`,
+      }),
+    ])
   }
 }

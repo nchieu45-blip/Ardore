@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createNotification } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -141,6 +142,24 @@ export async function POST(req: NextRequest) {
       const { sendBookingConfirmation } = await import('@/lib/email/send')
       const scheduledDate = scheduledAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
       const scheduledTime = scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+      // In-app notifications (fire-and-forget)
+      createNotification({
+        userId: creator.user_id,
+        type: 'new_booking',
+        title: 'Neue Session gebucht',
+        message: `${name} hat eine ${offer.duration_minutes}-Min.-Session am ${scheduledDate} um ${scheduledTime} Uhr gebucht.`,
+        link: '/creator/sessions',
+      }).catch(() => {})
+      if (user?.id) {
+        createNotification({
+          userId: user.id,
+          type: 'booking_confirmed',
+          title: 'Session bestätigt',
+          message: `Deine Session mit ${creator.display_name} am ${scheduledDate} um ${scheduledTime} Uhr ist bestätigt.`,
+          link: `/session/${booking.id}`,
+        }).catch(() => {})
+      }
 
       await Promise.allSettled([
         sendBookingConfirmation(email, {
