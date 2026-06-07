@@ -106,10 +106,16 @@ export function Navbar({ user }: NavbarProps) {
                         </>
                       )}
                       {user.role === 'buyer' && (
-                        <Link href="/buyer/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                          <Video className="h-4 w-4 text-gray-400" />
-                          Meine Sessions
-                        </Link>
+                        <>
+                          <Link href="/buyer/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Video className="h-4 w-4 text-gray-400" />
+                            Meine Sessions
+                          </Link>
+                          <Link href="/buyer/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Settings className="h-4 w-4 text-gray-400" />
+                            Einstellungen
+                          </Link>
+                        </>
                       )}
                       <div className="border-t border-gray-100 mt-1 pt-1">
                         <button onClick={handleSignOut} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { CreditCard, Tag, User, ExternalLink, Video } from 'lucide-react'
+import DeleteAccountSection from './DeleteAccountSection'
 
 export default async function CreatorSettingsPage() {
   const supabase = await createClient()
@@ -27,11 +28,28 @@ export default async function CreatorSettingsPage() {
 
   const tierList = tiers ?? []
 
-  const { data: coachingOffer } = await supabase
-    .from('coaching_offers')
-    .select('is_enabled, price_cents, duration_minutes')
-    .eq('creator_id', creator.id)
-    .single()
+  const [coachingOfferRes, activeSubsRes, upcomingBookingsRes] = await Promise.all([
+    supabase
+      .from('coaching_offers')
+      .select('is_enabled, price_cents, duration_minutes')
+      .eq('creator_id', creator.id)
+      .single(),
+    supabase
+      .from('subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('creator_id', creator.id)
+      .eq('status', 'active'),
+    supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('creator_id', creator.id)
+      .eq('status', 'confirmed')
+      .gt('scheduled_at', new Date().toISOString()),
+  ])
+
+  const coachingOffer          = coachingOfferRes.data
+  const activeSubscribersCount = activeSubsRes.count ?? 0
+  const upcomingBookingsCount  = upcomingBookingsRes.count ?? 0
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -169,6 +187,16 @@ export default async function CreatorSettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Danger zone */}
+        <div className="pt-4 border-t border-gray-100">
+          <DeleteAccountSection
+            isCreator={true}
+            activeSubscribersCount={activeSubscribersCount}
+            upcomingBookingsCount={upcomingBookingsCount}
+            activeSubscriptionsCount={0}
+          />
+        </div>
       </div>
     </div>
   )

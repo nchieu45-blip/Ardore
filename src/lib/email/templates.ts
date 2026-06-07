@@ -228,3 +228,65 @@ export function sessionReminderText(d: SessionReminderData) {
   const timeLabel = d.minutesUntil <= 60 ? `in ${d.minutesUntil} Minuten` : `in ${Math.round(d.minutesUntil / 60)} Stunden`
   return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel} um ${d.scheduledTime} Uhr.\n\nJetzt beitreten: ${d.sessionUrl}\n\n– Das Ardore-Team`
 }
+
+// ─── Account deletion notices ─────────────────────────────────────────────────
+
+export interface BookingCancelledNoticeData {
+  recipientName: string
+  coachName:     string
+  scheduledAt:   string
+}
+
+export function bookingCancelledNoticeHtml(d: BookingCancelledNoticeData) {
+  const date = new Date(d.scheduledAt).toLocaleDateString('de-DE', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const time = new Date(d.scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Session wurde storniert</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">
+      Hallo ${d.recipientName},<br><br>
+      leider hat <strong>${d.coachName}</strong> sein Konto auf Ardore gelöscht. Deine gebuchte Session am
+      <strong>${date} um ${time} Uhr</strong> wurde daher automatisch storniert.
+    </p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">
+      Du findest andere Coaches auf Ardore:
+    </p>
+    <p style="text-align:center;margin:0 0 20px;">${button(`${APP_URL}/coaches`, 'Coaches entdecken →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Wir bedauern die Unannehmlichkeiten. Dein Ardore-Team
+    </p>
+  `)
+}
+
+export function bookingCancelledNoticeText(d: BookingCancelledNoticeData) {
+  const date = new Date(d.scheduledAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })
+  const time = new Date(d.scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  return `Hallo ${d.recipientName},\n\nDeine Session mit ${d.coachName} am ${date} um ${time} Uhr wurde storniert, da der Coach sein Konto gelöscht hat.\n\nFinde andere Coaches: ${APP_URL}/coaches\n\n– Das Ardore-Team`
+}
+
+export interface SubscriptionCancelledNoticeData {
+  recipientName: string
+  coachName:     string
+}
+
+export function subscriptionCancelledNoticeHtml(d: SubscriptionCancelledNoticeData) {
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Dein Abonnement wurde beendet</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">
+      Hallo ${d.recipientName},<br><br>
+      <strong>${d.coachName}</strong> hat sein Konto auf Ardore gelöscht. Dein aktives Abonnement wurde daher automatisch beendet.
+    </p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">
+      Du findest viele andere Coaches auf Ardore, die dir weiterhelfen können:
+    </p>
+    <p style="text-align:center;margin:0 0 20px;">${button(`${APP_URL}/coaches`, 'Coaches entdecken →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Wir bedauern die Unannehmlichkeiten. Dein Ardore-Team
+    </p>
+  `)
+}
+
+export function subscriptionCancelledNoticeText(d: SubscriptionCancelledNoticeData) {
+  return `Hallo ${d.recipientName},\n\n${d.coachName} hat sein Konto gelöscht. Dein Abonnement wurde automatisch beendet.\n\nFinde andere Coaches: ${APP_URL}/coaches\n\n– Das Ardore-Team`
+}

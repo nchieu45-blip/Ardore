@@ -5,6 +5,8 @@ import {
   chatNotificationHtml, chatNotificationText, ChatNotificationData,
   bookingConfirmationHtml, bookingConfirmationText, BookingConfirmationData,
   sessionReminderHtml, sessionReminderText, SessionReminderData,
+  bookingCancelledNoticeHtml, bookingCancelledNoticeText, BookingCancelledNoticeData,
+  subscriptionCancelledNoticeHtml, subscriptionCancelledNoticeText, SubscriptionCancelledNoticeData,
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
@@ -57,5 +59,25 @@ export async function sendSessionReminder(to: string, data: SessionReminderData)
     subject: `Session-Erinnerung: ${data.minutesUntil <= 60 ? `in ${data.minutesUntil} Min.` : 'morgen'} mit ${data.coachName}`,
     html: sessionReminderHtml(data),
     text: sessionReminderText(data),
+  })
+}
+
+export async function sendBookingCancelledNotice(to: string, data: BookingCancelledNoticeData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Deine Session mit ${data.coachName} wurde storniert`,
+    html: bookingCancelledNoticeHtml(data),
+    text: bookingCancelledNoticeText(data),
+  })
+}
+
+export async function sendSubscriptionCancelledNotice(to: string, data: SubscriptionCancelledNoticeData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Dein Abonnement bei ${data.coachName} wurde beendet`,
+    html: subscriptionCancelledNoticeHtml(data),
+    text: subscriptionCancelledNoticeText(data),
   })
 }
