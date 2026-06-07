@@ -4,6 +4,7 @@ import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Toaster } from '@/components/ui/Toaster'
+import CookieBanner from '@/components/CookieBanner'
 import { createClient } from '@/lib/supabase/server'
 
 const geistSans = Geist({
@@ -70,6 +71,7 @@ export default async function RootLayout({
         </main>
         <Footer />
         <Toaster />
+        <CookieBanner />
       </body>
     </html>
   )

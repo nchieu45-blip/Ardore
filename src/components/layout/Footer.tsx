@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Flame } from 'lucide-react'
+import { CookieSettingsButton } from '@/components/CookieSettingsButton'
 
 export function Footer() {
   return (
@@ -33,6 +34,7 @@ export function Footer() {
               <li><Link href="/datenschutz" className="hover:text-white transition-colors">Datenschutz</Link></li>
               <li><Link href="/agb" className="hover:text-white transition-colors">AGB</Link></li>
               <li><Link href="/impressum" className="hover:text-white transition-colors">Impressum</Link></li>
+              <li><CookieSettingsButton /></li>
             </ul>
           </div>
         </div>
