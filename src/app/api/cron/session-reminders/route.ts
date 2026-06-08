@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
 
-// Called every 15 minutes by Vercel Cron (see vercel.json).
-// Finds sessions starting in 55–75 minutes and sends a one-time reminder
+// Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
+// Finds sessions starting in the next 23–25 h and sends a one-time reminder
 // notification to both the coach and the buyer.
+// TODO: tighten to */15 * * * * on Vercel Pro for near-real-time reminders.
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -14,8 +15,8 @@ export async function GET(req: NextRequest) {
   const service = await createServiceClient()
 
   const now          = new Date()
-  const windowStart  = new Date(now.getTime() + 55 * 60_000).toISOString()
-  const windowEnd    = new Date(now.getTime() + 75 * 60_000).toISOString()
+  const windowStart  = new Date(now.getTime() + 23 * 60 * 60_000).toISOString()
+  const windowEnd    = new Date(now.getTime() + 25 * 60 * 60_000).toISOString()
 
   const { data: bookings } = await service
     .from('bookings')
@@ -51,8 +52,8 @@ export async function GET(req: NextRequest) {
       jobs.push(createNotification({
         userId: cp.user_id,
         type: 'session_reminder',
-        title: 'Session beginnt in 1 Stunde',
-        message: `Deine Session mit ${b.buyer_name} beginnt um ${sessionTime} Uhr.`,
+        title: 'Session beginnt morgen',
+        message: `Deine Session mit ${b.buyer_name} findet morgen um ${sessionTime} Uhr statt.`,
         link: `/session/${b.id}`,
       }))
     }
@@ -61,8 +62,8 @@ export async function GET(req: NextRequest) {
       jobs.push(createNotification({
         userId: b.buyer_id,
         type: 'session_reminder',
-        title: 'Session beginnt in 1 Stunde',
-        message: `Deine Session mit ${cp?.display_name ?? 'deinem Coach'} beginnt um ${sessionTime} Uhr.`,
+        title: 'Session beginnt morgen',
+        message: `Deine Session mit ${cp?.display_name ?? 'deinem Coach'} findet morgen um ${sessionTime} Uhr statt.`,
         link: `/session/${b.id}`,
       }))
     }

@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/session-reminders",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/session-review-prompts",
