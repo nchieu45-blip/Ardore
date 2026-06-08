@@ -319,3 +319,104 @@ export function sessionReviewPromptHtml(d: SessionReviewPromptData) {
 export function sessionReviewPromptText(d: SessionReviewPromptData) {
   return `Hey ${d.buyerName},\n\nWie war deine Session mit ${d.coachName}? Teile deine Erfahrung:\n\n${d.reviewUrl}\n\n– Das Ardore-Team`
 }
+
+// ─── Reschedule confirmation ──────────────────────────────────────────────────
+
+export interface RescheduleConfirmationData {
+  recipientName: string
+  coachName: string
+  oldDate: string
+  oldTime: string
+  newDate: string
+  newTime: string
+  durationMinutes: number
+  sessionUrl: string
+  role: 'buyer' | 'creator'
+}
+
+export function rescheduleConfirmationHtml(d: RescheduleConfirmationData) {
+  const isBuyer = d.role === 'buyer'
+  const other   = isBuyer ? d.coachName : d.coachName
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Session verschoben 📅</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hey ${d.recipientName}, deine Session mit <strong>${other}</strong> wurde auf einen neuen Termin verschoben.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <tr>
+        <td colspan="2" style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;padding-bottom:10px;">Alter Termin</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#9ca3af;padding-bottom:6px;">Datum</td>
+        <td style="font-size:13px;color:#9ca3af;text-align:right;padding-bottom:6px;text-decoration:line-through;">${d.oldDate}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#9ca3af;padding-bottom:14px;">Uhrzeit</td>
+        <td style="font-size:13px;color:#9ca3af;text-align:right;padding-bottom:14px;text-decoration:line-through;">${d.oldTime} Uhr</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="font-size:11px;font-weight:600;color:#16a34a;text-transform:uppercase;letter-spacing:0.05em;padding-bottom:10px;">Neuer Termin</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Datum</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:6px;">${d.newDate}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Uhrzeit</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:6px;">${d.newTime} Uhr</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Dauer</td>
+        <td style="font-size:13px;color:#111827;text-align:right;">${d.durationMinutes} Minuten</td>
+      </tr>
+    </table>
+    <p style="text-align:center;margin:0 0 16px;">${button(d.sessionUrl, 'Zur Session →')}</p>
+  `)
+}
+
+export function rescheduleConfirmationText(d: RescheduleConfirmationData) {
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} wurde verschoben.\n\nAlter Termin: ${d.oldDate} um ${d.oldTime} Uhr\nNeuer Termin: ${d.newDate} um ${d.newTime} Uhr\nDauer: ${d.durationMinutes} Minuten\n\nSession-Link: ${d.sessionUrl}\n\n– Das Ardore-Team`
+}
+
+// ─── Session cancellation notice (manual) ────────────────────────────────────
+
+export interface SessionCancellationData {
+  recipientName: string
+  otherPartyName: string
+  scheduledDate: string
+  scheduledTime: string
+  cancelledByRole: 'buyer' | 'creator'
+}
+
+export function sessionCancellationHtml(d: SessionCancellationData) {
+  const byBuyer = d.cancelledByRole === 'buyer'
+  const reason  = byBuyer
+    ? `${d.otherPartyName} hat die Session storniert.`
+    : `${d.otherPartyName} (Coach) hat die Session leider storniert.`
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Session storniert</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hallo ${d.recipientName}, ${reason}
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Datum</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:8px;">${d.scheduledDate}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Uhrzeit</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;">${d.scheduledTime} Uhr</td>
+      </tr>
+    </table>
+    <p style="text-align:center;margin:0 0 20px;">${button(`${APP_URL}/coaches`, 'Coaches entdecken →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Wir bedauern die Unannehmlichkeiten. – Das Ardore-Team
+    </p>
+  `)
+}
+
+export function sessionCancellationText(d: SessionCancellationData) {
+  const byBuyer = d.cancelledByRole === 'buyer'
+  const reason  = byBuyer ? `${d.otherPartyName} hat die Session storniert.` : `${d.otherPartyName} (Coach) hat die Session leider storniert.`
+  return `Hallo ${d.recipientName},\n\n${reason}\n\nTermin: ${d.scheduledDate} um ${d.scheduledTime} Uhr\n\nFinde andere Coaches: ${APP_URL}/coaches\n\n– Das Ardore-Team`
+}

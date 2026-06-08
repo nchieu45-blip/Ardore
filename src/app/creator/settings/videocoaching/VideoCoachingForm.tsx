@@ -37,15 +37,25 @@ const HORIZON_OPTIONS = [
   { value: 60, label: '2 Monate' },
   { value: 90, label: '3 Monate' },
 ]
+const CANCELLATION_OPTIONS = [
+  { value: 0,  label: 'Jederzeit kostenlos' },
+  { value: 2,  label: '2 Stunden vorher' },
+  { value: 6,  label: '6 Stunden vorher' },
+  { value: 12, label: '12 Stunden vorher' },
+  { value: 24, label: '24 Stunden vorher' },
+  { value: 48, label: '48 Stunden vorher' },
+  { value: 72, label: '72 Stunden vorher' },
+]
 
 interface InitialOffer {
-  is_enabled:       boolean
-  price_cents:      number
-  duration_minutes: number
-  description:      string | null
-  buffer_minutes:   number
-  min_notice_hours: number
-  max_horizon_days: number
+  is_enabled:                boolean
+  price_cents:               number
+  duration_minutes:          number
+  description:               string | null
+  buffer_minutes:            number
+  min_notice_hours:          number
+  max_horizon_days:          number
+  cancellation_policy_hours: number
 }
 
 interface RecurringSlot {
@@ -90,16 +100,17 @@ function weeklyToSlots(weekly: WeeklyAvail): RecurringSlot[] {
 }
 
 export default function VideoCoachingForm({ initialOffer, initialSlots, initialDateOverrides }: Props) {
-  const [enabled,       setEnabled]      = useState(initialOffer?.is_enabled ?? false)
-  const [priceCents,    setPriceCents]   = useState(String(Math.round((initialOffer?.price_cents ?? 8000) / 100)))
-  const [duration,      setDuration]     = useState(initialOffer?.duration_minutes ?? 60)
-  const [description,   setDescription] = useState(initialOffer?.description ?? '')
-  const [bufferMin,     setBufferMin]   = useState(initialOffer?.buffer_minutes ?? 0)
-  const [noticeHrs,     setNoticeHrs]   = useState(initialOffer?.min_notice_hours ?? 24)
-  const [horizonDays,   setHorizonDays] = useState(initialOffer?.max_horizon_days ?? 60)
-  const [weekly,        setWeekly]      = useState<WeeklyAvail>(() => initWeekly(initialSlots))
-  const [overrides,     setOverrides]   = useState<DateOverride[]>(initialDateOverrides)
-  const [saving,        setSaving]      = useState(false)
+  const [enabled,          setEnabled]         = useState(initialOffer?.is_enabled ?? false)
+  const [priceCents,       setPriceCents]      = useState(String(Math.round((initialOffer?.price_cents ?? 8000) / 100)))
+  const [duration,         setDuration]        = useState(initialOffer?.duration_minutes ?? 60)
+  const [description,      setDescription]     = useState(initialOffer?.description ?? '')
+  const [bufferMin,        setBufferMin]       = useState(initialOffer?.buffer_minutes ?? 0)
+  const [noticeHrs,        setNoticeHrs]       = useState(initialOffer?.min_notice_hours ?? 24)
+  const [horizonDays,      setHorizonDays]     = useState(initialOffer?.max_horizon_days ?? 60)
+  const [cancelPolicyHrs,  setCancelPolicyHrs] = useState(initialOffer?.cancellation_policy_hours ?? 24)
+  const [weekly,           setWeekly]          = useState<WeeklyAvail>(() => initWeekly(initialSlots))
+  const [overrides,        setOverrides]       = useState<DateOverride[]>(initialDateOverrides)
+  const [saving,           setSaving]          = useState(false)
 
   // New override form state
   const [newDate,      setNewDate]      = useState('')
@@ -180,13 +191,14 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            is_enabled:       enabled,
-            price_cents:      Math.round(priceNum * 100),
-            duration_minutes: duration,
-            description:      description.trim() || null,
-            buffer_minutes:   bufferMin,
-            min_notice_hours: noticeHrs,
-            max_horizon_days: horizonDays,
+            is_enabled:                enabled,
+            price_cents:               Math.round(priceNum * 100),
+            duration_minutes:          duration,
+            description:               description.trim() || null,
+            buffer_minutes:            bufferMin,
+            min_notice_hours:          noticeHrs,
+            max_horizon_days:          horizonDays,
+            cancellation_policy_hours: cancelPolicyHrs,
           }),
         }),
         fetch('/api/coaching/availability', {
@@ -331,6 +343,22 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
               </div>
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Stornierungsfrist</label>
+            <div className="relative">
+              <select
+                value={cancelPolicyHrs}
+                onChange={e => setCancelPolicyHrs(Number(e.target.value))}
+                className={cn(selectClass, 'w-full sm:w-64')}
+              >
+                {CANCELLATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Kunden können bis zu diesem Zeitpunkt kostenlos stornieren oder verschieben.
+            </p>
           </div>
         </div>
 

@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Video, Calendar, Clock, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
+import BookingActions from '@/components/BookingActions'
 
 export const metadata: Metadata = { title: 'Meine Buchungen' }
 
@@ -42,13 +43,21 @@ export default async function CreatorSessionsPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
-  const { data: bookings } = await supabase
-    .from('bookings')
-    .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, notes')
-    .eq('creator_id', creator.id)
-    .order('scheduled_at', { ascending: false })
+  const [bookingsRes, offerRes] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, notes')
+      .eq('creator_id', creator.id)
+      .order('scheduled_at', { ascending: false }),
+    supabase
+      .from('coaching_offers')
+      .select('cancellation_policy_hours')
+      .eq('creator_id', creator.id)
+      .single(),
+  ])
 
-  const rows = (bookings ?? []) as BookingRow[]
+  const rows = (bookingsRes.data ?? []) as BookingRow[]
+  const policyHours = (offerRes.data as { cancellation_policy_hours?: number } | null)?.cancellation_policy_hours ?? 24
   const now = Date.now()
 
   const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
@@ -104,7 +113,7 @@ export default async function CreatorSessionsPage() {
             <section>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend</h2>
               <div className="space-y-3">
-                {upcoming.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} />)}
+                {upcoming.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} policyHours={policyHours} />)}
               </div>
             </section>
           )}
@@ -112,7 +121,7 @@ export default async function CreatorSessionsPage() {
             <section>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Vergangen</h2>
               <div className="space-y-3 opacity-75">
-                {past.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} />)}
+                {past.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} policyHours={policyHours} />)}
               </div>
             </section>
           )}
@@ -122,10 +131,11 @@ export default async function CreatorSessionsPage() {
   )
 }
 
-function CreatorSessionCard({ booking: b, now }: { booking: BookingRow; now: number }) {
+function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booking: BookingRow; now: number; creatorId: string; policyHours: number }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
   const isLive       = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
   const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const isAboSession = b.is_subscription_session
 
@@ -184,6 +194,16 @@ function CreatorSessionCard({ booking: b, now }: { booking: BookingRow; now: num
           )}
         </Link>
       </div>
+      {isUpcoming && !isLive && (
+        <BookingActions
+          bookingId={b.id}
+          scheduledAt={b.scheduled_at}
+          creatorId={creatorId}
+          coachName={b.buyer_name}
+          policyHours={policyHours}
+          role="creator"
+        />
+      )}
     </div>
   )
 }

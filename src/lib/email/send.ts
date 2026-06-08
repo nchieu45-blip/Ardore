@@ -8,6 +8,8 @@ import {
   bookingCancelledNoticeHtml, bookingCancelledNoticeText, BookingCancelledNoticeData,
   subscriptionCancelledNoticeHtml, subscriptionCancelledNoticeText, SubscriptionCancelledNoticeData,
   sessionReviewPromptHtml, sessionReviewPromptText, SessionReviewPromptData,
+  rescheduleConfirmationHtml, rescheduleConfirmationText, RescheduleConfirmationData,
+  sessionCancellationHtml, sessionCancellationText, SessionCancellationData,
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
@@ -90,5 +92,25 @@ export async function sendSessionReviewPrompt(to: string, data: SessionReviewPro
     subject: `Wie war deine Session mit ${data.coachName}?`,
     html: sessionReviewPromptHtml(data),
     text: sessionReviewPromptText(data),
+  })
+}
+
+export async function sendRescheduleConfirmation(to: string, data: RescheduleConfirmationData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Session verschoben: neuer Termin mit ${data.coachName}`,
+    html: rescheduleConfirmationHtml(data),
+    text: rescheduleConfirmationText(data),
+  })
+}
+
+export async function sendSessionCancellation(to: string, data: SessionCancellationData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Session storniert – ${data.scheduledDate}`,
+    html: sessionCancellationHtml(data),
+    text: sessionCancellationText(data),
   })
 }

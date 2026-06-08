@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import SessionReviewPrompt from '@/components/SessionReviewPrompt'
+import BookingActions from '@/components/BookingActions'
 
 export const metadata: Metadata = { title: 'Meine Sessions' }
 
@@ -21,6 +22,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface BookingRow {
   id: string
+  creator_id: string
   scheduled_at: string
   duration_minutes: number
   price_cents: number
@@ -49,7 +51,7 @@ export default async function BuyerSessionsPage({
   const [bookingsRes, reviewsRes] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
+      .select('id, creator_id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
       .eq('buyer_id', user.id)
       .order('scheduled_at', { ascending: false }),
     supabase
@@ -59,6 +61,23 @@ export default async function BuyerSessionsPage({
   ])
 
   const rows = (bookingsRes.data ?? []) as unknown as BookingRow[]
+
+  // Fetch cancellation policies for creators of upcoming confirmed sessions
+  const upcomingCreatorIds = [...new Set(
+    rows
+      .filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > Date.now())
+      .map(b => b.creator_id)
+  )]
+  const policyMap = new Map<string, number>()
+  if (upcomingCreatorIds.length > 0) {
+    const { data: offers } = await supabase
+      .from('coaching_offers')
+      .select('creator_id, cancellation_policy_hours')
+      .in('creator_id', upcomingCreatorIds)
+    for (const o of (offers ?? []) as { creator_id: string; cancellation_policy_hours: number }[]) {
+      policyMap.set(o.creator_id, o.cancellation_policy_hours ?? 24)
+    }
+  }
   const reviewMap = new Map<string, ExistingReview>()
   for (const r of (reviewsRes.data ?? []) as { booking_id: string; rating: number; content: string | null }[]) {
     reviewMap.set(r.booking_id, { rating: r.rating, content: r.content })
@@ -100,6 +119,7 @@ export default async function BuyerSessionsPage({
                     now={now}
                     existingReview={reviewMap.get(b.id) ?? null}
                     autoOpen={autoReviewBookingId === b.id}
+                    policyHours={policyMap.get(b.creator_id) ?? 24}
                   />
                 ))}
               </div>
@@ -132,16 +152,19 @@ function SessionCard({
   now,
   existingReview,
   autoOpen,
+  policyHours,
 }: {
   booking: BookingRow
   now: number
   existingReview: ExistingReview | null
   autoOpen: boolean
+  policyHours?: number
 }) {
-  const scheduledAt = new Date(b.scheduled_at)
-  const endAt       = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
-  const isEnded     = endAt.getTime() < now && b.status !== 'cancelled'
+  const scheduledAt  = new Date(b.scheduled_at)
+  const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
+  const isLive       = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isEnded      = endAt.getTime() < now && b.status !== 'cancelled'
+  const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const creator     = b.creator_profiles
   const isAboSession = b.is_subscription_session
@@ -208,6 +231,16 @@ function SessionCard({
           coachName={creator.display_name}
           existingReview={existingReview}
           autoOpen={autoOpen}
+        />
+      )}
+      {isUpcoming && !isLive && creator && (
+        <BookingActions
+          bookingId={b.id}
+          scheduledAt={b.scheduled_at}
+          creatorId={b.creator_id}
+          coachName={creator.display_name}
+          policyHours={policyHours ?? 24}
+          role="buyer"
         />
       )}
     </div>
