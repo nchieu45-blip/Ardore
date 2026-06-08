@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Bell, Calendar, CheckCircle2, Users, MessageCircle, Clock, Star,
+  Bell, Calendar, CheckCircle2, Users, MessageCircle, Clock, Star, Video,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -19,21 +19,23 @@ interface Notification {
 }
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
-  new_booking:       <Calendar      className="h-4 w-4 text-green-600" />,
-  booking_confirmed: <CheckCircle2  className="h-4 w-4 text-green-600" />,
-  new_subscriber:    <Users         className="h-4 w-4 text-purple-600" />,
-  new_message:       <MessageCircle className="h-4 w-4 text-blue-600" />,
-  session_reminder:  <Clock         className="h-4 w-4 text-amber-600" />,
-  new_review:        <Star          className="h-4 w-4 text-amber-600" />,
+  new_booking:            <Calendar      className="h-4 w-4 text-green-600" />,
+  booking_confirmed:      <CheckCircle2  className="h-4 w-4 text-green-600" />,
+  new_subscriber:         <Users         className="h-4 w-4 text-purple-600" />,
+  new_message:            <MessageCircle className="h-4 w-4 text-blue-600" />,
+  session_reminder:       <Clock         className="h-4 w-4 text-amber-600" />,
+  new_review:             <Star          className="h-4 w-4 text-amber-600" />,
+  session_review_prompt:  <Video         className="h-4 w-4 text-amber-600" />,
 }
 
 const TYPE_BG: Record<string, string> = {
-  new_booking:       'bg-green-50',
-  booking_confirmed: 'bg-green-50',
-  new_subscriber:    'bg-purple-50',
-  new_message:       'bg-blue-50',
-  session_reminder:  'bg-amber-50',
-  new_review:        'bg-amber-50',
+  new_booking:            'bg-green-50',
+  booking_confirmed:      'bg-green-50',
+  new_subscriber:         'bg-purple-50',
+  new_message:            'bg-blue-50',
+  session_reminder:       'bg-amber-50',
+  new_review:             'bg-amber-50',
+  session_review_prompt:  'bg-amber-50',
 }
 
 function relativeTime(dateStr: string): string {
