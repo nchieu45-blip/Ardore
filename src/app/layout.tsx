@@ -56,12 +56,16 @@ export default async function RootLayout({
 
   let profile = null
   if (user) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    profile = data
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+      profile = data
+    } catch {
+      // profile stays null — new user whose row doesn't exist yet
+    }
   }
 
   return (
