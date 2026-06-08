@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Video, Calendar, Clock, ChevronRight, CheckCircle2, XCircle } from 'lucide-react'
+import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
+import SessionReviewPrompt from '@/components/SessionReviewPrompt'
 
 export const metadata: Metadata = { title: 'Meine Sessions' }
 
@@ -26,21 +27,43 @@ interface BookingRow {
   is_subscription_session: boolean
   status: string
   daily_room_url: string | null
-  creator_profiles: { display_name: string; slug: string; avatar_url: string | null } | null
+  creator_profiles: { id: string; display_name: string; slug: string; avatar_url: string | null } | null
 }
 
-export default async function BuyerSessionsPage() {
+interface ExistingReview {
+  rating: number
+  content: string | null
+}
+
+export default async function BuyerSessionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ review?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: bookings } = await supabase
-    .from('bookings')
-    .select('id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, daily_room_url, creator_profiles(display_name, slug, avatar_url)')
-    .eq('buyer_id', user.id)
-    .order('scheduled_at', { ascending: false })
+  const { review: autoReviewBookingId } = await searchParams
 
-  const rows = (bookings ?? []) as unknown as BookingRow[]
+  const [bookingsRes, reviewsRes] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
+      .eq('buyer_id', user.id)
+      .order('scheduled_at', { ascending: false }),
+    supabase
+      .from('session_reviews')
+      .select('booking_id, rating, content')
+      .eq('buyer_id', user.id),
+  ])
+
+  const rows = (bookingsRes.data ?? []) as unknown as BookingRow[]
+  const reviewMap = new Map<string, ExistingReview>()
+  for (const r of (reviewsRes.data ?? []) as { booking_id: string; rating: number; content: string | null }[]) {
+    reviewMap.set(r.booking_id, { rating: r.rating, content: r.content })
+  }
+
   const now = Date.now()
 
   const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
@@ -70,15 +93,31 @@ export default async function BuyerSessionsPage() {
             <section>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend</h2>
               <div className="space-y-3">
-                {upcoming.map(b => <SessionCard key={b.id} booking={b} now={now} />)}
+                {upcoming.map(b => (
+                  <SessionCard
+                    key={b.id}
+                    booking={b}
+                    now={now}
+                    existingReview={reviewMap.get(b.id) ?? null}
+                    autoOpen={autoReviewBookingId === b.id}
+                  />
+                ))}
               </div>
             </section>
           )}
           {past.length > 0 && (
             <section>
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Vergangen</h2>
-              <div className="space-y-3 opacity-80">
-                {past.map(b => <SessionCard key={b.id} booking={b} now={now} />)}
+              <div className="space-y-3 opacity-90">
+                {past.map(b => (
+                  <SessionCard
+                    key={b.id}
+                    booking={b}
+                    now={now}
+                    existingReview={reviewMap.get(b.id) ?? null}
+                    autoOpen={autoReviewBookingId === b.id}
+                  />
+                ))}
               </div>
             </section>
           )}
@@ -88,10 +127,21 @@ export default async function BuyerSessionsPage() {
   )
 }
 
-function SessionCard({ booking: b, now }: { booking: BookingRow; now: number }) {
+function SessionCard({
+  booking: b,
+  now,
+  existingReview,
+  autoOpen,
+}: {
+  booking: BookingRow
+  now: number
+  existingReview: ExistingReview | null
+  autoOpen: boolean
+}) {
   const scheduledAt = new Date(b.scheduled_at)
   const endAt       = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
   const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isEnded     = endAt.getTime() < now && b.status !== 'cancelled'
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const creator     = b.creator_profiles
   const isAboSession = b.is_subscription_session
@@ -151,6 +201,15 @@ function SessionCard({ booking: b, now }: { booking: BookingRow; now: number }) 
           )}
         </Link>
       </div>
+
+      {isEnded && creator && (
+        <SessionReviewPrompt
+          bookingId={b.id}
+          coachName={creator.display_name}
+          existingReview={existingReview}
+          autoOpen={autoOpen}
+        />
+      )}
     </div>
   )
 }

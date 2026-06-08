@@ -104,6 +104,14 @@ interface ReviewRow {
   profiles: ReviewProfile | ReviewProfile[] | null
 }
 
+interface SessionReviewRow {
+  id: string
+  rating: number
+  content: string | null
+  created_at: string
+  profiles: ReviewProfile | ReviewProfile[] | null
+}
+
 function normalizeProfile(raw: ReviewProfile | ReviewProfile[] | null): ReviewProfile | null {
   if (!raw) return null
   return Array.isArray(raw) ? raw[0] ?? null : raw
@@ -168,7 +176,7 @@ export default async function CreatorProfilePage({
 
   const coachingOffer = coachingOfferData?.is_enabled ? coachingOfferData : null
 
-  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes] = await Promise.all([
+  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes, sessionReviewsRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
@@ -179,6 +187,12 @@ export default async function CreatorProfilePage({
     productIds.length > 0
       ? supabase.from('purchases').select('product_id').in('product_id', productIds)
       : Promise.resolve({ data: [] }),
+    supabase
+      .from('session_reviews')
+      .select('id, rating, content, created_at, profiles(full_name, avatar_url)')
+      .eq('creator_id', creator.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   const tiers = tiersRes.data ?? []
@@ -212,6 +226,12 @@ export default async function CreatorProfilePage({
   const totalReviewCount = allReviewsFlat.length
   const overallAvgRating = totalReviewCount > 0
     ? allReviewsFlat.reduce((sum, r) => sum + r.rating, 0) / totalReviewCount
+    : null
+
+  const sessionReviews = (sessionReviewsRes.data ?? []) as SessionReviewRow[]
+  const sessionReviewCount = sessionReviews.length
+  const avgSessionRating = sessionReviewCount > 0
+    ? sessionReviews.reduce((sum, r) => sum + r.rating, 0) / sessionReviewCount
     : null
 
   // Compute remaining subscription sessions for logged-in subscriber
@@ -335,7 +355,7 @@ export default async function CreatorProfilePage({
         </div>
 
         {/* Stats strip */}
-        {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null) && (
+        {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null || avgSessionRating !== null) && (
           <div className="flex flex-wrap items-center gap-4 mb-8 pb-6 border-b border-gray-100 animate-slide-up animate-delay-100">
             {products.length > 0 && (
               <div className="flex items-center gap-2 text-sm">
@@ -366,7 +386,18 @@ export default async function CreatorProfilePage({
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">{overallAvgRating.toFixed(1)}</p>
-                  <p className="text-gray-500 text-xs">{totalReviewCount} Bewertung{totalReviewCount !== 1 ? 'en' : ''}</p>
+                  <p className="text-gray-500 text-xs">{totalReviewCount} Produkt-Bew.</p>
+                </div>
+              </div>
+            )}
+            {avgSessionRating !== null && (
+              <div className="flex items-center gap-2 text-sm">
+                <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                  <Video className="h-4 w-4 text-violet-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{avgSessionRating.toFixed(1)}</p>
+                  <p className="text-gray-500 text-xs">{sessionReviewCount} Session-Bew.</p>
                 </div>
               </div>
             )}
@@ -644,6 +675,56 @@ export default async function CreatorProfilePage({
           </div>
         )
       })()}
+
+      {/* Session reviews section */}
+      {sessionReviews.length > 0 && (
+        <div className="pb-16 animate-slide-up">
+          <div className="flex items-center gap-3 mb-5">
+            <h2 className="text-xl font-bold text-gray-900">Coaching-Bewertungen</h2>
+            <div className="flex items-center gap-1.5 bg-violet-50 px-3 py-1 rounded-full">
+              <Star className="h-4 w-4 text-violet-600 fill-violet-600" />
+              <span className="text-sm font-semibold text-violet-700">{avgSessionRating!.toFixed(1)}</span>
+              <span className="text-xs text-violet-500">· {sessionReviewCount} Bewertung{sessionReviewCount !== 1 ? 'en' : ''}</span>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {sessionReviews.map(review => {
+              const profile = normalizeProfile(review.profiles)
+              return (
+                <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-semibold text-gray-500">
+                          {(profile?.full_name ?? '?')[0].toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {profile?.full_name ?? 'Anonymer Nutzer'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(review.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <div className="flex gap-0.5 flex-shrink-0">
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <Star key={s} className={`h-3.5 w-3.5 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-100'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  {review.content && (
+                    <p className="text-sm text-gray-600 leading-relaxed">&ldquo;{review.content}&rdquo;</p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   </div>
   )

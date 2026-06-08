@@ -7,6 +7,7 @@ export type NotificationType =
   | 'new_message'
   | 'session_reminder'
   | 'new_review'
+  | 'session_review_prompt'
 
 export async function createNotification({
   userId,

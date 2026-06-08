@@ -7,6 +7,7 @@ import {
   sessionReminderHtml, sessionReminderText, SessionReminderData,
   bookingCancelledNoticeHtml, bookingCancelledNoticeText, BookingCancelledNoticeData,
   subscriptionCancelledNoticeHtml, subscriptionCancelledNoticeText, SubscriptionCancelledNoticeData,
+  sessionReviewPromptHtml, sessionReviewPromptText, SessionReviewPromptData,
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
@@ -79,5 +80,15 @@ export async function sendSubscriptionCancelledNotice(to: string, data: Subscrip
     subject: `Dein Abonnement bei ${data.coachName} wurde beendet`,
     html: subscriptionCancelledNoticeHtml(data),
     text: subscriptionCancelledNoticeText(data),
+  })
+}
+
+export async function sendSessionReviewPrompt(to: string, data: SessionReviewPromptData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Wie war deine Session mit ${data.coachName}?`,
+    html: sessionReviewPromptHtml(data),
+    text: sessionReviewPromptText(data),
   })
 }

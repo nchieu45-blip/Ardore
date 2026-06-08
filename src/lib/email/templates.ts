@@ -290,3 +290,32 @@ export function subscriptionCancelledNoticeHtml(d: SubscriptionCancelledNoticeDa
 export function subscriptionCancelledNoticeText(d: SubscriptionCancelledNoticeData) {
   return `Hallo ${d.recipientName},\n\n${d.coachName} hat sein Konto gelöscht. Dein Abonnement wurde automatisch beendet.\n\nFinde andere Coaches: ${APP_URL}/coaches\n\n– Das Ardore-Team`
 }
+
+// ─── Session review prompt ────────────────────────────────────────────────────
+
+export interface SessionReviewPromptData {
+  buyerName: string
+  coachName: string
+  reviewUrl: string
+}
+
+export function sessionReviewPromptHtml(d: SessionReviewPromptData) {
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Wie war deine Session? ⭐</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+      Hey ${d.buyerName}, deine Session mit <strong style="color:#111827;">${d.coachName}</strong> ist beendet. Teile deine Erfahrung und hilf anderen, den richtigen Coach zu finden.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-radius:10px;padding:16px;margin-bottom:24px;border:1px solid #fde68a;">
+      <tr><td style="font-size:28px;text-align:center;padding-bottom:8px;">⭐ ⭐ ⭐ ⭐ ⭐</td></tr>
+      <tr><td style="font-size:13px;color:#92400e;text-align:center;">Klicke unten, um deine Bewertung abzugeben.</td></tr>
+    </table>
+    <p style="text-align:center;margin:0 0 20px;">${button(d.reviewUrl, 'Session jetzt bewerten →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Deine Bewertung hilft dem Coach und der Community.
+    </p>
+  `)
+}
+
+export function sessionReviewPromptText(d: SessionReviewPromptData) {
+  return `Hey ${d.buyerName},\n\nWie war deine Session mit ${d.coachName}? Teile deine Erfahrung:\n\n${d.reviewUrl}\n\n– Das Ardore-Team`
+}
