@@ -3,8 +3,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
 import { sendSessionReviewPrompt } from '@/lib/email/send'
 
-// Runs every 15 min. Finds sessions that ended 15–90 min ago, sends a one-time
-// review prompt (in-app notification + email) if the buyer hasn't reviewed yet.
+// Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
+// Finds sessions that ended in the past 24 h and sends a one-time review prompt
+// (in-app notification + email) if the buyer hasn't reviewed yet.
+// TODO: tighten to */15 * * * * on Vercel Pro for near-real-time prompts.
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -14,14 +16,14 @@ export async function GET(req: NextRequest) {
   const service = await createServiceClient()
   const now = new Date()
 
-  // Window: sessions whose end time falls between [now-90min, now-15min].
-  // Because end = scheduled_at + duration_minutes, we over-fetch by adding a
-  // 120-min safety buffer to the lower bound and filter precisely in JS.
-  const fetchFrom = new Date(now.getTime() - (90 + 120) * 60_000).toISOString()
-  const fetchTo   = new Date(now.getTime() - 15 * 60_000).toISOString()
+  // Window: sessions whose end time falls in [now-24h, now].
+  // Because end = scheduled_at + duration_minutes, we over-fetch with a 120-min
+  // buffer on the lower bound and filter precisely in JS.
+  const fetchFrom = new Date(now.getTime() - (24 * 60 + 120) * 60_000).toISOString()
+  const fetchTo   = now.toISOString()
 
-  const windowStart = new Date(now.getTime() - 90 * 60_000)
-  const windowEnd   = new Date(now.getTime() - 15 * 60_000)
+  const windowStart = new Date(now.getTime() - 24 * 60 * 60_000)
+  const windowEnd   = now
 
   const { data: bookings } = await service
     .from('bookings')
