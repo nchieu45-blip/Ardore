@@ -70,6 +70,9 @@ export function Navbar({ user }: NavbarProps) {
             <Link href="/landing" className={navCls('/landing')}>
               Für Coaches
             </Link>
+            <Link href="/hilfe" className={navCls('/hilfe')}>
+              Hilfe
+            </Link>
 
             {user ? (
               <>
@@ -174,6 +177,9 @@ export function Navbar({ user }: NavbarProps) {
             </Link>
             <Link href="/landing" className={mobileNavCls('/landing')} onClick={() => setMenuOpen(false)}>
               Für Coaches
+            </Link>
+            <Link href="/hilfe" className={mobileNavCls('/hilfe')} onClick={() => setMenuOpen(false)}>
+              Hilfe
             </Link>
             {user ? (
               <>

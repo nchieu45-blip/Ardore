@@ -26,6 +26,7 @@ export function Footer() {
               <li><Link href="/coaches" className="hover:text-white transition-colors">Coaches entdecken</Link></li>
               <li><Link href="/landing" className="hover:text-white transition-colors">Für Coaches</Link></li>
               <li><Link href="/register" className="hover:text-white transition-colors">Registrieren</Link></li>
+              <li><Link href="/hilfe" className="hover:text-white transition-colors">Hilfe & FAQ</Link></li>
             </ul>
           </div>
           <div>
