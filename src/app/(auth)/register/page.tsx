@@ -53,9 +53,12 @@ export default function RegisterPage() {
       }
       return
     }
-    // Auto-confirmed: Supabase returns a session immediately — skip verify-email screen
+    // Auto-confirmed: Supabase returns a session immediately — use hard redirect to
+    // avoid a known Next.js 16 / React 19 race where router.push() called after an
+    // await in an async handler (while Supabase fires SIGNED_IN auth events) leaves
+    // the client router in a broken state with no server request ever sent.
     if (signUpData.session) {
-      router.push(role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding')
+      window.location.href = role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding'
       return
     }
     router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
