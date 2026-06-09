@@ -51,21 +51,20 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
   let profile = null
-  if (user) {
-    try {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
       const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle()
       profile = data
-    } catch {
-      // profile stays null — new user whose row doesn't exist yet
     }
+  } catch {
+    // profile stays null on any auth/db error (e.g. brand-new user, network hiccup)
   }
 
   return (

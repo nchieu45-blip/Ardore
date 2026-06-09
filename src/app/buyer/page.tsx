@@ -40,7 +40,7 @@ export default async function BuyerDashboardPage() {
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const [purchasesRes, subscriptionsRes] = await Promise.all([
     supabase

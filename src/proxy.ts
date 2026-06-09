@@ -41,8 +41,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Block verified-email-required paths for users who haven't confirmed yet
-  if (isProtected && user && !user.email_confirmed_at) {
+  // Block unconfirmed users from protected paths.
+  // Check both fields: email_confirmed_at (email flow) and confirmed_at (auto-confirm / phone flow).
+  const isConfirmed = !!(user?.email_confirmed_at ?? user?.confirmed_at)
+  if (isProtected && user && !isConfirmed) {
     const url = request.nextUrl.clone()
     url.pathname = '/verify-email'
     url.searchParams.set('email', user.email ?? '')

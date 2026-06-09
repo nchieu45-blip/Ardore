@@ -11,7 +11,7 @@ export default async function BuyerSettingsPage() {
   if (!user) redirect('/login')
 
   const [profileRes, activeSubsRes, upcomingBookingsRes] = await Promise.all([
-    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+    supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
     supabase
       .from('subscriptions')
       .select('id', { count: 'exact', head: true })

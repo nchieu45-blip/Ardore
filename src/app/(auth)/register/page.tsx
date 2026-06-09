@@ -56,7 +56,6 @@ export default function RegisterPage() {
     // Auto-confirmed: Supabase returns a session immediately — skip verify-email screen
     if (signUpData.session) {
       router.push(role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding')
-      router.refresh()
       return
     }
     router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
