@@ -35,7 +35,7 @@ export default function RegisterPage() {
 
   async function onSubmit(data: FormData) {
     setError('')
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
       options: {
@@ -51,6 +51,12 @@ export default function RegisterPage() {
       } else {
         setError(signUpError.message)
       }
+      return
+    }
+    // Auto-confirmed: Supabase returns a session immediately — skip verify-email screen
+    if (signUpData.session) {
+      router.push(role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding')
+      router.refresh()
       return
     }
     router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
