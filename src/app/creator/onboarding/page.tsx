@@ -119,7 +119,7 @@ export default function CreatorOnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       const { data: existing } = await supabase
-        .from('creator_profiles').select('id').eq('user_id', user.id).single()
+        .from('creator_profiles').select('id').eq('user_id', user.id).maybeSingle()
       if (existing) { router.push('/creator'); return }
       setChecking(false)
     }
