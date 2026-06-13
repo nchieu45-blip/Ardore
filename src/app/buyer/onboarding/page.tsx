@@ -36,8 +36,11 @@ export default function BuyerOnboardingPage() {
   useEffect(() => {
     async function check() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      if (user.user_metadata?.buyer_onboarded) { router.push('/buyer'); return }
+      // Use hard redirect to avoid Next.js 16 / React 19 race where router.push()
+      // called after an await (while Supabase fires SIGNED_IN auth events on init)
+      // leaves the client router in a broken state.
+      if (!user) { window.location.href = '/login'; return }
+      if (user.user_metadata?.buyer_onboarded) { window.location.href = '/buyer'; return }
       setFirstName(user.user_metadata?.full_name?.split(' ')[0] ?? '')
       setChecking(false)
     }

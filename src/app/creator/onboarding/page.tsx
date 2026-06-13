@@ -117,10 +117,12 @@ export default function CreatorOnboardingPage() {
   useEffect(() => {
     async function check() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      // Hard redirect — same race as buyer onboarding: router.push() after await
+      // while Supabase fires SIGNED_IN events breaks the Next.js 16 / React 19 router.
+      if (!user) { window.location.href = '/login'; return }
       const { data: existing } = await supabase
         .from('creator_profiles').select('id').eq('user_id', user.id).maybeSingle()
-      if (existing) { router.push('/creator'); return }
+      if (existing) { window.location.href = '/creator'; return }
       setChecking(false)
     }
     check()
@@ -142,7 +144,7 @@ export default function CreatorOnboardingPage() {
     }
     setCategoryError('')
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    if (!user) { window.location.href = '/login'; return }
 
     const slug = slugify(data.display_name) + '-' + Math.random().toString(36).slice(2, 6)
     const { data: creator, error } = await supabase
