@@ -54,6 +54,13 @@ export default function NavbarNotificationBell({ userId }: { userId: string }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading,       setLoading]       = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  // Unique suffix per component instance: NavbarNotificationBell is rendered
+  // for both desktop and mobile simultaneously with the same userId. Without
+  // this, both instances call supabase.channel('notifications-<userId>') and
+  // get back the same cached channel object. The second instance then calls
+  // .on() on an already-subscribed channel and throws:
+  // "cannot add postgres_changes callbacks after subscribe()".
+  const instanceId  = useRef(Math.random().toString(36).slice(2, 10))
   const router      = useRouter()
   const supabase    = createClient()
 
@@ -73,18 +80,23 @@ export default function NavbarNotificationBell({ userId }: { userId: string }) {
   useEffect(() => {
     fetchNotifications()
 
-    const channel = supabase
-      .channel(`notifications-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => {
-          setNotifications(prev => [payload.new as Notification, ...prev.slice(0, 19)])
-        }
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    try {
+      channel = supabase
+        .channel(`notifications-${userId}-${instanceId.current}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+          (payload) => {
+            setNotifications(prev => [payload.new as Notification, ...prev.slice(0, 19)])
+          }
+        )
+        .subscribe()
+    } catch (err) {
+      console.log('[notifications] realtime subscription error:', err)
+    }
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { if (channel) supabase.removeChannel(channel) }
   }, [supabase, userId, fetchNotifications])
 
   useEffect(() => {
