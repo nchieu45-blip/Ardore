@@ -25,9 +25,14 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (err) {
+    console.log('[proxy] getUser error (corrupted session?):', err)
+    // user stays null → protected routes redirect to /login below
+  }
 
   const { pathname } = request.nextUrl
 
