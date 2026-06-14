@@ -35,14 +35,18 @@ export default function BuyerOnboardingPage() {
 
   useEffect(() => {
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser()
-      // Use hard redirect to avoid Next.js 16 / React 19 race where router.push()
-      // called after an await (while Supabase fires SIGNED_IN auth events on init)
-      // leaves the client router in a broken state.
-      if (!user) { window.location.href = '/login'; return }
-      if (user.user_metadata?.buyer_onboarded) { window.location.href = '/buyer'; return }
-      setFirstName(user.user_metadata?.full_name?.split(' ')[0] ?? '')
-      setChecking(false)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        // Hard redirect — avoids Next.js 16 / React 19 race where router.push()
+        // after an await (while Supabase fires SIGNED_IN events) breaks the router.
+        if (!user) { window.location.href = '/login'; return }
+        if (user.user_metadata?.buyer_onboarded) { window.location.href = '/buyer'; return }
+        setFirstName(user.user_metadata?.full_name?.split(' ')[0] ?? '')
+        setChecking(false)
+      } catch (err) {
+        console.log('[buyer/onboarding] auth check failed:', err)
+        window.location.href = '/login'
+      }
     }
     check()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,9 +60,14 @@ export default function BuyerOnboardingPage() {
 
   async function finish(skip = false) {
     setSaving(true)
-    await supabase.auth.updateUser({
-      data: { interests: skip ? [] : selected, buyer_onboarded: true },
-    })
+    try {
+      await supabase.auth.updateUser({
+        data: { interests: skip ? [] : selected, buyer_onboarded: true },
+      })
+    } catch (err) {
+      // Non-critical metadata update — log and proceed to navigation anyway
+      console.log('[buyer/onboarding] updateUser failed:', err)
+    }
     if (skip) {
       router.push('/buyer')
     } else {
