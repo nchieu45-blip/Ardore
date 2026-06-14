@@ -1,3 +1,4 @@
+// Realtime replaced with 30s polling - cache bust
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
