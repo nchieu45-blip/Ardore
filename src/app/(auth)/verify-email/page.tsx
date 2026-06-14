@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { AuthShell } from '@/components/layout/AuthShell'
 import { Mail, CheckCircle } from 'lucide-react'
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email') ?? ''
   const supabase = createClient()
@@ -84,5 +84,13 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </AuthShell>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Lädt…</p></div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }

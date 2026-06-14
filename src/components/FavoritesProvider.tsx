@@ -27,11 +27,12 @@ export function FavoritesProvider({
 
   useEffect(() => {
     if (!userId) return
-    supabase
-      .from('favorites')
-      .select('item_type, item_id')
-      .eq('user_id', userId)
-      .then(({ data }) => {
+    async function load() {
+      try {
+        const { data } = await supabase
+          .from('favorites')
+          .select('item_type, item_id')
+          .eq('user_id', userId)
         if (data) {
           setFavorites(
             new Set(
@@ -41,7 +42,11 @@ export function FavoritesProvider({
             )
           )
         }
-      })
+      } catch (err) {
+        console.log('[favorites] fetch error:', err)
+      }
+    }
+    load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 

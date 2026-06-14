@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -18,7 +18,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const linkError = searchParams.get('error')
@@ -89,5 +89,13 @@ export default function ForgotPasswordPage() {
         </form>
       )}
     </AuthShell>
+  )
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Lädt…</p></div>}>
+      <ForgotPasswordContent />
+    </Suspense>
   )
 }
