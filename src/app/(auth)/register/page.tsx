@@ -35,33 +35,45 @@ export default function RegisterPage() {
 
   async function onSubmit(data: FormData) {
     setError('')
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: { full_name: data.full_name, role },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/verify-success&type=signup`,
-      },
-    })
-    if (signUpError) {
-      if (signUpError.message === 'User already registered') {
-        setError('Diese E-Mail-Adresse ist bereits registriert.')
-      } else if (signUpError.message?.includes('Database error')) {
-        setError('Datenbankfehler. Bitte stelle sicher, dass das Datenbankschema eingerichtet wurde.')
-      } else {
-        setError(signUpError.message)
+    try {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { full_name: data.full_name, role },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/verify-success&type=signup`,
+        },
+      })
+      if (signUpError) {
+        console.log(signUpError)
+        const msg = signUpError.message ?? ''
+        if (msg.includes('already registered')) {
+          setError('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich stattdessen an.')
+        } else if (msg.includes('Password should be') || msg.toLowerCase().includes('password')) {
+          setError('Dein Passwort ist zu schwach. Bitte wähle mindestens 8 Zeichen.')
+        } else {
+          setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
+        }
+        return
       }
-      return
+      // Auto-confirmed: Supabase returns a session immediately — use hard redirect to
+      // avoid a known Next.js 16 / React 19 race where router.push() called after an
+      // await in an async handler (while Supabase fires SIGNED_IN auth events) leaves
+      // the client router in a broken state with no server request ever sent.
+      if (signUpData.session) {
+        window.location.href = role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding'
+        return
+      }
+      // Email confirmation required — user exists but no session yet.
+      if (signUpData.user) {
+        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
+        return
+      }
+      setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
+    } catch (err) {
+      console.log(err)
+      setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
     }
-    // Auto-confirmed: Supabase returns a session immediately — use hard redirect to
-    // avoid a known Next.js 16 / React 19 race where router.push() called after an
-    // await in an async handler (while Supabase fires SIGNED_IN auth events) leaves
-    // the client router in a broken state with no server request ever sent.
-    if (signUpData.session) {
-      window.location.href = role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding'
-      return
-    }
-    router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
   }
 
   return (
