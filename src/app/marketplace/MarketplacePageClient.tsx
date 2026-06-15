@@ -125,7 +125,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   // Filtering + sorting (client-side against the full product list)
   const filtered = products
     .filter(p => {
-      const matchesCat      = category === 'all' || p.creator.categories.includes(category) || p.creator.category === category
+      const matchesCat      = category === 'all' || (p.creator.categories ?? []).includes(category) || p.creator.category === category
       const matchesType     = type === 'all' || p.type === type
       const matchesSearch   = !search
         || p.title.toLowerCase().includes(search.toLowerCase())
@@ -224,7 +224,15 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                   {CATEGORIES.map(({ key, label }) => (
                     <button
                       key={key}
-                      onClick={() => { setCategoryOpen(false); go({ category: key, page: 1 }) }}
+                      onClick={() => {
+                        setCategoryOpen(false)
+                        if (key === 'all') {
+                          setSearch('')
+                          router.push('/marketplace', { scroll: false })
+                        } else {
+                          go({ category: key, page: 1 })
+                        }
+                      }}
                       className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
                       {label}

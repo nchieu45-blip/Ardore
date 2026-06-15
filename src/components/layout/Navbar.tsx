@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart } from 'lucide-react'
+import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart, ShoppingBag, Package } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import NavbarCartIcon from '@/components/NavbarCartIcon'
 import type { Profile } from '@/types'
@@ -67,9 +67,11 @@ export function Navbar({ user }: NavbarProps) {
             <Link href="/coaches" className={navCls('/coaches')}>
               Coaches
             </Link>
-            <Link href="/landing" className={navCls('/landing')}>
-              Für Coaches
-            </Link>
+            {!user && (
+              <Link href="/landing" className={navCls('/landing')}>
+                Für Coaches
+              </Link>
+            )}
             <Link href="/hilfe" className={navCls('/hilfe')}>
               Hilfe
             </Link>
@@ -166,39 +168,87 @@ export function Navbar({ user }: NavbarProps) {
       {menuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm">
           <div className="px-4 py-3 space-y-1">
-            <Link href="/" className={mobileNavCls('/')} onClick={() => setMenuOpen(false)}>
-              Startseite
-            </Link>
             <Link href="/marketplace" className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
               Marketplace
             </Link>
             <Link href="/coaches" className={mobileNavCls('/coaches')} onClick={() => setMenuOpen(false)}>
               Coaches
             </Link>
-            <Link href="/landing" className={mobileNavCls('/landing')} onClick={() => setMenuOpen(false)}>
-              Für Coaches
-            </Link>
-            <Link href="/hilfe" className={mobileNavCls('/hilfe')} onClick={() => setMenuOpen(false)}>
-              Hilfe
-            </Link>
+
             {user ? (
               <>
-                <Link href={dashboardPath} className="flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors" onClick={() => setMenuOpen(false)}>
-                  Dashboard
-                </Link>
-                <button onClick={handleSignOut} className="w-full flex items-center px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors">
-                  Abmelden
-                </button>
+                {user.role === 'buyer' && (
+                  <>
+                    <Link href="/buyer" className={mobileNavCls('/buyer')} onClick={() => setMenuOpen(false)}>
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Übersicht
+                    </Link>
+                    <Link href="/buyer/library" className={mobileNavCls('/buyer/library')} onClick={() => setMenuOpen(false)}>
+                      <ShoppingBag className="h-4 w-4 mr-2" />
+                      Meine Käufe
+                    </Link>
+                    <Link href="/buyer/sessions" className={mobileNavCls('/buyer/sessions')} onClick={() => setMenuOpen(false)}>
+                      <Video className="h-4 w-4 mr-2" />
+                      Meine Buchungen
+                    </Link>
+                    <Link href="/buyer/favorites" className={mobileNavCls('/buyer/favorites')} onClick={() => setMenuOpen(false)}>
+                      <Heart className="h-4 w-4 mr-2" />
+                      Favoriten
+                    </Link>
+                    <Link href="/buyer/settings" className={mobileNavCls('/buyer/settings')} onClick={() => setMenuOpen(false)}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Einstellungen
+                    </Link>
+                  </>
+                )}
+                {user.role === 'creator' && (
+                  <>
+                    <Link href="/creator" className={mobileNavCls('/creator')} onClick={() => setMenuOpen(false)}>
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Link>
+                    <Link href="/creator/products" className={mobileNavCls('/creator/products')} onClick={() => setMenuOpen(false)}>
+                      <Package className="h-4 w-4 mr-2" />
+                      Produkte
+                    </Link>
+                    <Link href="/creator/sessions" className={mobileNavCls('/creator/sessions')} onClick={() => setMenuOpen(false)}>
+                      <Video className="h-4 w-4 mr-2" />
+                      Buchungen
+                    </Link>
+                    <Link href="/buyer/favorites" className={mobileNavCls('/buyer/favorites')} onClick={() => setMenuOpen(false)}>
+                      <Heart className="h-4 w-4 mr-2" />
+                      Favoriten
+                    </Link>
+                    <Link href="/creator/settings" className={mobileNavCls('/creator/settings')} onClick={() => setMenuOpen(false)}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Einstellungen
+                    </Link>
+                  </>
+                )}
+                <div className="pt-1 border-t border-gray-100 mt-1">
+                  <button onClick={handleSignOut} className="w-full flex items-center px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Abmelden
+                  </button>
+                </div>
               </>
             ) : (
-              <div className="flex gap-2 pt-1">
-                <Link href="/login" className="flex-1" onClick={() => setMenuOpen(false)}>
-                  <Button variant="outline" className="w-full" size="sm">Anmelden</Button>
+              <>
+                <Link href="/landing" className={mobileNavCls('/landing')} onClick={() => setMenuOpen(false)}>
+                  Für Coaches
                 </Link>
-                <Link href="/register" className="flex-1" onClick={() => setMenuOpen(false)}>
-                  <Button className="w-full" size="sm">Registrieren</Button>
+                <Link href="/hilfe" className={mobileNavCls('/hilfe')} onClick={() => setMenuOpen(false)}>
+                  Hilfe
                 </Link>
-              </div>
+                <div className="flex gap-2 pt-1">
+                  <Link href="/login" className="flex-1" onClick={() => setMenuOpen(false)}>
+                    <Button variant="outline" className="w-full" size="sm">Anmelden</Button>
+                  </Link>
+                  <Link href="/register" className="flex-1" onClick={() => setMenuOpen(false)}>
+                    <Button className="w-full" size="sm">Registrieren</Button>
+                  </Link>
+                </div>
+              </>
             )}
           </div>
         </div>
