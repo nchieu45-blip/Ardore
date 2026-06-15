@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart, ShoppingBag, Package, User, Pencil } from 'lucide-react'
+import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart, ShoppingBag, Package, User } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import NavbarCartIcon from '@/components/NavbarCartIcon'
 import type { Profile } from '@/types'
@@ -109,10 +109,6 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                               Mein Profil
                             </Link>
                           )}
-                          <Link href="/creator/settings/profile" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                            <Pencil className="h-4 w-4 text-gray-400" />
-                            Profil bearbeiten
-                          </Link>
                           <Link href={dashboardPath} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <LayoutDashboard className="h-4 w-4 text-gray-400" />
                             Dashboard
@@ -233,10 +229,6 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                         Mein Profil
                       </Link>
                     )}
-                    <Link href="/creator/settings/profile" className={mobileNavCls('/creator/settings/profile')} onClick={() => setMenuOpen(false)}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Profil bearbeiten
-                    </Link>
                     <Link href="/creator" className={mobileNavCls('/creator')} onClick={() => setMenuOpen(false)}>
                       <LayoutDashboard className="h-4 w-4 mr-2" />
                       Dashboard
