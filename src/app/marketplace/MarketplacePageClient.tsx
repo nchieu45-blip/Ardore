@@ -14,22 +14,18 @@ type ProductType = 'pdf' | 'video' | 'course' | 'image'
 type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
 
 const CATEGORIES = [
-  { key: 'all',              label: 'Alle Kategorien' },
-  { key: 'fitness',          label: 'Fitness' },
-  { key: 'ernaehrung',       label: 'Ernährung' },
-  { key: 'mental',           label: 'Mental Health' },
-  { key: 'abnehmen',         label: 'Abnehmen' },
-  { key: 'schlaf',           label: 'Schlaf' },
-  { key: 'yoga',             label: 'Yoga' },
-  { key: 'laufen',           label: 'Laufen' },
-  { key: 'krafttraining',    label: 'Krafttraining' },
-  { key: 'meditation',       label: 'Meditation' },
-  { key: 'stressmanagement', label: 'Stressmanagement' },
-  { key: 'rueckenschmerzen', label: 'Rückenschmerzen' },
-  { key: 'schwangerschaft',  label: 'Schwangerschaft & Postnatal' },
-  { key: 'mobility',         label: 'Mobility & Dehnen' },
-  { key: 'pilates',          label: 'Pilates' },
-  { key: 'muskelaufbau',     label: 'Muskelaufbau' },
+  { key: 'all',             label: 'Alle Kategorien' },
+  { key: 'abnehmen',        label: 'Abnehmen' },
+  { key: 'krafttraining',   label: 'Krafttraining' },
+  { key: 'muskelaufbau',    label: 'Muskelaufbau' },
+  { key: 'ernaehrung',      label: 'Ernährung' },
+  { key: 'mental',          label: 'Mental Health' },
+  { key: 'yoga',            label: 'Yoga' },
+  { key: 'pilates',         label: 'Pilates' },
+  { key: 'meditation',      label: 'Meditation' },
+  { key: 'rueckenschmerzen',label: 'Rückenschmerzen' },
+  { key: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
+  { key: 'laufen',          label: 'Laufen' },
 ]
 
 const TYPE_OPTIONS: { key: 'all' | ProductType; label: string }[] = [

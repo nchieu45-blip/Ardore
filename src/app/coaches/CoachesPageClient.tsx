@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video,
+  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video, ChevronDown, Check,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
@@ -177,7 +177,19 @@ export default function CoachesPageClient({ coaches }: Props) {
   const category      = searchParams.get('category') ?? 'all'
   const sort          = (searchParams.get('sort') as SortKey) ?? 'newest'
   const videocoaching = searchParams.get('videocoaching') === 'true'
-  const [search, setSearch] = useState('')
+  const [search,   setSearch]   = useState('')
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [])
 
   // Build available category list from actual coach data
   const availableCategories = [
@@ -263,10 +275,10 @@ export default function CoachesPageClient({ coaches }: Props) {
       {/* ── Sticky filter bar ─────────────────────────────────────── */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {/* Category pills */}
+          <div className="flex items-center gap-2">
+            {/* Always-visible primary pills */}
             <button
-              onClick={() => go({ category: 'all' })}
+              onClick={() => go({ category: 'all', videocoaching: false })}
               className={cn(
                 'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                 category === 'all' && !videocoaching
@@ -288,24 +300,49 @@ export default function CoachesPageClient({ coaches }: Props) {
               <Video className="h-3 w-3" />
               1:1 Sessions
             </button>
+
             <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
-            {availableCategories.map(cat => (
+
+            {/* "Mehr Kategorien" dropdown — collapses all topic pills */}
+            <div ref={moreRef} className="relative flex-shrink-0">
               <button
-                key={cat}
-                onClick={() => go({ category: category === cat ? 'all' : cat })}
+                onClick={() => setMoreOpen(o => !o)}
                 className={cn(
-                  'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                  category === cat
+                  'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                  category !== 'all'
                     ? 'bg-gray-900 text-white border-gray-900'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
                 )}
               >
-                {CATEGORY_LABELS[cat]}
+                {category !== 'all' ? (CATEGORY_LABELS[category] ?? 'Kategorie') : 'Mehr Kategorien'}
+                <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', moreOpen && 'rotate-180')} />
               </button>
-            ))}
+
+              {moreOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50 animate-scale-in">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {availableCategories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => { setMoreOpen(false); go({ category: category === cat ? 'all' : cat }) }}
+                        className={cn(
+                          'flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium border transition-all text-left',
+                          category === cat
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+                        )}
+                      >
+                        <span>{CATEGORY_LABELS[cat]}</span>
+                        {category === cat && <Check className="h-3.5 w-3.5 flex-shrink-0 ml-1" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Sort options */}
-            <div className="ml-auto flex items-center gap-1.5 flex-shrink-0 pl-2">
+            <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
               {SORT_OPTIONS.map(({ key, label }) => (
                 <button
                   key={key}
