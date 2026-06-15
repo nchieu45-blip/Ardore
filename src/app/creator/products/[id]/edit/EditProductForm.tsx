@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
+import { CategoryPicker } from '@/components/ui/CategoryPicker'
 import { toast } from '@/lib/toast'
 import Link from 'next/link'
 
@@ -39,6 +40,7 @@ interface Product {
   description: string | null
   type: 'pdf' | 'video' | 'course' | 'image'
   price: number
+  categories: string[]
   equipment: string[]
   level: string | null
   duration: string | null
@@ -61,6 +63,7 @@ export default function EditProductForm({ product }: { product: Product }) {
   const router = useRouter()
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(product.categories ?? [])
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(product.equipment ?? [])
   const [selectedLevel, setSelectedLevel] = useState<string | null>(product.level)
   const [selectedDuration, setSelectedDuration] = useState<string | null>(product.duration)
@@ -141,6 +144,7 @@ export default function EditProductForm({ product }: { product: Product }) {
         title: data.title,
         description: data.description ?? null,
         price: data.price,
+        categories: selectedCategories,
         equipment: selectedEquipment,
         level: selectedLevel,
         duration: selectedDuration,
@@ -281,6 +285,12 @@ export default function EditProductForm({ product }: { product: Product }) {
             <h2 className="font-semibold text-gray-900">Tags & Filter</h2>
           </CardHeader>
           <CardContent className="space-y-5">
+            <CategoryPicker
+              label="Kategorien"
+              selected={selectedCategories}
+              onChange={setSelectedCategories}
+            />
+
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
               <div className="flex flex-wrap gap-2">

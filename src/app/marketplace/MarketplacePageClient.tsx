@@ -116,7 +116,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   // Filtering + sorting (client-side against the full product list)
   const filtered = products
     .filter(p => {
-      const matchesCat      = category === 'all' || (p.creator.categories ?? []).includes(category) || p.creator.category === category
+      const matchesCat      = category === 'all' || (p.categories ?? []).includes(category) || (p.creator.categories ?? []).includes(category) || p.creator.category === category
       const matchesType     = type === 'all' || p.type === type
       const matchesSearch   = !search
         || p.title.toLowerCase().includes(search.toLowerCase())

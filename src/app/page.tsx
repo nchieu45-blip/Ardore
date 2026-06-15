@@ -14,7 +14,7 @@ export default async function MarketplacePage() {
   const [productsData, coachingOffersData] = await Promise.all([
     supabase
       .from('products')
-      .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, equipment, level, duration, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
+      .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
       .eq('is_published', true)
       .order('created_at', { ascending: false }),
     supabase
@@ -34,6 +34,7 @@ export default async function MarketplacePage() {
     creator_id: string
     created_at: string
     thumbnail_url: string | null
+    categories: string[] | null
     equipment: string[] | null
     level: string | null
     duration: string | null
@@ -48,6 +49,7 @@ export default async function MarketplacePage() {
       price: p.price,
       createdAt: p.created_at,
       thumbnail_url: p.thumbnail_url ?? null,
+      categories: p.categories ?? [],
       equipment: p.equipment ?? [],
       level: p.level ?? null,
       duration: p.duration ?? null,

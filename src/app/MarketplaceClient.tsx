@@ -33,6 +33,7 @@ export interface MarketplaceProduct {
   price: number
   createdAt: string
   thumbnail_url: string | null
+  categories: string[]
   equipment: string[]
   level: string | null
   duration: string | null
@@ -152,7 +153,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, coac
 
   const filtered = products
     .filter(p => {
-      const matchesTopic     = topic === 'all' || p.creator.categories.includes(topic) || p.creator.category === topic
+      const matchesTopic     = topic === 'all' || (p.categories ?? []).includes(topic) || (p.creator.categories ?? []).includes(topic) || p.creator.category === topic
       const matchesType      = type  === 'all' || p.type === type
       const matchesSearch    = !search
         || p.title.toLowerCase().includes(search.toLowerCase())

@@ -22,7 +22,7 @@ export default async function EditProductPage({
 
   const { data: product } = await supabase
     .from('products')
-    .select('id, title, description, type, price, equipment, level, duration, is_published, thumbnail_url')
+    .select('id, title, description, type, price, categories, equipment, level, duration, is_published, thumbnail_url')
     .eq('id', id)
     .eq('creator_id', creator.id)
     .single()

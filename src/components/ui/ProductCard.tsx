@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import HeartButton from '@/components/HeartButton'
+import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -46,6 +47,7 @@ export interface ProductCardData {
   type: ProductType
   price: number
   thumbnail_url: string | null
+  categories?: string[]
   creator: {
     id: string
     display_name: string
@@ -144,6 +146,21 @@ export function ProductCard({
           <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug flex-1 mb-2">
             {product.title}
           </p>
+
+          {!compact && product.categories && product.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {product.categories.slice(0, 2).map(cat => (
+                <span key={cat} className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-100">
+                  {CATEGORY_LABEL_MAP[cat] ?? cat}
+                </span>
+              ))}
+              {product.categories.length > 2 && (
+                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                  +{product.categories.length - 2} mehr
+                </span>
+              )}
+            </div>
+          )}
 
           {rating && (
             <div className="mb-1">

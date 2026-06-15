@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Upload, FileText, Video, BookOpen, Image as ImageIcon, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
+import { CategoryPicker } from '@/components/ui/CategoryPicker'
 
 const schema = z.object({
   title: z.string().min(3, 'Mindestens 3 Zeichen').max(100),
@@ -96,6 +97,7 @@ export default function NewProductPage() {
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [thumbnailError, setThumbnailError] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null)
   const [selectedDuration, setSelectedDuration] = useState<string | null>(null)
@@ -153,6 +155,7 @@ export default function NewProductPage() {
         description: data.description ?? null,
         type: data.type,
         price: data.price,
+        categories: selectedCategories,
         equipment: selectedEquipment,
         level: selectedLevel,
         duration: selectedDuration,
@@ -247,6 +250,13 @@ export default function NewProductPage() {
             <h2 className="font-semibold text-gray-900">Tags & Filter</h2>
           </CardHeader>
           <CardContent className="space-y-5">
+            {/* Categories */}
+            <CategoryPicker
+              label="Kategorien"
+              selected={selectedCategories}
+              onChange={setSelectedCategories}
+            />
+
             {/* Equipment */}
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
