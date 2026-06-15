@@ -53,6 +53,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   let profile = null
+  let creatorSlug: string | null = null
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -63,6 +64,14 @@ export default async function RootLayout({
         .eq('id', user.id)
         .maybeSingle()
       profile = data
+      if (data?.role === 'creator') {
+        const { data: cp } = await supabase
+          .from('creator_profiles')
+          .select('slug')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        creatorSlug = cp?.slug ?? null
+      }
     }
   } catch {
     // profile stays null on any auth/db error (e.g. brand-new user, network hiccup)
@@ -71,7 +80,7 @@ export default async function RootLayout({
   return (
     <html lang="de" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <Navbar user={profile} />
+        <Navbar user={profile} creatorSlug={creatorSlug} />
         <FavoritesProvider userId={profile?.id ?? null}>
           <main className="flex-1">
             {children}

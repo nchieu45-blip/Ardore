@@ -6,16 +6,17 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart, ShoppingBag, Package } from 'lucide-react'
+import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart, ShoppingBag, Package, User, Pencil } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import NavbarCartIcon from '@/components/NavbarCartIcon'
 import type { Profile } from '@/types'
 
 interface NavbarProps {
   user?: Profile | null
+  creatorSlug?: string | null
 }
 
-export function Navbar({ user }: NavbarProps) {
+export function Navbar({ user, creatorSlug }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const router = useRouter()
@@ -93,21 +94,29 @@ export function Navbar({ user }: NavbarProps) {
                     <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {dropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 animate-scale-in">
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 animate-scale-in">
                       <div className="px-4 py-2.5 border-b border-gray-100 mb-1">
                         <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
                       </div>
-                      <Link href={dashboardPath} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                        <LayoutDashboard className="h-4 w-4 text-gray-400" />
-                        Dashboard
-                      </Link>
-                      <Link href="/buyer/favorites" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                        <Heart className="h-4 w-4 text-gray-400" />
-                        Meine Favoriten
-                      </Link>
+
+                      {/* Creator links */}
                       {user.role === 'creator' && (
                         <>
+                          {creatorSlug && (
+                            <Link href={`/creators/${creatorSlug}`} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                              <User className="h-4 w-4 text-gray-400" />
+                              Mein Profil
+                            </Link>
+                          )}
+                          <Link href="/creator/settings/profile" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Pencil className="h-4 w-4 text-gray-400" />
+                            Profil bearbeiten
+                          </Link>
+                          <Link href={dashboardPath} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <LayoutDashboard className="h-4 w-4 text-gray-400" />
+                            Dashboard
+                          </Link>
                           <Link href="/creator/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Video className="h-4 w-4 text-gray-400" />
                             Buchungen
@@ -118,11 +127,25 @@ export function Navbar({ user }: NavbarProps) {
                           </Link>
                         </>
                       )}
+
+                      {/* Buyer links */}
                       {user.role === 'buyer' && (
                         <>
+                          <Link href="/buyer" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <User className="h-4 w-4 text-gray-400" />
+                            Mein Profil
+                          </Link>
+                          <Link href="/buyer/library" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <ShoppingBag className="h-4 w-4 text-gray-400" />
+                            Meine Käufe
+                          </Link>
                           <Link href="/buyer/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Video className="h-4 w-4 text-gray-400" />
-                            Meine Sessions
+                            Meine Buchungen
+                          </Link>
+                          <Link href="/buyer/favorites" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Heart className="h-4 w-4 text-gray-400" />
+                            Favoriten
                           </Link>
                           <Link href="/buyer/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Settings className="h-4 w-4 text-gray-400" />
@@ -130,6 +153,7 @@ export function Navbar({ user }: NavbarProps) {
                           </Link>
                         </>
                       )}
+
                       <div className="border-t border-gray-100 mt-1 pt-1">
                         <button onClick={handleSignOut} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
                           <LogOut className="h-4 w-4" />

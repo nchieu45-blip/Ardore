@@ -21,21 +21,33 @@ import BookingWidget from './BookingWidget'
 import HeartButton from '@/components/HeartButton'
 
 const CATEGORY_LABELS: Record<string, string> = {
+  // current canonical keys from lib/categories
+  krafttraining: 'Krafttraining',
+  muskelaufbau: 'Muskelaufbau',
+  abnehmen: 'Abnehmen',
+  ausdauer: 'Ausdauer',
+  functional: 'Functional Training',
+  ernaehrungsberatung: 'Ernährungsberatung',
+  gewichtsmanagement: 'Gewichtsmanagement',
+  sporternaehrung: 'Sporternährung',
+  mental: 'Mental Health',
+  yoga: 'Yoga',
+  meditation: 'Meditation',
+  stressbewaeltigung: 'Stressbewältigung',
+  rueckengesundheit: 'Rückengesundheit',
+  physiotherapie: 'Physiotherapie',
+  beweglichkeit: 'Beweglichkeit',
+  schwangerschaft: 'Schwangerschaft & Postnatal',
+  kampfsport: 'Kampfsport',
+  laufen: 'Laufen',
+  pilates: 'Pilates',
+  // legacy keys (coaches onboarded before category rename)
   fitness: 'Fitness',
   ernaehrung: 'Ernährung',
-  mental: 'Mental Health',
-  abnehmen: 'Abnehmen',
   schlaf: 'Schlaf',
-  yoga: 'Yoga',
-  laufen: 'Laufen',
-  krafttraining: 'Krafttraining',
-  meditation: 'Meditation',
   stressmanagement: 'Stressmanagement',
   rueckenschmerzen: 'Rückenschmerzen',
-  schwangerschaft: 'Schwangerschaft & Postnatal',
   mobility: 'Mobility & Dehnen',
-  pilates: 'Pilates',
-  muskelaufbau: 'Muskelaufbau',
 }
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
@@ -307,41 +319,47 @@ export default async function CreatorProfilePage({
       </div>
 
       <div className="max-w-5xl mx-auto px-4">
-        {/* Avatar overlapping banner */}
-        <div className="relative -mt-16 mb-4 flex items-end justify-between flex-wrap gap-4">
-          <Avatar
-            src={creator.avatar_url}
-            name={creator.display_name}
-            size="xl"
-            className="ring-4 ring-white shadow-xl"
-          />
-          <div className="flex items-center gap-2 pb-1">
-            {user?.id !== creator.user_id && (
-              <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
-            )}
-            {user?.id === creator.user_id && (
-              <Link href="/creator/settings/profile">
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Pencil className="h-3.5 w-3.5" />
-                  Bearbeiten
-                </Button>
-              </Link>
-            )}
-            {user && activeSubscription && (
-              <Link href={`/chat/${creator.id}`}>
-                <Button size="sm" className="gap-1.5 shadow-sm">
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  Nachricht
-                </Button>
-              </Link>
-            )}
+        {/* Avatar row: overlaps banner. Edit button anchored top-right of this section. */}
+        <div className="relative -mt-16 mb-6">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <Avatar
+              src={creator.avatar_url}
+              name={creator.display_name}
+              size="xl"
+              className="ring-4 ring-white shadow-xl flex-shrink-0"
+            />
+            {/* Action buttons — right side of avatar row */}
+            <div className="flex items-center gap-2 pb-1 flex-shrink-0">
+              {user?.id !== creator.user_id && (
+                <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
+              )}
+              {user && activeSubscription && (
+                <Link href={`/chat/${creator.id}`}>
+                  <Button size="sm" className="gap-1.5 shadow-sm">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Nachricht
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
+
+          {/* Edit button: visible only to owner, fixed top-right of the header card */}
+          {user?.id === creator.user_id && (
+            <Link
+              href="/creator/settings/profile"
+              className="absolute top-0 right-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm transition-all"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Profil bearbeiten
+            </Link>
+          )}
         </div>
 
         {/* Profile header */}
         <div className="mb-6 animate-slide-up">
           <div className="flex items-center gap-3 flex-wrap mb-2">
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
             {qualifications.length > 0 && (
               <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                 <GraduationCap className="h-3.5 w-3.5" />
@@ -350,13 +368,13 @@ export default async function CreatorProfilePage({
             )}
           </div>
           {creator.bio && (
-            <p className="text-gray-500 max-w-2xl leading-relaxed text-base">{creator.bio}</p>
+            <p className="text-gray-600 max-w-2xl leading-relaxed">{creator.bio}</p>
           )}
         </div>
 
         {/* Stats strip */}
         {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null || avgSessionRating !== null) && (
-          <div className="flex flex-wrap items-center gap-4 mb-8 pb-6 border-b border-gray-100 animate-slide-up animate-delay-100">
+          <div className="flex flex-wrap items-center gap-6 mb-8 pb-6 border-b border-gray-100 animate-slide-up animate-delay-100">
             {products.length > 0 && (
               <div className="flex items-center gap-2 text-sm">
                 <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center">
@@ -470,7 +488,7 @@ export default async function CreatorProfilePage({
             {hasProducts && (
               <div className={cn('space-y-4 animate-slide-up animate-delay-100', hasSidebar && 'lg:col-span-2')}>
                 {products.length > 0 && (
-                  <h2 className="text-xl font-bold text-gray-900">Produkte</h2>
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Produkte</h2>
                 )}
                 {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null }) => {
                   const owned = purchasedIds.has(product.id)
@@ -563,7 +581,7 @@ export default async function CreatorProfilePage({
 
                 {hasTiers && (
                   <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-gray-900">Abonnements</h2>
+                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Abonnements</h2>
                     {tiers.map((tier: {
                       id: string
                       name: string
@@ -680,7 +698,7 @@ export default async function CreatorProfilePage({
       {sessionReviews.length > 0 && (
         <div className="pb-16 animate-slide-up">
           <div className="flex items-center gap-3 mb-5">
-            <h2 className="text-xl font-bold text-gray-900">Coaching-Bewertungen</h2>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Coaching-Bewertungen</h2>
             <div className="flex items-center gap-1.5 bg-violet-50 px-3 py-1 rounded-full">
               <Star className="h-4 w-4 text-violet-600 fill-violet-600" />
               <span className="text-sm font-semibold text-violet-700">{avgSessionRating!.toFixed(1)}</span>
