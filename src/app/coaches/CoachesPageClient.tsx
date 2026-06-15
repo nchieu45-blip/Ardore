@@ -162,9 +162,18 @@ export default function CoachesPageClient({ coaches }: Props) {
   const category      = searchParams.get('category') ?? 'all'
   const sort          = (searchParams.get('sort') as SortKey) ?? 'newest'
   const videocoaching = searchParams.get('videocoaching') === 'true'
-  const [search,   setSearch]   = useState('')
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [search,     setSearch]     = useState('')
+  const [moreOpen,   setMoreOpen]   = useState(false)
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const moreRef = useRef<HTMLDivElement>(null)
+
+  function toggleGroup(label: string) {
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      next.has(label) ? next.delete(label) : next.add(label)
+      return next
+    })
+  }
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -304,21 +313,26 @@ export default function CoachesPageClient({ coaches }: Props) {
               </button>
 
               {moreOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-80 overflow-y-auto animate-scale-in">
+                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto animate-scale-in">
                   {CATEGORY_GROUPS.map((group, gi) => {
                     const visibleItems = group.items.filter(({ key }) => availableCategories.includes(key))
                     if (visibleItems.length === 0) return null
+                    const isOpen = openGroups.has(group.label)
                     return (
                       <div key={group.label}>
-                        {gi > 0 && <div className="mx-4 my-2 border-t border-gray-100" />}
-                        <p className="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                        {gi > 0 && <div className="mx-4 border-t border-gray-100" />}
+                        <button
+                          onClick={() => toggleGroup(group.label)}
+                          className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors"
+                        >
                           {group.label}
-                        </p>
-                        {visibleItems.map(({ key, label }) => (
+                          <ChevronDown className={cn('h-3 w-3 transition-transform duration-150', isOpen && 'rotate-180')} />
+                        </button>
+                        {isOpen && visibleItems.map(({ key, label }) => (
                           <button
                             key={key}
                             onClick={() => { setMoreOpen(false); go({ category: category === key ? 'all' : key }) }}
-                            className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            className="w-full flex items-center justify-between px-6 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             <span>{label}</span>
                             {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}

@@ -2,34 +2,19 @@
 
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ALL_CATEGORIES } from '@/lib/categories'
 
-export const CATEGORY_OPTIONS = [
-  { value: 'fitness',          label: 'Fitness' },
-  { value: 'ernaehrung',       label: 'Ernährung' },
-  { value: 'mental',           label: 'Mental Health' },
-  { value: 'abnehmen',         label: 'Abnehmen' },
-  { value: 'schlaf',           label: 'Schlaf' },
-  { value: 'yoga',             label: 'Yoga' },
-  { value: 'pilates',          label: 'Pilates' },
-  { value: 'laufen',           label: 'Laufen' },
-  { value: 'krafttraining',    label: 'Krafttraining' },
-  { value: 'muskelaufbau',     label: 'Muskelaufbau' },
-  { value: 'meditation',       label: 'Meditation' },
-  { value: 'stressmanagement', label: 'Stressmanagement' },
-  { value: 'rueckenschmerzen', label: 'Rückenschmerzen' },
-  { value: 'schwangerschaft',  label: 'Schwangerschaft & Postnatal' },
-  { value: 'mobility',         label: 'Mobility & Dehnen' },
-]
+export const CATEGORY_OPTIONS = ALL_CATEGORIES.map(c => ({ value: c.key, label: c.label }))
 
 export const SERVICE_OPTIONS = [
-  { value: '1to1_coaching',  label: '1:1 Coaching' },
-  { value: 'video_kurs',     label: 'Video Kurs' },
-  { value: 'online_kurs',    label: 'Online Kurs' },
+  { value: '1to1_coaching',   label: '1:1 Coaching' },
+  { value: 'video_kurs',      label: 'Video Kurs' },
+  { value: 'online_kurs',     label: 'Online Kurs' },
   { value: 'ernaehrungsplan', label: 'Ernährungsplan' },
-  { value: 'trainingsplan',  label: 'Trainingsplan' },
+  { value: 'trainingsplan',   label: 'Trainingsplan' },
   { value: 'gruppencoaching', label: 'Gruppencoaching' },
-  { value: 'live_sessions',  label: 'Live Sessions' },
-  { value: 'pdf_guide',      label: 'PDF Guide' },
+  { value: 'live_sessions',   label: 'Live Sessions' },
+  { value: 'pdf_guide',       label: 'PDF Guide' },
 ]
 
 interface ChipPickerProps {

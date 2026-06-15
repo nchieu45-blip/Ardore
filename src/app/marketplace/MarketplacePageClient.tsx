@@ -56,8 +56,17 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const [search, setSearch] = useState('')
 
   const [categoryOpen, setCategoryOpen] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const categoryRef = useRef<HTMLDivElement>(null)
+
+  function toggleGroup(label: string) {
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      next.has(label) ? next.delete(label) : next.add(label)
+      return next
+    })
+  }
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -205,8 +214,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', categoryOpen && 'rotate-180')} />
               </button>
               {categoryOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-80 overflow-y-auto animate-scale-in">
-                  {/* "Alle" reset row */}
+                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto animate-scale-in">
+                  {/* "Alle Kategorien" reset row */}
                   <button
                     onClick={() => { setCategoryOpen(false); setSearch(''); router.push('/marketplace', { scroll: false }) }}
                     className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -215,24 +224,31 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                     {category === 'all' && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
                   </button>
 
-                  {CATEGORY_GROUPS.map((group, gi) => (
-                    <div key={group.label}>
-                      <div className={cn('mx-4 border-t border-gray-100', gi === 0 ? 'mt-1 mb-2' : 'my-2')} />
-                      <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-                        {group.label}
-                      </p>
-                      {group.items.map(({ key, label }) => (
+                  {CATEGORY_GROUPS.map((group, gi) => {
+                    const isOpen = openGroups.has(group.label)
+                    return (
+                      <div key={group.label}>
+                        <div className={cn('mx-4 border-t border-gray-100', gi === 0 ? 'mt-1' : '')} />
                         <button
-                          key={key}
-                          onClick={() => { setCategoryOpen(false); go({ category: key, page: 1 }) }}
-                          className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          onClick={() => toggleGroup(group.label)}
+                          className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors"
                         >
-                          {label}
-                          {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                          {group.label}
+                          <ChevronDown className={cn('h-3 w-3 transition-transform duration-150', isOpen && 'rotate-180')} />
                         </button>
-                      ))}
-                    </div>
-                  ))}
+                        {isOpen && group.items.map(({ key, label }) => (
+                          <button
+                            key={key}
+                            onClick={() => { setCategoryOpen(false); go({ category: key, page: 1 }) }}
+                            className="w-full flex items-center justify-between px-6 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            {label}
+                            {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
