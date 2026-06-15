@@ -199,12 +199,15 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       {/* ── Sticky filter bar ─────────────────────────────────────── */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-2">
 
-            {/* Category dropdown */}
+            {/* Category dropdown — outside the overflow-x-auto so the menu isn't clipped */}
             <div ref={categoryRef} className="relative flex-shrink-0">
               <button
-                onClick={() => setCategoryOpen(o => !o)}
+                onClick={() => {
+                  console.log('[Marketplace] categoryOpen toggled, was:', categoryOpen, 'CATEGORIES.length:', CATEGORIES.length)
+                  setCategoryOpen(o => !o)
+                }}
                 className={cn(
                   'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                   category !== 'all'
@@ -241,7 +244,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
 
             <div className="h-4 w-px bg-gray-200 flex-shrink-0" />
 
-            {/* Type pills */}
+            {/* Type pills — inside a separate overflow-x-auto so they scroll on mobile without clipping the dropdown above */}
+            <div className="flex items-center gap-2 overflow-x-auto flex-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {TYPE_OPTIONS.map(({ key, label }) => (
               <button
                 key={key}
@@ -300,6 +304,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 </button>
               )}
             </div>
+            </div>{/* end inner scrollable */}
           </div>
 
           {/* Advanced filter panel */}
