@@ -204,8 +204,8 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                 {user.role === 'buyer' && (
                   <>
                     <Link href="/buyer" className={mobileNavCls('/buyer')} onClick={() => setMenuOpen(false)}>
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Übersicht
+                      <User className="h-4 w-4 mr-2" />
+                      Mein Profil
                     </Link>
                     <Link href="/buyer/library" className={mobileNavCls('/buyer/library')} onClick={() => setMenuOpen(false)}>
                       <ShoppingBag className="h-4 w-4 mr-2" />
@@ -227,6 +227,16 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                 )}
                 {user.role === 'creator' && (
                   <>
+                    {creatorSlug && (
+                      <Link href={`/creators/${creatorSlug}`} className={mobileNavCls(`/creators/${creatorSlug}`)} onClick={() => setMenuOpen(false)}>
+                        <User className="h-4 w-4 mr-2" />
+                        Mein Profil
+                      </Link>
+                    )}
+                    <Link href="/creator/settings/profile" className={mobileNavCls('/creator/settings/profile')} onClick={() => setMenuOpen(false)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Profil bearbeiten
+                    </Link>
                     <Link href="/creator" className={mobileNavCls('/creator')} onClick={() => setMenuOpen(false)}>
                       <LayoutDashboard className="h-4 w-4 mr-2" />
                       Dashboard
@@ -238,10 +248,6 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                     <Link href="/creator/sessions" className={mobileNavCls('/creator/sessions')} onClick={() => setMenuOpen(false)}>
                       <Video className="h-4 w-4 mr-2" />
                       Buchungen
-                    </Link>
-                    <Link href="/buyer/favorites" className={mobileNavCls('/buyer/favorites')} onClick={() => setMenuOpen(false)}>
-                      <Heart className="h-4 w-4 mr-2" />
-                      Favoriten
                     </Link>
                     <Link href="/creator/settings" className={mobileNavCls('/creator/settings')} onClick={() => setMenuOpen(false)}>
                       <Settings className="h-4 w-4 mr-2" />

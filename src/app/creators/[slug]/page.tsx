@@ -319,52 +319,50 @@ export default async function CreatorProfilePage({
       </div>
 
       <div className="max-w-5xl mx-auto px-4">
-        {/* Avatar row: overlaps banner. Edit button anchored top-right of this section. */}
-        <div className="relative -mt-16 mb-6">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <Avatar
-              src={creator.avatar_url}
-              name={creator.display_name}
-              size="xl"
-              className="ring-4 ring-white shadow-xl flex-shrink-0"
-            />
-            {/* Action buttons — right side of avatar row */}
-            <div className="flex items-center gap-2 pb-1 flex-shrink-0">
-              {user?.id !== creator.user_id && (
-                <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
-              )}
-              {user && activeSubscription && (
-                <Link href={`/chat/${creator.id}`}>
-                  <Button size="sm" className="gap-1.5 shadow-sm">
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    Nachricht
-                  </Button>
-                </Link>
-              )}
-            </div>
+        {/* Avatar row: overlaps banner */}
+        <div className="-mt-16 mb-6 flex items-end justify-between gap-4 flex-wrap">
+          <Avatar
+            src={creator.avatar_url}
+            name={creator.display_name}
+            size="xl"
+            className="ring-4 ring-white shadow-xl flex-shrink-0"
+          />
+          {/* Visitor action buttons — right side of avatar row */}
+          <div className="flex items-center gap-2 pb-1 flex-shrink-0">
+            {user?.id !== creator.user_id && (
+              <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
+            )}
+            {user && activeSubscription && (
+              <Link href={`/chat/${creator.id}`}>
+                <Button size="sm" className="gap-1.5 shadow-sm">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Nachricht
+                </Button>
+              </Link>
+            )}
           </div>
-
-          {/* Edit button: visible only to owner, fixed top-right of the header card */}
-          {user?.id === creator.user_id && (
-            <Link
-              href="/creator/settings/profile"
-              className="absolute top-0 right-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm transition-all"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Profil bearbeiten
-            </Link>
-          )}
         </div>
 
-        {/* Profile header */}
+        {/* Profile header — name row with edit button right-aligned */}
         <div className="mb-6 animate-slide-up">
-          <div className="flex items-center gap-3 flex-wrap mb-2">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
-            {qualifications.length > 0 && (
-              <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
-                <GraduationCap className="h-3.5 w-3.5" />
-                Qualifiziert
-              </span>
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
+              {qualifications.length > 0 && (
+                <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                  <GraduationCap className="h-3.5 w-3.5" />
+                  Qualifiziert
+                </span>
+              )}
+            </div>
+            {user?.id === creator.user_id && (
+              <Link
+                href="/creator/settings/profile"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm transition-all"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Profil bearbeiten
+              </Link>
             )}
           </div>
           {creator.bio && (
