@@ -9,24 +9,10 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import { cn } from '@/lib/utils'
+import { CATEGORY_GROUPS, ALL_CATEGORIES, CATEGORY_LABEL_MAP } from '@/lib/categories'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
-
-const CATEGORIES = [
-  { key: 'all',             label: 'Alle Kategorien' },
-  { key: 'abnehmen',        label: 'Abnehmen' },
-  { key: 'krafttraining',   label: 'Krafttraining' },
-  { key: 'muskelaufbau',    label: 'Muskelaufbau' },
-  { key: 'ernaehrung',      label: 'Ernährung' },
-  { key: 'mental',          label: 'Mental Health' },
-  { key: 'yoga',            label: 'Yoga' },
-  { key: 'pilates',         label: 'Pilates' },
-  { key: 'meditation',      label: 'Meditation' },
-  { key: 'rueckenschmerzen',label: 'Rückenschmerzen' },
-  { key: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
-  { key: 'laufen',          label: 'Laufen' },
-]
 
 const TYPE_OPTIONS: { key: 'all' | ProductType; label: string }[] = [
   { key: 'all',    label: 'Alle' },
@@ -205,7 +191,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             <div ref={categoryRef} className="relative flex-shrink-0">
               <button
                 onClick={() => {
-                  console.log('[Marketplace] categoryOpen toggled, was:', categoryOpen, 'CATEGORIES.length:', CATEGORIES.length)
+                  console.log('[Marketplace] categoryOpen toggled, was:', categoryOpen, 'ALL_CATEGORIES.length:', ALL_CATEGORIES.length)
                   setCategoryOpen(o => !o)
                 }}
                 className={cn(
@@ -215,28 +201,37 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                 )}
               >
-                {CATEGORIES.find(c => c.key === category)?.label}
+                {category === 'all' ? 'Alle Kategorien' : (CATEGORY_LABEL_MAP[category] ?? 'Kategorie')}
                 <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', categoryOpen && 'rotate-180')} />
               </button>
               {categoryOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-72 overflow-y-auto animate-scale-in">
-                  {CATEGORIES.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        setCategoryOpen(false)
-                        if (key === 'all') {
-                          setSearch('')
-                          router.push('/marketplace', { scroll: false })
-                        } else {
-                          go({ category: key, page: 1 })
-                        }
-                      }}
-                      className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      {label}
-                      {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
-                    </button>
+                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-80 overflow-y-auto animate-scale-in">
+                  {/* "Alle" reset row */}
+                  <button
+                    onClick={() => { setCategoryOpen(false); setSearch(''); router.push('/marketplace', { scroll: false }) }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Alle Kategorien
+                    {category === 'all' && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                  </button>
+
+                  {CATEGORY_GROUPS.map((group, gi) => (
+                    <div key={group.label}>
+                      <div className={cn('mx-4 border-t border-gray-100', gi === 0 ? 'mt-1 mb-2' : 'my-2')} />
+                      <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                        {group.label}
+                      </p>
+                      {group.items.map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onClick={() => { setCategoryOpen(false); go({ category: key, page: 1 }) }}
+                          className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          {label}
+                          {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}

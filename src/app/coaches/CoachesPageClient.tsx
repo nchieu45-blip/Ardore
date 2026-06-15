@@ -10,24 +10,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 import HeartButton from '@/components/HeartButton'
 import type { CoachData } from './page'
+import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
 
-const CATEGORY_LABELS: Record<string, string> = {
-  fitness:          'Fitness',
-  ernaehrung:       'Ernährung',
-  mental:           'Mental Health',
-  abnehmen:         'Abnehmen',
-  schlaf:           'Schlaf',
-  yoga:             'Yoga',
-  laufen:           'Laufen',
-  krafttraining:    'Krafttraining',
-  meditation:       'Meditation',
-  stressmanagement: 'Stressmanagement',
-  rueckenschmerzen: 'Rückenschmerzen',
-  schwangerschaft:  'Schwangerschaft & Postnatal',
-  mobility:         'Mobility & Dehnen',
-  pilates:          'Pilates',
-  muskelaufbau:     'Muskelaufbau',
-}
+const CATEGORY_LABELS = CATEGORY_LABEL_MAP
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
   fitness:          'from-orange-400 to-red-500',
@@ -319,24 +304,29 @@ export default function CoachesPageClient({ coaches }: Props) {
               </button>
 
               {moreOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50 animate-scale-in">
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {availableCategories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => { setMoreOpen(false); go({ category: category === cat ? 'all' : cat }) }}
-                        className={cn(
-                          'flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium border transition-all text-left',
-                          category === cat
-                            ? 'bg-gray-900 text-white border-gray-900'
-                            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
-                        )}
-                      >
-                        <span>{CATEGORY_LABELS[cat]}</span>
-                        {category === cat && <Check className="h-3.5 w-3.5 flex-shrink-0 ml-1" />}
-                      </button>
-                    ))}
-                  </div>
+                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-80 overflow-y-auto animate-scale-in">
+                  {CATEGORY_GROUPS.map((group, gi) => {
+                    const visibleItems = group.items.filter(({ key }) => availableCategories.includes(key))
+                    if (visibleItems.length === 0) return null
+                    return (
+                      <div key={group.label}>
+                        {gi > 0 && <div className="mx-4 my-2 border-t border-gray-100" />}
+                        <p className="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                          {group.label}
+                        </p>
+                        {visibleItems.map(({ key, label }) => (
+                          <button
+                            key={key}
+                            onClick={() => { setMoreOpen(false); go({ category: category === key ? 'all' : key }) }}
+                            className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <span>{label}</span>
+                            {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
