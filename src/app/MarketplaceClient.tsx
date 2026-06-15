@@ -50,22 +50,18 @@ type TypeFilter = 'all' | ProductType
 type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
 
 const TOPIC_FILTERS: { key: TopicFilter; label: string }[] = [
-  { key: 'all', label: 'Alle' },
-  { key: 'fitness', label: 'Fitness' },
-  { key: 'ernaehrung', label: 'Ernährung' },
-  { key: 'mental', label: 'Mental Health' },
-  { key: 'abnehmen', label: 'Abnehmen' },
-  { key: 'schlaf', label: 'Schlaf' },
-  { key: 'yoga', label: 'Yoga' },
-  { key: 'laufen', label: 'Laufen' },
-  { key: 'krafttraining', label: 'Krafttraining' },
-  { key: 'meditation', label: 'Meditation' },
-  { key: 'stressmanagement', label: 'Stressmanagement' },
-  { key: 'rueckenschmerzen', label: 'Rückenschmerzen' },
+  { key: 'all',             label: 'Alle Kategorien' },
+  { key: 'abnehmen',        label: 'Abnehmen' },
+  { key: 'krafttraining',   label: 'Krafttraining' },
+  { key: 'muskelaufbau',    label: 'Muskelaufbau' },
+  { key: 'ernaehrung',      label: 'Ernährung' },
+  { key: 'mental',          label: 'Mental Health' },
+  { key: 'yoga',            label: 'Yoga' },
+  { key: 'pilates',         label: 'Pilates' },
+  { key: 'meditation',      label: 'Meditation' },
+  { key: 'rueckenschmerzen',label: 'Rückenschmerzen' },
   { key: 'schwangerschaft', label: 'Schwangerschaft & Postnatal' },
-  { key: 'mobility', label: 'Mobility & Dehnen' },
-  { key: 'pilates', label: 'Pilates' },
-  { key: 'muskelaufbau', label: 'Muskelaufbau' },
+  { key: 'laufen',          label: 'Laufen' },
 ]
 
 const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
@@ -283,7 +279,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, coac
                         : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 hover:text-gray-900'
                     }`}
                   >
-                    {topic === 'all' ? 'Kategorie' : TOPIC_FILTERS.find(f => f.key === topic)?.label}
+                    {TOPIC_FILTERS.find(f => f.key === topic)?.label}
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${categoryOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {categoryOpen && (
