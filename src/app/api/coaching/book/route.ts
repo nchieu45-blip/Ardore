@@ -4,7 +4,7 @@ import { createNotification } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { creatorId, date, time, name, email, notes, subscriptionId } = body
+  const { creatorId, date, time, name, email, notes, subscriptionId, discountId } = body
 
   if (!creatorId || !date || !time || !name || !email) {
     return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
@@ -72,6 +72,35 @@ export async function POST(req: NextRequest) {
     ? tierDurationMinutes
     : offer.duration_minutes
 
+  // Validate discount for paid sessions
+  // TODO: When payment is added for sessions, apply the discount via Stripe Coupon instead of reducing price_cents directly
+  let discountedPriceCents = offer.price_cents
+  let discountRowId: string | null = null
+
+  if (!isSubscriptionSession && discountId) {
+    const { data: disc } = await supabase
+      .from('discounts')
+      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
+      .eq('id', discountId)
+      .single()
+
+    const now = new Date()
+    const valid = disc &&
+      disc.active &&
+      (disc.applies_to === 'all' || disc.applies_to === 'sessions') &&
+      (!disc.starts_at || new Date(disc.starts_at) <= now) &&
+      (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
+      (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
+
+    if (valid) {
+      discountRowId = disc.id
+      const savings = disc.type === 'percent'
+        ? Math.round(offer.price_cents * disc.value / 100)
+        : Math.min(disc.value, offer.price_cents)
+      discountedPriceCents = Math.max(0, offer.price_cents - savings)
+    }
+  }
+
   const scheduledAt = new Date(`${date}T${time}:00`)
   if (isNaN(scheduledAt.getTime())) {
     return NextResponse.json({ error: 'Ungültiges Datum oder Uhrzeit' }, { status: 400 })
@@ -126,12 +155,28 @@ export async function POST(req: NextRequest) {
       notes:                   notes?.trim() || null,
       subscription_id:         resolvedSubscriptionId,
       is_subscription_session: isSubscriptionSession,
-      price_cents:             isSubscriptionSession ? 0 : offer.price_cents,
+      price_cents:             isSubscriptionSession ? 0 : discountedPriceCents,
     })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Increment redemption count (best-effort)
+  if (discountRowId) {
+    const { data: latest } = await supabase
+      .from('discounts')
+      .select('redemption_count')
+      .eq('id', discountRowId)
+      .single()
+    if (latest) {
+      await supabase
+        .from('discounts')
+        .update({ redemption_count: latest.redemption_count + 1 })
+        .eq('id', discountRowId)
+        .eq('redemption_count', latest.redemption_count)
+    }
+  }
 
   // Send confirmation emails (best-effort)
   try {

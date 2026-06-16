@@ -578,7 +578,7 @@ export default async function CreatorProfilePage({
                             )}
                           </div>
                         ) : user ? (
-                          <SubscribeButton tierId={tier.id} creatorId={creator.id} />
+                          <SubscribeButton tierId={tier.id} creatorId={creator.id} priceMonthly={tier.price_monthly} />
                         ) : (
                           <Link href="/login" className="block">
                             <Button size="sm" className="w-full gap-1.5">

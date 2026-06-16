@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { CreditCard, Tag, User, ExternalLink, Video } from 'lucide-react'
+import { CreditCard, Tag, User, ExternalLink, Video, Percent } from 'lucide-react'
 import DeleteAccountSection from './DeleteAccountSection'
 
 export default async function CreatorSettingsPage() {
@@ -158,6 +158,26 @@ export default async function CreatorSettingsPage() {
                   : 'Nicht aktiviert – richte 1:1 Sessions für Kunden ein'}
               </span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Discounts */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Percent className="h-5 w-5 text-gray-500" />
+                <h2 className="font-semibold text-gray-900">Rabatte & Gutscheine</h2>
+              </div>
+              <Link href="/creator/settings/discounts">
+                <Button variant="outline" size="sm">Verwalten</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500">
+              Erstelle Gutscheincodes und automatische Rabatte für Produkte, Abos und Sessions.
+            </p>
           </CardContent>
         </Card>
 

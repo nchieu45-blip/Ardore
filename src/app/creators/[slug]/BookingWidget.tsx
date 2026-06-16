@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader2, Tag, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 
 interface SubscriberSessions {
   subscriptionId: string
@@ -57,6 +57,13 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   const [notes,   setNotes]   = useState('')
   const [booking, setBooking] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)
+
+  // Discount state (only for paid sessions)
+  const [showCodeInput,  setShowCodeInput]  = useState(false)
+  const [discountCode,   setDiscountCode]   = useState('')
+  const [discount,       setDiscount]       = useState<{ id: string; code: string | null; type: 'percent' | 'fixed'; value: number; savingsCents: number } | null>(null)
+  const [discountError,  setDiscountError]  = useState('')
+  const [discountLoading,setDiscountLoading]= useState(false)
 
   // Days with at least one available slot in the current month view
   const [availableDays, setAvailableDays] = useState<Set<number>>(new Set())
@@ -115,6 +122,36 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
     ? subscriberSessions!.sessionDurationMinutes
     : offer.duration_minutes
 
+  async function validateDiscountCode() {
+    const trimmed = discountCode.trim().toUpperCase()
+    if (!trimmed) return
+    setDiscountLoading(true)
+    setDiscountError('')
+    try {
+      const res = await fetch(
+        `/api/discounts/validate?creatorId=${creatorId}&type=sessions&code=${encodeURIComponent(trimmed)}&amount=${offer.price_cents}`
+      )
+      const d = await res.json() as {
+        valid: boolean
+        discount?: { id: string; code: string | null; type: 'percent' | 'fixed'; value: number }
+        savingsCents?: number
+        error?: string
+      }
+      if (d.valid && d.discount) {
+        setDiscount({ ...d.discount, savingsCents: d.savingsCents ?? 0 })
+      } else {
+        setDiscountError(d.error ?? 'Ungültiger Code')
+        setDiscount(null)
+      }
+    } catch {
+      setDiscountError('Netzwerkfehler beim Prüfen')
+    } finally {
+      setDiscountLoading(false)
+    }
+  }
+
+  const finalPriceCents = discount ? Math.max(0, offer.price_cents - discount.savingsCents) : offer.price_cents
+
   async function book() {
     if (!selected || !chosenSlot || !name.trim() || !email.trim()) return
     setBooking(true)
@@ -130,6 +167,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
           email:          email.trim(),
           notes:          notes.trim() || null,
           subscriptionId: useSubscription ? subscriberSessions!.subscriptionId : undefined,
+          discountId:     !useSubscription && discount ? discount.id : undefined,
         }),
       })
       const json = await res.json() as { bookingId?: string; error?: string }
@@ -169,6 +207,11 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
                 ({subscriberSessions!.remaining} von {subscriberSessions!.total} Session{subscriberSessions!.total !== 1 ? 's' : ''}{' '}
                 {subscriberSessions!.period === 'week' ? 'diese Woche' : 'diesen Monat'} verbleibend)
               </span>
+            </span>
+          ) : discount ? (
+            <span className="font-semibold text-white text-lg">
+              <span className="line-through opacity-60 mr-1.5 text-base">{price} €</span>
+              {formatCurrency(finalPriceCents / 100)}
             </span>
           ) : (
             <span className="font-semibold text-white text-lg">{price} €</span>
@@ -370,13 +413,68 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
               />
             </div>
 
+            {/* Discount code — only for paid sessions */}
+            {!useSubscription && (
+              <div className="space-y-1.5">
+                {discount ? (
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 text-green-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Code <strong>{discount.code}</strong> – {formatCurrency(discount.savingsCents / 100)} Rabatt</span>
+                    </div>
+                    <button
+                      onClick={() => { setDiscount(null); setDiscountCode(''); setShowCodeInput(false) }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                ) : showCodeInput ? (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                        <input
+                          value={discountCode}
+                          onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError('') }}
+                          onKeyDown={e => e.key === 'Enter' && validateDiscountCode()}
+                          placeholder="Gutscheincode"
+                          className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 font-mono tracking-wider"
+                        />
+                      </div>
+                      <button
+                        onClick={validateDiscountCode}
+                        disabled={!discountCode.trim() || discountLoading}
+                        className="px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors flex items-center gap-1"
+                      >
+                        {discountLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Anwenden'}
+                      </button>
+                    </div>
+                    {discountError && (
+                      <div className="flex items-center gap-1.5 text-xs text-red-600">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {discountError}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowCodeInput(true)}
+                    className="w-full text-center text-xs text-gray-400 hover:text-green-600 transition-colors"
+                  >
+                    Gutscheincode vorhanden?
+                  </button>
+                )}
+              </div>
+            )}
+
             <Button
               onClick={book}
               disabled={booking || !name.trim() || !email.trim()}
               className="w-full gap-2"
             >
               {booking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-              {booking ? 'Wird gebucht…' : `Session ${useSubscription ? 'kostenlos buchen' : `für ${price} € buchen`}`}
+              {booking ? 'Wird gebucht…' : `Session ${useSubscription ? 'kostenlos buchen' : `für ${formatCurrency(finalPriceCents / 100)} buchen`}`}
             </Button>
 
             <p className="text-[11px] text-gray-400 text-center">

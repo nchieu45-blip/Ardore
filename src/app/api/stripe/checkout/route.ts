@@ -12,9 +12,10 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
 
-  // Support both legacy { productId } and new { items: [{ productId }] }
+  // Support both legacy { productId } and new { items: [{ productId }], discountId? }
   const rawItems: { productId: string }[] = body.items
     ?? (body.productId ? [{ productId: body.productId }] : [])
+  const discountId: string | null = body.discountId ?? null
 
   if (rawItems.length === 0) {
     return NextResponse.json({ error: 'Keine Produkte' }, { status: 400 })
@@ -70,12 +71,53 @@ export async function POST(req: NextRequest) {
 
   const totalCents = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount, 0)
 
+  // Apply discount if provided
+  let discountSavingsCents = 0
+  let discountRowId: string | null = null
+
+  if (discountId) {
+    const { data: disc } = await supabase
+      .from('discounts')
+      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
+      .eq('id', discountId)
+      .single()
+
+    const now = new Date()
+    const valid = disc &&
+      disc.active &&
+      (disc.applies_to === 'all' || disc.applies_to === 'products') &&
+      (!disc.starts_at || new Date(disc.starts_at) <= now) &&
+      (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
+      (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
+
+    if (valid) {
+      discountRowId = disc.id
+      discountSavingsCents = disc.type === 'percent'
+        ? Math.round(totalCents * disc.value / 100)
+        : Math.min(disc.value, totalCents)
+    }
+  }
+
+  // Distribute discount proportionally across line items
+  // TODO: When Stripe Connect is active, replace this with a Stripe Coupon object
+  // and attach it to the checkout session via `discounts: [{ coupon: couponId }]`
+  // so the discount appears natively in the Stripe UI and is recorded properly.
+  const finalLineItems = discountSavingsCents > 0
+    ? lineItems.map(li => ({
+        ...li,
+        price_data: {
+          ...li.price_data,
+          unit_amount: Math.max(50, li.price_data.unit_amount - Math.round(discountSavingsCents * li.price_data.unit_amount / totalCents)),
+        },
+      }))
+    : lineItems
+
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     locale: 'de',
     customer_email: user.email,
-    line_items: lineItems,
+    line_items: finalLineItems,
     metadata: {
       buyer_id: user.id,
       product_ids: productIds.join(','),
@@ -93,6 +135,23 @@ export async function POST(req: NextRequest) {
         }
       : {}),
   })
+
+  // Increment redemption count (best-effort; TODO: move to webhook handler
+  // checkout.session.completed for guaranteed once-per-payment increment)
+  if (discountRowId) {
+    const { data: latest } = await supabase
+      .from('discounts')
+      .select('redemption_count')
+      .eq('id', discountRowId)
+      .single()
+    if (latest) {
+      await supabase
+        .from('discounts')
+        .update({ redemption_count: latest.redemption_count + 1 })
+        .eq('id', discountRowId)
+        .eq('redemption_count', latest.redemption_count) // optimistic lock
+    }
+  }
 
   return NextResponse.json({ url: session.url })
 }

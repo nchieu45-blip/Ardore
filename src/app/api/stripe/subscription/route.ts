@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   }
 
-  const { tierId, creatorId } = await req.json()
+  const { tierId, creatorId, discountId } = await req.json()
 
   const { data: tier } = await supabase
     .from('subscription_tiers')
@@ -24,6 +24,34 @@ export async function POST(req: NextRequest) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+
+  // Validate discount if provided
+  let discountSavingsCents = 0
+  let discountRowId: string | null = null
+
+  if (discountId && tier.price_monthly > 0) {
+    const { data: disc } = await supabase
+      .from('discounts')
+      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
+      .eq('id', discountId)
+      .single()
+
+    const now = new Date()
+    const valid = disc &&
+      disc.active &&
+      (disc.applies_to === 'all' || disc.applies_to === 'subscriptions') &&
+      (!disc.starts_at || new Date(disc.starts_at) <= now) &&
+      (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
+      (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
+
+    if (valid) {
+      discountRowId = disc.id
+      const priceCents = Math.round(tier.price_monthly * 100)
+      discountSavingsCents = disc.type === 'percent'
+        ? Math.round(priceCents * disc.value / 100)
+        : Math.min(disc.value, priceCents)
+    }
+  }
 
   // Free tier — skip Stripe entirely and create the subscription directly
   if (tier.price_monthly === 0) {
@@ -61,21 +89,31 @@ export async function POST(req: NextRequest) {
   }
 
   // Paid tier — go through Stripe checkout
-  let priceId = tier.stripe_price_id
+  const originalPriceCents = Math.round(tier.price_monthly * 100)
+  const finalPriceCents    = Math.max(50, originalPriceCents - discountSavingsCents)
+
+  // TODO: When Stripe Connect is active, replace the manual price reduction below
+  // with a Stripe Coupon object attached via `discounts: [{ coupon: couponId }]`
+  // so the discount appears natively in Stripe and subscription invoices reflect it.
+  // The coupon should be created once per discount row and cached on the discount record.
+  let priceId = discountSavingsCents > 0 ? null : tier.stripe_price_id
 
   if (!priceId) {
     const price = await stripe.prices.create({
       currency: 'eur',
-      unit_amount: Math.round(tier.price_monthly * 100),
+      unit_amount: finalPriceCents,
       recurring: { interval: 'month' },
       product_data: { name: tier.name },
     })
     priceId = price.id
 
-    await supabase
-      .from('subscription_tiers')
-      .update({ stripe_price_id: priceId })
-      .eq('id', tierId)
+    // Only cache the price ID when no discount was applied
+    if (discountSavingsCents === 0) {
+      await supabase
+        .from('subscription_tiers')
+        .update({ stripe_price_id: priceId })
+        .eq('id', tierId)
+    }
   }
 
   const session = await stripe.checkout.sessions.create({
@@ -100,6 +138,22 @@ export async function POST(req: NextRequest) {
         }
       : {}),
   })
+
+  // Increment redemption count (best-effort)
+  if (discountRowId) {
+    const { data: latest } = await supabase
+      .from('discounts')
+      .select('redemption_count')
+      .eq('id', discountRowId)
+      .single()
+    if (latest) {
+      await supabase
+        .from('discounts')
+        .update({ redemption_count: latest.redemption_count + 1 })
+        .eq('id', discountRowId)
+        .eq('redemption_count', latest.redemption_count)
+    }
+  }
 
   return NextResponse.json({ url: session.url })
 }
