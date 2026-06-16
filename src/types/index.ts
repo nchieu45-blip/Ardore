@@ -123,6 +123,17 @@ export interface VideoClass {
   created_at: string
 }
 
+export interface VideoClassBooking {
+  id: string
+  video_class_id: string
+  user_id: string
+  subscription_id: string | null
+  price_paid_cents: number
+  status: 'confirmed' | 'cancelled'
+  daily_room_url: string | null
+  created_at: string
+}
+
 export interface CreatorStats {
   total_revenue: number
   monthly_revenue: number

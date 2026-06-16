@@ -24,7 +24,23 @@ export async function GET() {
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ classes: data ?? [] })
+
+  const classes = data ?? []
+  const classIds = classes.map((c: { id: string }) => c.id)
+
+  const participantCounts: Record<string, number> = {}
+  if (classIds.length > 0) {
+    const { data: bookings } = await supabase
+      .from('video_class_bookings')
+      .select('video_class_id')
+      .eq('status', 'confirmed')
+      .in('video_class_id', classIds)
+    for (const b of (bookings ?? []) as { video_class_id: string }[]) {
+      participantCounts[b.video_class_id] = (participantCounts[b.video_class_id] ?? 0) + 1
+    }
+  }
+
+  return NextResponse.json({ classes, participantCounts })
 }
 
 export async function POST(req: NextRequest) {

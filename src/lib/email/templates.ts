@@ -420,3 +420,45 @@ export function sessionCancellationText(d: SessionCancellationData) {
   const reason  = byBuyer ? `${d.otherPartyName} hat die Session storniert.` : `${d.otherPartyName} (Coach) hat die Session leider storniert.`
   return `Hallo ${d.recipientName},\n\n${reason}\n\nTermin: ${d.scheduledDate} um ${d.scheduledTime} Uhr\n\nFinde andere Coaches: ${APP_URL}/coaches\n\n– Das Ardore-Team`
 }
+
+// ─── Video Class booking confirmation ────────────────────────────────────────
+
+export interface VideoClassConfirmationData {
+  classTitle: string
+  coachName: string
+  scheduleLabel: string
+  durationMinutes: number
+  roomUrl: string | null
+  bookingsUrl: string
+}
+
+export function videoClassConfirmationHtml(d: VideoClassConfirmationData) {
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Du bist angemeldet! 🎉</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Du nimmst jetzt an <strong style="color:#111827;">${d.classTitle}</strong> teil.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Coach</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:6px;">${d.coachName}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Termin</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:6px;">${d.scheduleLabel}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Dauer</td>
+        <td style="font-size:13px;color:#111827;text-align:right;">${d.durationMinutes} Minuten</td>
+      </tr>
+    </table>
+    ${d.roomUrl ? `<p style="text-align:center;margin:0 0 16px;">${button(d.roomUrl, '🎥 Videokurs beitreten')}</p>` : ''}
+    <p style="text-align:center;margin:0 0 20px;">${button(d.bookingsUrl, 'Meine Video Classes →')}</p>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
+      Den Link findest du jederzeit unter „Meine Video Classes". Tritt dem Kurs 15 Minuten vor Beginn bei.
+    </p>
+  `)
+}
+
+export function videoClassConfirmationText(d: VideoClassConfirmationData) {
+  const roomLine = d.roomUrl ? `\nKurs-Link: ${d.roomUrl}\n` : ''
+  return `Du bist angemeldet: ${d.classTitle}\n\nCoach: ${d.coachName}\nTermin: ${d.scheduleLabel}\nDauer: ${d.durationMinutes} Min${roomLine}\nMeine Video Classes: ${d.bookingsUrl}\n\n– Das Ardore-Team`
+}

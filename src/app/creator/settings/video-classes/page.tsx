@@ -68,18 +68,22 @@ function classToForm(vc: VideoClass): FormState {
 }
 
 export default function VideoClassesPage() {
-  const [classes,    setClasses]    = useState<VideoClass[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [showForm,   setShowForm]   = useState(false)
-  const [editingId,  setEditingId]  = useState<string | null>(null)
-  const [saving,     setSaving]     = useState(false)
-  const [formError,  setFormError]  = useState('')
-  const [form,       setForm]       = useState<FormState>(INITIAL_FORM)
+  const [classes,           setClasses]           = useState<VideoClass[]>([])
+  const [participantCounts, setParticipantCounts] = useState<Record<string, number>>({})
+  const [loading,           setLoading]           = useState(true)
+  const [showForm,          setShowForm]          = useState(false)
+  const [editingId,         setEditingId]         = useState<string | null>(null)
+  const [saving,            setSaving]            = useState(false)
+  const [formError,         setFormError]         = useState('')
+  const [form,              setForm]              = useState<FormState>(INITIAL_FORM)
 
   useEffect(() => {
     fetch('/api/video-classes')
       .then(r => r.json())
-      .then(d => setClasses(d.classes ?? []))
+      .then(d => {
+        setClasses(d.classes ?? [])
+        setParticipantCounts(d.participantCounts ?? {})
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -437,7 +441,8 @@ export default function VideoClassesPage() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      {vc.max_participants !== null ? `max. ${vc.max_participants}` : 'Unbegrenzt'}
+                      {participantCounts[vc.id] ?? 0}
+                      {vc.max_participants !== null ? ` / ${vc.max_participants} Teilnehmer` : ' Teilnehmer'}
                     </span>
                     {vc.included_in_subscription && (
                       <span className="text-violet-600 font-medium">· Inkl. für Abonnenten</span>

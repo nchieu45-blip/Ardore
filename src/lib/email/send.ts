@@ -10,6 +10,7 @@ import {
   sessionReviewPromptHtml, sessionReviewPromptText, SessionReviewPromptData,
   rescheduleConfirmationHtml, rescheduleConfirmationText, RescheduleConfirmationData,
   sessionCancellationHtml, sessionCancellationText, SessionCancellationData,
+  videoClassConfirmationHtml, videoClassConfirmationText, VideoClassConfirmationData,
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
@@ -112,5 +113,15 @@ export async function sendSessionCancellation(to: string, data: SessionCancellat
     subject: `Session storniert – ${data.scheduledDate}`,
     html: sessionCancellationHtml(data),
     text: sessionCancellationText(data),
+  })
+}
+
+export async function sendVideoClassConfirmation(to: string, data: VideoClassConfirmationData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Du bist angemeldet: ${data.classTitle}`,
+    html: videoClassConfirmationHtml(data),
+    text: videoClassConfirmationText(data),
   })
 }

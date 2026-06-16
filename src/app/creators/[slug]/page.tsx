@@ -20,6 +20,7 @@ import BuyButton from './BuyButton'
 import ReviewSection from './ReviewSection'
 import BookingWidget from './BookingWidget'
 import HeartButton from '@/components/HeartButton'
+import VideoClassBookButton from './VideoClassBookButton'
 
 const CATEGORY_LABELS: Record<string, string> = {
   // current canonical keys from lib/categories
@@ -223,6 +224,26 @@ export default async function CreatorProfilePage({
 
   const tiers = tiersRes.data ?? []
   const videoClasses = (videoClassesRes.data ?? []) as VideoClass[]
+  const videoClassIds = videoClasses.map(vc => vc.id)
+
+  // Participant counts and user's own bookings for video classes
+  const [vcParticipantRows, vcUserBookingRows] = await Promise.all([
+    videoClassIds.length > 0
+      ? supabase.from('video_class_bookings').select('video_class_id').eq('status', 'confirmed').in('video_class_id', videoClassIds)
+      : Promise.resolve({ data: [] }),
+    videoClassIds.length > 0 && user
+      ? supabase.from('video_class_bookings').select('video_class_id').eq('user_id', user.id).eq('status', 'confirmed').in('video_class_id', videoClassIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const vcParticipantCounts: Record<string, number> = {}
+  for (const row of (vcParticipantRows.data ?? []) as { video_class_id: string }[]) {
+    vcParticipantCounts[row.video_class_id] = (vcParticipantCounts[row.video_class_id] ?? 0) + 1
+  }
+  const vcUserBookedIds = new Set(
+    (vcUserBookingRows.data ?? []).map((r: { video_class_id: string }) => r.video_class_id)
+  )
+
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
   const currentProfile = currentProfileRes.data
@@ -648,7 +669,6 @@ export default async function CreatorProfilePage({
               </div>
             )}
 
-            {/* VIDEO CLASSES — Phase 1: display only. TODO Phase 2: add booking, payment, and video room */}
             {videoClasses.length > 0 && (
               <div className="space-y-4 animate-slide-up animate-delay-100">
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Gruppen-Videokurse</h2>
@@ -662,8 +682,11 @@ export default async function CreatorProfilePage({
                   const priceLabel = vc.price_cents === 0
                     ? 'Kostenlos'
                     : vc.included_in_subscription && vc.price_cents > 0
-                      ? `${formatCurrency(vc.price_cents / 100)} · Kostenlos für Abonnenten`
+                      ? `${formatCurrency(vc.price_cents / 100)} · Gratis für Abonnenten`
                       : formatCurrency(vc.price_cents / 100)
+                  const participantCount  = vcParticipantCounts[vc.id] ?? 0
+                  const isFull            = vc.max_participants !== null && participantCount >= vc.max_participants
+                  const userIsRegistered  = vcUserBookedIds.has(vc.id)
                   return (
                     <div key={vc.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
                       <div className="flex items-start gap-4">
@@ -689,12 +712,12 @@ export default async function CreatorProfilePage({
                               <Clock className="h-3.5 w-3.5" />
                               {vc.duration_minutes} Min
                             </span>
-                            {vc.max_participants !== null && (
-                              <span className="inline-flex items-center gap-1">
-                                <Users className="h-3.5 w-3.5" />
-                                Max. {vc.max_participants} Teilnehmer
-                              </span>
-                            )}
+                            <span className="inline-flex items-center gap-1">
+                              <Users className="h-3.5 w-3.5" />
+                              {vc.max_participants !== null
+                                ? `${participantCount} / ${vc.max_participants} Plätze`
+                                : `${participantCount} Teilnehmer`}
+                            </span>
                             {vc.included_in_subscription && (
                               <span className="inline-flex items-center gap-1 text-green-600 font-medium">
                                 <Sparkles className="h-3.5 w-3.5" />
@@ -705,10 +728,13 @@ export default async function CreatorProfilePage({
                         </div>
                       </div>
                       <div className="mt-4">
-                        {/* TODO Phase 2: replace with booking flow (payment + room join) */}
-                        <Button size="sm" disabled className="w-full opacity-50 cursor-not-allowed">
-                          Anmelden – demnächst verfügbar
-                        </Button>
+                        <VideoClassBookButton
+                          classId={vc.id}
+                          priceCents={vc.included_in_subscription && activeSubscription?.creator_id === vc.creator_id ? 0 : vc.price_cents}
+                          isFull={isFull}
+                          userIsRegistered={userIsRegistered}
+                          isLoggedIn={!!user}
+                        />
                       </div>
                     </div>
                   )
