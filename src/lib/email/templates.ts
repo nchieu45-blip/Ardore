@@ -462,3 +462,35 @@ export function videoClassConfirmationText(d: VideoClassConfirmationData) {
   const roomLine = d.roomUrl ? `\nKurs-Link: ${d.roomUrl}\n` : ''
   return `Du bist angemeldet: ${d.classTitle}\n\nCoach: ${d.coachName}\nTermin: ${d.scheduleLabel}\nDauer: ${d.durationMinutes} Min${roomLine}\nMeine Video Classes: ${d.bookingsUrl}\n\n– Das Ardore-Team`
 }
+
+// ─── Video Class new participant (coach notification) ─────────────────────────
+
+export interface VideoClassNewParticipantData {
+  coachName: string
+  participantName: string
+  classTitle: string
+  scheduleLabel: string
+  dashboardUrl: string
+}
+
+export function videoClassNewParticipantHtml(d: VideoClassNewParticipantData) {
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Neue Kurs-Anmeldung! 🎉</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Hey ${d.coachName}, <strong style="color:#111827;">${d.participantName}</strong> hat sich für deinen Kurs angemeldet.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:24px;">
+      <tr>
+        <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Kurs</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:6px;">${d.classTitle}</td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#6b7280;">Termin</td>
+        <td style="font-size:13px;color:#111827;text-align:right;">${d.scheduleLabel}</td>
+      </tr>
+    </table>
+    <p style="text-align:center;margin:0 0 20px;">${button(d.dashboardUrl, 'Kurs verwalten →')}</p>
+  `)
+}
+
+export function videoClassNewParticipantText(d: VideoClassNewParticipantData) {
+  return `Hey ${d.coachName},\n\n${d.participantName} hat sich für deinen Kurs "${d.classTitle}" (${d.scheduleLabel}) angemeldet.\n\nKurs verwalten: ${d.dashboardUrl}\n\n– Das Ardore-Team`
+}

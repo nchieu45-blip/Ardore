@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, checkNotificationPreference } from '@/lib/notifications'
 import { sendSessionReviewPrompt } from '@/lib/email/send'
 
 // Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
@@ -65,26 +65,37 @@ export async function GET(req: NextRequest) {
     const cp = Array.isArray(b.creator_profiles) ? b.creator_profiles[0] : b.creator_profiles
     const coachName = cp?.display_name ?? 'deinem Coach'
 
-    await createNotification({
-      userId: b.buyer_id,
-      type: 'session_review_prompt',
-      title: 'Wie war deine Session?',
-      message: `Bewerte jetzt deine Session mit ${coachName}.`,
-      link: dedupeLink,
-    })
-
     ;(async () => {
       try {
         const { data: { user } } = await service.auth.admin.getUserById(b.buyer_id)
-        if (user?.email) {
-          await sendSessionReviewPrompt(user.email, {
-            buyerName: b.buyer_name ?? user.user_metadata?.full_name ?? 'dort',
-            coachName,
-            reviewUrl: `${process.env.NEXT_PUBLIC_APP_URL}${dedupeLink}`,
-          })
+        const reviewUrl = `${process.env.NEXT_PUBLIC_APP_URL}${dedupeLink}`
+        const buyerNameDisplay = b.buyer_name ?? user?.user_metadata?.full_name ?? 'dort'
+
+        const [sendInapp, sendEmail] = await Promise.all([
+          checkNotificationPreference(b.buyer_id, 'session_review_prompt', 'inapp'),
+          checkNotificationPreference(b.buyer_id, 'session_review_prompt', 'email'),
+        ])
+
+        const notifJobs: Promise<unknown>[] = []
+        if (sendInapp) {
+          notifJobs.push(createNotification({
+            userId: b.buyer_id,
+            type: 'session_review_prompt',
+            title: 'Wie war deine Session?',
+            message: `Bewerte jetzt deine Session mit ${coachName}.`,
+            link: dedupeLink,
+          }))
         }
+        if (sendEmail && user?.email) {
+          notifJobs.push(sendSessionReviewPrompt(user.email, {
+            buyerName: buyerNameDisplay,
+            coachName,
+            reviewUrl,
+          }))
+        }
+        await Promise.allSettled(notifJobs)
       } catch (e) {
-        console.error('[session-review-prompt email]', e)
+        console.error('[session-review-prompt]', e)
       }
     })()
 

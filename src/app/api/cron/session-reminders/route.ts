@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, checkNotificationPreference } from '@/lib/notifications'
+import { sendSessionReminder } from '@/lib/email/send'
 
 // Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
 // Finds sessions starting in the next 23–25 h and sends a one-time reminder
@@ -45,27 +46,70 @@ export async function GET(req: NextRequest) {
       minute: '2-digit',
       timeZone: 'Europe/Berlin',
     })
+    const minutesUntil = Math.round((new Date(b.scheduled_at).getTime() - now.getTime()) / 60_000)
+    const sessionLink  = `/session/${b.id}`
+    const sessionUrl   = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'}${sessionLink}`
+    const coachName    = cp?.display_name ?? 'Coach'
+    const buyerName    = b.buyer_name ?? 'Teilnehmer'
 
-    const jobs: Promise<void>[] = []
+    // Fetch emails for both parties in parallel
+    const [coachEmailRes, buyerEmailRes] = await Promise.all([
+      cp?.user_id ? service.auth.admin.getUserById(cp.user_id) : Promise.resolve({ data: { user: null } }),
+      b.buyer_id  ? service.auth.admin.getUserById(b.buyer_id)  : Promise.resolve({ data: { user: null } }),
+    ])
+    const coachEmail = coachEmailRes.data.user?.email
+    const buyerEmail = buyerEmailRes.data.user?.email
+
+    const jobs: Promise<unknown>[] = []
 
     if (cp?.user_id) {
-      jobs.push(createNotification({
-        userId: cp.user_id,
-        type: 'session_reminder',
-        title: 'Session beginnt morgen',
-        message: `Deine Session mit ${b.buyer_name} findet morgen um ${sessionTime} Uhr statt.`,
-        link: `/session/${b.id}`,
-      }))
+      const [inapp, email] = await Promise.all([
+        checkNotificationPreference(cp.user_id, 'session_reminder', 'inapp'),
+        checkNotificationPreference(cp.user_id, 'session_reminder', 'email'),
+      ])
+      if (inapp) {
+        jobs.push(createNotification({
+          userId: cp.user_id,
+          type: 'session_reminder',
+          title: 'Session beginnt morgen',
+          message: `Deine Session mit ${buyerName} findet morgen um ${sessionTime} Uhr statt.`,
+          link: sessionLink,
+        }))
+      }
+      if (email && coachEmail) {
+        jobs.push(sendSessionReminder(coachEmail, {
+          recipientName: coachName,
+          coachName: buyerName,
+          scheduledTime: sessionTime,
+          minutesUntil,
+          sessionUrl,
+        }))
+      }
     }
 
     if (b.buyer_id) {
-      jobs.push(createNotification({
-        userId: b.buyer_id,
-        type: 'session_reminder',
-        title: 'Session beginnt morgen',
-        message: `Deine Session mit ${cp?.display_name ?? 'deinem Coach'} findet morgen um ${sessionTime} Uhr statt.`,
-        link: `/session/${b.id}`,
-      }))
+      const [inapp, email] = await Promise.all([
+        checkNotificationPreference(b.buyer_id, 'session_reminder', 'inapp'),
+        checkNotificationPreference(b.buyer_id, 'session_reminder', 'email'),
+      ])
+      if (inapp) {
+        jobs.push(createNotification({
+          userId: b.buyer_id,
+          type: 'session_reminder',
+          title: 'Session beginnt morgen',
+          message: `Deine Session mit ${coachName} findet morgen um ${sessionTime} Uhr statt.`,
+          link: sessionLink,
+        }))
+      }
+      if (email && buyerEmail) {
+        jobs.push(sendSessionReminder(buyerEmail, {
+          recipientName: buyerName,
+          coachName,
+          scheduledTime: sessionTime,
+          minutesUntil,
+          sessionUrl,
+        }))
+      }
     }
 
     await Promise.allSettled(jobs)

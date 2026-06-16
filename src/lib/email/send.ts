@@ -11,6 +11,7 @@ import {
   rescheduleConfirmationHtml, rescheduleConfirmationText, RescheduleConfirmationData,
   sessionCancellationHtml, sessionCancellationText, SessionCancellationData,
   videoClassConfirmationHtml, videoClassConfirmationText, VideoClassConfirmationData,
+  videoClassNewParticipantHtml, videoClassNewParticipantText, VideoClassNewParticipantData,
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
@@ -123,5 +124,15 @@ export async function sendVideoClassConfirmation(to: string, data: VideoClassCon
     subject: `Du bist angemeldet: ${data.classTitle}`,
     html: videoClassConfirmationHtml(data),
     text: videoClassConfirmationText(data),
+  })
+}
+
+export async function sendVideoClassNewParticipant(to: string, data: VideoClassNewParticipantData) {
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `Neue Anmeldung: ${data.participantName} für „${data.classTitle}"`,
+    html: videoClassNewParticipantHtml(data),
+    text: videoClassNewParticipantText(data),
   })
 }

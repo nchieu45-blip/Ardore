@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
+import { createNotification, checkNotificationPreference } from '@/lib/notifications'
 
 const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
 
@@ -151,15 +152,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Confirmation email (best-effort)
+  // Build schedule label (reused for both buyer + coach emails)
+  const scheduleLabel = vcRaw.schedule_type === 'once' && vcRaw.starts_at
+    ? new Date(vcRaw.starts_at).toLocaleString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'
+    : vcRaw.recurring_weekday !== null
+      ? `Jeden ${WEEKDAYS[vcRaw.recurring_weekday]}, ${vcRaw.recurring_time ?? ''} Uhr`
+      : 'Termin folgt'
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
+
+  // Buyer confirmation email
   try {
     if (user.email && creator) {
-      const scheduleLabel = vcRaw.schedule_type === 'once' && vcRaw.starts_at
-        ? new Date(vcRaw.starts_at).toLocaleString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'
-        : vcRaw.recurring_weekday !== null
-          ? `Jeden ${WEEKDAYS[vcRaw.recurring_weekday]}, ${vcRaw.recurring_time ?? ''} Uhr`
-          : 'Termin folgt'
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
       const { sendVideoClassConfirmation } = await import('@/lib/email/send')
       await sendVideoClassConfirmation(user.email, {
         classTitle:      vcRaw.title,
@@ -170,7 +173,44 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         bookingsUrl:     `${appUrl}/buyer/video-classes`,
       })
     }
-  } catch { /* email errors never fail the booking */ }
+  } catch { /* non-fatal */ }
+
+  // Coach notification (in-app + email), preference-gated
+  if (creator?.user_id) {
+    try {
+      const buyerName = user.user_metadata?.full_name ?? user.email ?? 'Ein Teilnehmer'
+      const [sendInapp, sendEmail] = await Promise.all([
+        checkNotificationPreference(creator.user_id, 'new_video_class_booking', 'inapp'),
+        checkNotificationPreference(creator.user_id, 'new_video_class_booking', 'email'),
+      ])
+      const notifJobs: Promise<unknown>[] = []
+      if (sendInapp) {
+        notifJobs.push(createNotification({
+          userId:  creator.user_id,
+          type:    'new_video_class_booking',
+          title:   `Neue Anmeldung: ${vcRaw.title}`,
+          message: `${buyerName} hat sich für deinen Kurs angemeldet.`,
+          link:    `/creator/settings/video-classes`,
+        }))
+      }
+      if (sendEmail) {
+        const service = await createServiceClient()
+        const coachEmailRes = await service.auth.admin.getUserById(creator.user_id)
+        const coachEmail = coachEmailRes.data.user?.email
+        if (coachEmail) {
+          const { sendVideoClassNewParticipant } = await import('@/lib/email/send')
+          notifJobs.push(sendVideoClassNewParticipant(coachEmail, {
+            coachName:       creator.display_name,
+            participantName: buyerName,
+            classTitle:      vcRaw.title,
+            scheduleLabel,
+            dashboardUrl:    `${appUrl}/creator/settings/video-classes`,
+          }))
+        }
+      }
+      await Promise.allSettled(notifJobs)
+    } catch { /* non-fatal */ }
+  }
 
   return NextResponse.json({ bookingId: booking.id, roomUrl: dailyRoomUrl })
 }

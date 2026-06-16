@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import DeleteAccountSection from '@/app/creator/settings/DeleteAccountSection'
+import NotificationPreferencesSection, { type NotifPrefs } from '@/components/NotificationPreferencesSection'
 
 export const metadata: Metadata = { title: 'Kontoeinstellungen' }
 
@@ -10,7 +11,7 @@ export default async function BuyerSettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [profileRes, activeSubsRes, upcomingBookingsRes] = await Promise.all([
+  const [profileRes, activeSubsRes, upcomingBookingsRes, notifPrefsRes] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
     supabase
       .from('subscriptions')
@@ -23,10 +24,20 @@ export default async function BuyerSettingsPage() {
       .eq('buyer_id', user.id)
       .eq('status', 'confirmed')
       .gt('scheduled_at', new Date().toISOString()),
+    supabase
+      .from('notification_preferences')
+      .select('email_new_booking,email_session_reminder,email_new_message,email_new_video_class_booking,inapp_new_booking,inapp_session_reminder,inapp_new_message,inapp_new_video_class_booking')
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ])
 
   const activeSubscriptionsCount = activeSubsRes.count ?? 0
   const upcomingBookingsCount    = upcomingBookingsRes.count ?? 0
+  const defaultPrefs: NotifPrefs = {
+    email_new_booking: true, email_session_reminder: true, email_new_message: true, email_new_video_class_booking: true,
+    inapp_new_booking: true, inapp_session_reminder: true, inapp_new_message: true, inapp_new_video_class_booking: true,
+  }
+  const notifPrefs: NotifPrefs = (notifPrefsRes.data as NotifPrefs | null) ?? defaultPrefs
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -50,6 +61,9 @@ export default async function BuyerSettingsPage() {
             )}
           </dl>
         </div>
+
+        {/* Notifications */}
+        <NotificationPreferencesSection initialPrefs={notifPrefs} isCreator={false} />
 
         {/* Danger zone */}
         <div className="pt-2 border-t border-gray-100">

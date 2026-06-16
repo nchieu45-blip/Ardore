@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { CreditCard, Tag, User, ExternalLink, Video, Percent, Users } from 'lucide-react'
 import DeleteAccountSection from './DeleteAccountSection'
+import NotificationPreferencesSection, { type NotifPrefs } from '@/components/NotificationPreferencesSection'
 
 export default async function CreatorSettingsPage() {
   const supabase = await createClient()
@@ -28,7 +29,7 @@ export default async function CreatorSettingsPage() {
 
   const tierList = tiers ?? []
 
-  const [coachingOfferRes, activeSubsRes, upcomingBookingsRes] = await Promise.all([
+  const [coachingOfferRes, activeSubsRes, upcomingBookingsRes, notifPrefsRes] = await Promise.all([
     supabase
       .from('coaching_offers')
       .select('is_enabled, price_cents, duration_minutes')
@@ -45,11 +46,21 @@ export default async function CreatorSettingsPage() {
       .eq('creator_id', creator.id)
       .eq('status', 'confirmed')
       .gt('scheduled_at', new Date().toISOString()),
+    supabase
+      .from('notification_preferences')
+      .select('email_new_booking,email_session_reminder,email_new_message,email_new_video_class_booking,inapp_new_booking,inapp_session_reminder,inapp_new_message,inapp_new_video_class_booking')
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ])
 
   const coachingOffer          = coachingOfferRes.data
   const activeSubscribersCount = activeSubsRes.count ?? 0
   const upcomingBookingsCount  = upcomingBookingsRes.count ?? 0
+  const defaultPrefs: NotifPrefs = {
+    email_new_booking: true, email_session_reminder: true, email_new_message: true, email_new_video_class_booking: true,
+    inapp_new_booking: true, inapp_session_reminder: true, inapp_new_message: true, inapp_new_video_class_booking: true,
+  }
+  const notifPrefs: NotifPrefs = (notifPrefsRes.data as NotifPrefs | null) ?? defaultPrefs
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -227,6 +238,9 @@ export default async function CreatorSettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Notifications */}
+        <NotificationPreferencesSection initialPrefs={notifPrefs} isCreator={true} />
 
         {/* Danger zone */}
         <div className="pt-4 border-t border-gray-100">
