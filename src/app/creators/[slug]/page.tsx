@@ -188,7 +188,7 @@ export default async function CreatorProfilePage({
 
   const coachingOffer = coachingOfferData?.is_enabled ? coachingOfferData : null
 
-  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes, sessionReviewsRes] = await Promise.all([
+  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes, sessionReviewsRes, autoDiscountsRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
@@ -205,12 +205,42 @@ export default async function CreatorProfilePage({
       .eq('creator_id', creator.id)
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase
+      .from('discounts')
+      .select('id, type, value, applies_to, target_tier_id, starts_at, ends_at, max_redemptions, redemption_count')
+      .eq('creator_id', creator.id)
+      .eq('active', true)
+      .is('code', null),
   ])
 
   const tiers = tiersRes.data ?? []
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
   const currentProfile = currentProfileRes.data
+
+  // Filter auto-discounts that are currently valid
+  type RawAutoDiscount = { id: string; type: string; value: number; applies_to: string; target_tier_id: string | null; starts_at: string | null; ends_at: string | null; max_redemptions: number | null; redemption_count: number }
+  const nowDiscount = new Date()
+  const validAutoDiscounts = ((autoDiscountsRes.data ?? []) as RawAutoDiscount[]).filter(d => {
+    if (d.starts_at && new Date(d.starts_at) > nowDiscount) return false
+    if (d.ends_at   && new Date(d.ends_at)   < nowDiscount) return false
+    if (d.max_redemptions !== null && d.redemption_count >= d.max_redemptions) return false
+    return true
+  })
+
+  interface TierAutoDiscount { id: string; type: 'percent' | 'fixed'; value: number; savingsCents: number }
+  const tierDiscountMap: Record<string, TierAutoDiscount> = {}
+  for (const tier of tiers as { id: string; price_monthly: number }[]) {
+    if (tier.price_monthly <= 0) continue
+    const d = validAutoDiscounts.find(d => d.target_tier_id === tier.id)
+           ?? validAutoDiscounts.find(d => !d.target_tier_id && (d.applies_to === 'subscriptions' || d.applies_to === 'all'))
+    if (!d) continue
+    const priceCents = Math.round(tier.price_monthly * 100)
+    const savingsCents = d.type === 'percent'
+      ? Math.round(priceCents * d.value / 100)
+      : Math.min(d.value, priceCents)
+    tierDiscountMap[tier.id] = { id: d.id, type: d.type as 'percent' | 'fixed', value: d.value, savingsCents }
+  }
 
   const productSalesCounts: Record<string, number> = {}
   for (const { product_id } of (totalSalesRes.data ?? []) as { product_id: string }[]) {
@@ -506,6 +536,8 @@ export default async function CreatorProfilePage({
                   const periodLabel      = sessionPeriod === 'week' ? 'pro Woche' : 'pro Monat'
                   const tierDuration     = tier.included_session_duration_minutes ?? coachingOffer?.duration_minutes ?? 60
                   const remainingForTier = isSubscribed ? subscriberSessions?.remaining ?? null : null
+                  const tierAutoDiscount = tierDiscountMap[tier.id] ?? null
+                  const discountedCents  = tierAutoDiscount ? Math.max(0, Math.round(tier.price_monthly * 100) - tierAutoDiscount.savingsCents) : null
                   return (
                     <div
                       key={tier.id}
@@ -532,6 +564,19 @@ export default async function CreatorProfilePage({
                           <div className="text-right">
                             {tier.price_monthly === 0 ? (
                               <span className="text-lg font-bold text-green-600">Kostenlos</span>
+                            ) : tierAutoDiscount && discountedCents !== null ? (
+                              <>
+                                <div className="flex items-baseline gap-1 justify-end">
+                                  <span className="text-sm text-gray-400 line-through">{tier.price_monthly}€</span>
+                                  <span className="text-2xl font-bold text-green-600">{formatCurrency(discountedCents / 100)}</span>
+                                  <span className="text-xs text-gray-400">/Mo</span>
+                                </div>
+                                <span className="inline-block mt-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full">
+                                  {tierAutoDiscount.type === 'percent'
+                                    ? `${tierAutoDiscount.value} % Rabatt`
+                                    : `${formatCurrency(tierAutoDiscount.value / 100)} Rabatt`}
+                                </span>
+                              </>
                             ) : (
                               <>
                                 <span className="text-2xl font-bold text-gray-900">{tier.price_monthly}€</span>
@@ -578,7 +623,7 @@ export default async function CreatorProfilePage({
                             )}
                           </div>
                         ) : user ? (
-                          <SubscribeButton tierId={tier.id} creatorId={creator.id} priceMonthly={tier.price_monthly} />
+                          <SubscribeButton tierId={tier.id} creatorId={creator.id} priceMonthly={tier.price_monthly} autoDiscount={tierAutoDiscount} />
                         ) : (
                           <Link href="/login" className="block">
                             <Button size="sm" className="w-full gap-1.5">
