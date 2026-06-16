@@ -289,9 +289,11 @@ export default async function CreatorProfilePage({
     ? (CATEGORY_GRADIENTS[primaryCategory] ?? DEFAULT_GRADIENT)
     : DEFAULT_GRADIENT
 
+  const isOwner = user?.id === creator.user_id
+
   return (
     <div className="min-h-screen bg-gray-50/40">
-      {/* Full-width banner */}
+      {/* Full-width banner — clean, no overlaid text or pills */}
       <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-56 sm:h-64 overflow-hidden animate-fade-in`}>
         {creator.banner_url && (
           <img src={creator.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -299,37 +301,19 @@ export default async function CreatorProfilePage({
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
         <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
-        {/* Breadcrumb in banner */}
-        <div className="absolute top-4 left-0 right-0 max-w-5xl mx-auto px-4">
-          <nav className="flex items-center gap-1.5 text-sm text-white/70" aria-label="Breadcrumb">
-            <Link href="/coaches" className="hover:text-white transition-colors">Coaches</Link>
-            <ChevronRight className="h-3.5 w-3.5" />
-            <span className="text-white/90 font-medium">{creator.display_name}</span>
-          </nav>
-        </div>
-        {allCategories.length > 0 && (
-          <div className="absolute bottom-4 right-4 flex flex-wrap gap-1.5 justify-end max-w-[60%]">
-            {allCategories.slice(0, 3).map(cat => (
-              <span key={cat} className="bg-white/20 backdrop-blur-sm border border-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-                {CATEGORY_LABELS[cat] ?? cat}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="max-w-5xl mx-auto px-4">
-        {/* Avatar row: overlaps banner */}
-        <div className="-mt-16 mb-6 flex items-end justify-between gap-4 flex-wrap">
+        {/* Avatar + action buttons — overlaps banner */}
+        <div className="-mt-16 mb-4 flex items-end justify-between gap-4 flex-wrap animate-fade-in">
           <Avatar
             src={creator.avatar_url}
             name={creator.display_name}
             size="xl"
             className="ring-4 ring-white shadow-xl flex-shrink-0"
           />
-          {/* Visitor action buttons — right side of avatar row */}
           <div className="flex items-center gap-2 pb-1 flex-shrink-0">
-            {user?.id !== creator.user_id && (
+            {!isOwner && (
               <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
             )}
             {user && activeSubscription && (
@@ -340,154 +324,271 @@ export default async function CreatorProfilePage({
                 </Button>
               </Link>
             )}
-          </div>
-        </div>
-
-        {/* Profile header — name row with edit button right-aligned */}
-        <div className="mb-6 animate-slide-up">
-          <div className="flex items-start justify-between gap-4 flex-wrap mb-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
-              {qualifications.length > 0 && (
-                <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
-                  <GraduationCap className="h-3.5 w-3.5" />
-                  Qualifiziert
-                </span>
-              )}
-            </div>
-            {user?.id === creator.user_id && (
+            {isOwner && (
               <Link
                 href="/creator/settings/profile"
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm transition-all"
               >
                 <Pencil className="h-3.5 w-3.5" />
                 Profil bearbeiten
               </Link>
             )}
           </div>
+        </div>
+
+        {/* Profile info */}
+        <div className="mb-8 animate-slide-up">
+          {/* Name + qualifications badge */}
+          <div className="flex items-center gap-3 flex-wrap mb-2">
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
+            {qualifications.length > 0 && (
+              <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
+                <GraduationCap className="h-3.5 w-3.5" />
+                Qualifiziert
+              </span>
+            )}
+          </div>
+
+          {/* Category pills — moved from banner to here */}
+          {allCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {allCategories.slice(0, 4).map(cat => (
+                <span key={cat} className="bg-green-50 border border-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                  {CATEGORY_LABELS[cat] ?? cat}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Bio */}
           {creator.bio && (
-            <p className="text-gray-600 max-w-2xl leading-relaxed">{creator.bio}</p>
+            <p className="text-gray-600 max-w-2xl leading-relaxed mb-6">{creator.bio}</p>
+          )}
+
+          {/* Stats */}
+          {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null || avgSessionRating !== null) && (
+            <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-gray-100 animate-slide-up animate-delay-100">
+              {products.length > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center">
+                    <ShoppingBag className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{products.length}</p>
+                    <p className="text-gray-500 text-xs">{products.length === 1 ? 'Produkt' : 'Produkte'}</p>
+                  </div>
+                </div>
+              )}
+              {totalSales >= 10 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{totalSales}</p>
+                    <p className="text-gray-500 text-xs">Verkäufe</p>
+                  </div>
+                </div>
+              )}
+              {overallAvgRating !== null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{overallAvgRating.toFixed(1)}</p>
+                    <p className="text-gray-500 text-xs">{totalReviewCount} Produkt-Bew.</p>
+                  </div>
+                </div>
+              )}
+              {avgSessionRating !== null && (
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                    <Video className="h-4 w-4 text-violet-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{avgSessionRating.toFixed(1)}</p>
+                    <p className="text-gray-500 text-xs">{sessionReviewCount} Session-Bew.</p>
+                  </div>
+                </div>
+              )}
+              {tiers.length > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{tiers.length}</p>
+                    <p className="text-gray-500 text-xs">Abo-Stufe{tiers.length !== 1 ? 'n' : ''}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Stats strip */}
-        {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null || avgSessionRating !== null) && (
-          <div className="flex flex-wrap items-center gap-6 mb-8 pb-6 border-b border-gray-100 animate-slide-up animate-delay-100">
-            {products.length > 0 && (
-              <div className="flex items-center gap-2 text-sm">
-                <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center">
-                  <ShoppingBag className="h-4 w-4 text-green-600" />
+        {/* Main content: two-column on desktop when booking widget exists */}
+        <div className={cn('pb-16', coachingOffer && 'lg:grid lg:grid-cols-5 lg:gap-8')}>
+
+          {/* Left column: qualifications, services, [mobile booking], tiers, products, reviews */}
+          <div className={cn('space-y-8', coachingOffer && 'lg:col-span-3')}>
+
+            {qualifications.length > 0 && (
+              <div className="animate-slide-up animate-delay-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Qualifikationen</h2>
+                  <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <GraduationCap className="h-3 w-3" />
+                    Qualifiziert
+                  </span>
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{products.length}</p>
-                  <p className="text-gray-500 text-xs">{products.length === 1 ? 'Produkt' : 'Produkte'}</p>
-                </div>
-              </div>
-            )}
-            {totalSales >= 10 && (
-              <div className="flex items-center gap-2 text-sm">
-                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{totalSales}</p>
-                  <p className="text-gray-500 text-xs">Verkäufe</p>
-                </div>
-              </div>
-            )}
-            {overallAvgRating !== null && (
-              <div className="flex items-center gap-2 text-sm">
-                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                  <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{overallAvgRating.toFixed(1)}</p>
-                  <p className="text-gray-500 text-xs">{totalReviewCount} Produkt-Bew.</p>
+                <div className="flex flex-wrap gap-2">
+                  {qualifications.map((q, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium">
+                      <GraduationCap className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      {q}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
-            {avgSessionRating !== null && (
-              <div className="flex items-center gap-2 text-sm">
-                <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center">
-                  <Video className="h-4 w-4 text-violet-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{avgSessionRating.toFixed(1)}</p>
-                  <p className="text-gray-500 text-xs">{sessionReviewCount} Session-Bew.</p>
+
+            {services.length > 0 && (
+              <div className="animate-slide-up animate-delay-100">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
+                <div className="flex flex-wrap gap-2">
+                  {services.map(s => (
+                    <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                      {SERVICE_LABELS[s] ?? s}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
+
+            {/* Booking widget — mobile only (desktop shows it in the sticky right column) */}
+            {coachingOffer && (
+              <div className="lg:hidden animate-slide-up animate-delay-100">
+                <BookingWidget
+                  creatorId={creator.id}
+                  offer={coachingOffer}
+                  currentUserEmail={user?.email ?? null}
+                  currentUserName={currentProfile?.full_name ?? null}
+                  subscriberSessions={subscriberSessions}
+                />
+              </div>
+            )}
+
             {tiers.length > 0 && (
-              <div className="flex items-center gap-2 text-sm">
-                <div className="h-8 w-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <Sparkles className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{tiers.length}</p>
-                  <p className="text-gray-500 text-xs">Abo-Stufe{tiers.length !== 1 ? 'n' : ''}</p>
-                </div>
+              <div className="space-y-4 animate-slide-up animate-delay-100">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Abonnements</h2>
+                {tiers.map((tier: {
+                  id: string
+                  name: string
+                  description: string | null
+                  price_monthly: number
+                  features: string[]
+                  included_video_sessions?: number
+                  video_session_period?: 'week' | 'month' | null
+                }, i: number) => {
+                  const isSubscribed     = activeSubscription?.tier_id === tier.id
+                  const isFeatured       = i === 0 && tiers.length > 1
+                  const tierSessions     = tier.included_video_sessions ?? 0
+                  const sessionPeriod    = tier.video_session_period ?? 'month'
+                  const periodLabel      = sessionPeriod === 'week' ? 'pro Woche' : 'pro Monat'
+                  const remainingForTier = isSubscribed ? subscriberSessions?.remaining ?? null : null
+                  return (
+                    <div
+                      key={tier.id}
+                      className={cn(
+                        'rounded-2xl border-2 overflow-hidden transition-all duration-200',
+                        isSubscribed ? 'border-green-400 shadow-md shadow-green-100'
+                        : isFeatured ? 'border-green-300 shadow-md'
+                        : 'border-gray-100 hover:border-gray-200'
+                      )}
+                    >
+                      {isFeatured && !isSubscribed && (
+                        <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
+                          <Sparkles className="h-3 w-3" /> Beliebt
+                        </div>
+                      )}
+                      {isSubscribed && (
+                        <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
+                          <Check className="h-3 w-3" /> Aktives Abo
+                        </div>
+                      )}
+                      <div className="bg-white p-5">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-gray-900">{tier.name}</h3>
+                          <div className="text-right">
+                            {tier.price_monthly === 0 ? (
+                              <span className="text-lg font-bold text-green-600">Kostenlos</span>
+                            ) : (
+                              <>
+                                <span className="text-2xl font-bold text-gray-900">{tier.price_monthly}€</span>
+                                <span className="text-xs text-gray-400">/Mo</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {tier.description && (
+                          <p className="text-sm text-gray-500 mb-3 leading-relaxed">{tier.description}</p>
+                        )}
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2.5">
+                            <MessageCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                            <span>Chat mit dem Coach freigeschaltet</span>
+                          </div>
+                          {tierSessions > 0 && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 rounded-xl px-3 py-2.5">
+                              <Video className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                              <span>
+                                <strong>{tierSessions}</strong> Video-Session{tierSessions !== 1 ? 's' : ''} {periodLabel} inkludiert
+                                {remainingForTier !== null && (
+                                  <span className="ml-1.5 text-blue-600 font-semibold">({remainingForTier} verbleibend)</span>
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {isSubscribed ? (
+                          <div className="space-y-2">
+                            <Link href={`/chat/${creator.id}`} className="block">
+                              <Button className="w-full gap-2">
+                                <MessageCircle className="h-4 w-4" />
+                                Zum Chat
+                              </Button>
+                            </Link>
+                            {tierSessions > 0 && (
+                              <Link href="#booking" className="block" onClick={e => { e.preventDefault(); document.querySelector('[data-booking-widget]')?.scrollIntoView({ behavior: 'smooth' }) }}>
+                                <Button variant="outline" size="sm" className="w-full gap-1.5">
+                                  <Video className="h-3.5 w-3.5" />
+                                  Session buchen
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        ) : user ? (
+                          <SubscribeButton tierId={tier.id} creatorId={creator.id} />
+                        ) : (
+                          <Link href="/login" className="block">
+                            <Button size="sm" className="w-full gap-1.5">
+                              <Lock className="h-3.5 w-3.5" />
+                              Anmelden zum Abonnieren
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
-          </div>
-        )}
 
-      {qualifications.length > 0 && (
-        <div className="mb-6 animate-slide-up animate-delay-100">
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Qualifikationen</h2>
-            <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-              <GraduationCap className="h-3 w-3" />
-              Qualifiziert
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {qualifications.map((q, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium"
-              >
-                <GraduationCap className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                {q}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {services.length > 0 && (
-        <div className="mb-8 animate-slide-up animate-delay-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
-          <div className="flex flex-wrap gap-2">
-            {services.map(s => (
-              <span
-                key={s}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                {SERVICE_LABELS[s] ?? s}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Adaptive content grid ──────────────────────────────── */}
-      {(() => {
-        const hasProducts = products.length > 0
-        const hasTiers    = tiers.length > 0
-        const hasSidebar  = hasTiers || !!coachingOffer
-
-        if (!hasProducts && !hasSidebar) return null
-
-        return (
-          <div className={cn('pb-16', hasProducts && hasSidebar && 'grid lg:grid-cols-3 gap-8')}>
-
-            {/* Products column */}
-            {hasProducts && (
-              <div className={cn('space-y-4 animate-slide-up animate-delay-100', hasSidebar && 'lg:col-span-2')}>
-                {products.length > 0 && (
-                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Produkte</h2>
-                )}
+            {products.length > 0 && (
+              <div className="space-y-4 animate-slide-up animate-delay-100">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Produkte</h2>
                 {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null }) => {
                   const owned = purchasedIds.has(product.id)
                   const stats = ratingStats[product.id]
@@ -564,184 +665,70 @@ export default async function CreatorProfilePage({
               </div>
             )}
 
-            {/* Sidebar: booking widget + subscription tiers */}
-            {hasSidebar && (
-              <div className="space-y-6 animate-slide-up animate-delay-200">
-                {coachingOffer && (
-                  <BookingWidget
-                    creatorId={creator.id}
-                    offer={coachingOffer}
-                    currentUserEmail={user?.email ?? null}
-                    currentUserName={currentProfile?.full_name ?? null}
-                    subscriberSessions={subscriberSessions}
-                  />
-                )}
-
-                {hasTiers && (
-                  <div className="space-y-4">
-                    <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Abonnements</h2>
-                    {tiers.map((tier: {
-                      id: string
-                      name: string
-                      description: string | null
-                      price_monthly: number
-                      features: string[]
-                      included_video_sessions?: number
-                      video_session_period?: 'week' | 'month' | null
-                    }, i: number) => {
-                      const isSubscribed     = activeSubscription?.tier_id === tier.id
-                      const isFeatured       = i === 0 && tiers.length > 1
-                      const tierSessions     = tier.included_video_sessions ?? 0
-                      const sessionPeriod    = tier.video_session_period ?? 'month'
-                      const periodLabel      = sessionPeriod === 'week' ? 'pro Woche' : 'pro Monat'
-                      const remainingForTier = isSubscribed ? subscriberSessions?.remaining ?? null : null
-
-                      return (
-                        <div
-                          key={tier.id}
-                          className={cn(
-                            'rounded-2xl border-2 overflow-hidden transition-all duration-200',
-                            isSubscribed   ? 'border-green-400 shadow-md shadow-green-100'
-                            : isFeatured   ? 'border-green-300 shadow-md'
-                            : 'border-gray-100 hover:border-gray-200'
-                          )}
-                        >
-                          {isFeatured && !isSubscribed && (
-                            <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
-                              <Sparkles className="h-3 w-3" /> Beliebt
-                            </div>
-                          )}
-                          {isSubscribed && (
-                            <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
-                              <Check className="h-3 w-3" /> Aktives Abo
-                            </div>
-                          )}
-                          <div className="bg-white p-5">
-                            <div className="flex items-start justify-between mb-2">
-                              <h3 className="font-bold text-gray-900">{tier.name}</h3>
-                              <div className="text-right">
-                                {tier.price_monthly === 0 ? (
-                                  <span className="text-lg font-bold text-green-600">Kostenlos</span>
-                                ) : (
-                                  <>
-                                    <span className="text-2xl font-bold text-gray-900">{tier.price_monthly}€</span>
-                                    <span className="text-xs text-gray-400">/Mo</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            {tier.description && (
-                              <p className="text-sm text-gray-500 mb-3 leading-relaxed">{tier.description}</p>
-                            )}
-                            {/* Benefits */}
-                            <div className="space-y-2 mb-4">
-                              <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2.5">
-                                <MessageCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                <span>Chat mit dem Coach freigeschaltet</span>
-                              </div>
-                              {tierSessions > 0 && (
-                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 rounded-xl px-3 py-2.5">
-                                  <Video className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                                  <span>
-                                    <strong>{tierSessions}</strong> Video-Session{tierSessions !== 1 ? 's' : ''} {periodLabel} inkludiert
-                                    {remainingForTier !== null && (
-                                      <span className="ml-1.5 text-blue-600 font-semibold">
-                                        ({remainingForTier} verbleibend)
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            {isSubscribed ? (
-                              <div className="space-y-2">
-                                <Link href={`/chat/${creator.id}`} className="block">
-                                  <Button className="w-full gap-2">
-                                    <MessageCircle className="h-4 w-4" />
-                                    Zum Chat
-                                  </Button>
-                                </Link>
-                                {tierSessions > 0 && (
-                                  <Link href={`#booking`} className="block" onClick={e => { e.preventDefault(); document.querySelector('[data-booking-widget]')?.scrollIntoView({ behavior: 'smooth' }) }}>
-                                    <Button variant="outline" size="sm" className="w-full gap-1.5">
-                                      <Video className="h-3.5 w-3.5" />
-                                      Session buchen
-                                    </Button>
-                                  </Link>
-                                )}
-                              </div>
-                            ) : user ? (
-                              <SubscribeButton tierId={tier.id} creatorId={creator.id} />
+            {sessionReviews.length > 0 && (
+              <div className="animate-slide-up">
+                <div className="flex items-center gap-3 mb-5">
+                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Coaching-Bewertungen</h2>
+                  <div className="flex items-center gap-1.5 bg-violet-50 px-3 py-1 rounded-full">
+                    <Star className="h-4 w-4 text-violet-600 fill-violet-600" />
+                    <span className="text-sm font-semibold text-violet-700">{avgSessionRating!.toFixed(1)}</span>
+                    <span className="text-xs text-violet-500">· {sessionReviewCount} Bewertung{sessionReviewCount !== 1 ? 'en' : ''}</span>
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {sessionReviews.map(review => {
+                    const profile = normalizeProfile(review.profiles)
+                    return (
+                      <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {profile?.avatar_url ? (
+                              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                             ) : (
-                              <Link href="/login" className="block">
-                                <Button size="sm" className="w-full gap-1.5">
-                                  <Lock className="h-3.5 w-3.5" />
-                                  Anmelden zum Abonnieren
-                                </Button>
-                              </Link>
+                              <span className="text-sm font-semibold text-gray-500">
+                                {(profile?.full_name ?? '?')[0].toUpperCase()}
+                              </span>
                             )}
                           </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{profile?.full_name ?? 'Anonymer Nutzer'}</p>
+                            <p className="text-xs text-gray-400">
+                              {new Date(review.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                          </div>
+                          <div className="flex gap-0.5 flex-shrink-0">
+                            {[1, 2, 3, 4, 5].map(s => (
+                              <Star key={s} className={`h-3.5 w-3.5 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-100'}`} />
+                            ))}
+                          </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
+                        {review.content && (
+                          <p className="text-sm text-gray-600 leading-relaxed">&ldquo;{review.content}&rdquo;</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
-        )
-      })()}
 
-      {/* Session reviews section */}
-      {sessionReviews.length > 0 && (
-        <div className="pb-16 animate-slide-up">
-          <div className="flex items-center gap-3 mb-5">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Coaching-Bewertungen</h2>
-            <div className="flex items-center gap-1.5 bg-violet-50 px-3 py-1 rounded-full">
-              <Star className="h-4 w-4 text-violet-600 fill-violet-600" />
-              <span className="text-sm font-semibold text-violet-700">{avgSessionRating!.toFixed(1)}</span>
-              <span className="text-xs text-violet-500">· {sessionReviewCount} Bewertung{sessionReviewCount !== 1 ? 'en' : ''}</span>
+          {/* Right column: sticky booking widget (desktop only) */}
+          {coachingOffer && (
+            <div className="hidden lg:block lg:col-span-2">
+              <div className="sticky top-24">
+                <BookingWidget
+                  creatorId={creator.id}
+                  offer={coachingOffer}
+                  currentUserEmail={user?.email ?? null}
+                  currentUserName={currentProfile?.full_name ?? null}
+                  subscriberSessions={subscriberSessions}
+                />
+              </div>
             </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {sessionReviews.map(review => {
-              const profile = normalizeProfile(review.profiles)
-              return (
-                <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-sm font-semibold text-gray-500">
-                          {(profile?.full_name ?? '?')[0].toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {profile?.full_name ?? 'Anonymer Nutzer'}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {new Date(review.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </p>
-                    </div>
-                    <div className="flex gap-0.5 flex-shrink-0">
-                      {[1, 2, 3, 4, 5].map(s => (
-                        <Star key={s} className={`h-3.5 w-3.5 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-100'}`} />
-                      ))}
-                    </div>
-                  </div>
-                  {review.content && (
-                    <p className="text-sm text-gray-600 leading-relaxed">&ldquo;{review.content}&rdquo;</p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
-  </div>
   )
 }
