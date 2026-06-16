@@ -7,7 +7,7 @@ import {
   Star, BarChart2, CreditCard, ShoppingBag,
   Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft, Video,
 } from 'lucide-react'
-import MarketplaceRows, { type CoachingCoach } from './MarketplaceRows'
+import MarketplaceRows, { type CoachingCoach, type SubscriptionCoach } from './MarketplaceRows'
 import Link from 'next/link'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 import { ProductCard } from '@/components/ui/ProductCard'
@@ -44,7 +44,9 @@ interface Props {
   products: MarketplaceProduct[]
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
+  favoriteCounts?: Record<string, number>
   coachingCoaches?: CoachingCoach[]
+  subscriptionCoaches?: SubscriptionCoach[]
 }
 
 type TopicFilter = 'all' | string
@@ -103,7 +105,7 @@ const TRUST_ITEMS = [
 ]
 
 
-export default function MarketplaceClient({ products, salesCounts, ratings, coachingCoaches = [] }: Props) {
+export default function MarketplaceClient({ products, salesCounts, ratings, favoriteCounts = {}, coachingCoaches = [], subscriptionCoaches = [] }: Props) {
   const [topic, setTopic] = useState<TopicFilter>('all')
   const [type, setType] = useState<TypeFilter>('all')
   const [sort, setSort] = useState<SortKey>('popular')
@@ -464,7 +466,9 @@ export default function MarketplaceClient({ products, salesCounts, ratings, coac
           products={products}
           salesCounts={salesCounts}
           ratings={ratings}
+          favoriteCounts={favoriteCounts}
           coachingCoaches={coachingCoaches}
+          subscriptionCoaches={subscriptionCoaches}
         />
       )}
 

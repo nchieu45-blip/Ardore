@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
-import type { CoachingCoach } from './MarketplaceRows'
+import type { CoachingCoach, SubscriptionCoach } from './MarketplaceRows'
 
 export const metadata: Metadata = {
   title: 'Ardore – Fitness & Gesundheitscoaches',
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function MarketplacePage() {
   const supabase = await createClient()
 
-  const [productsData, coachingOffersData] = await Promise.all([
+  const [productsData, coachingOffersData, subTiersData] = await Promise.all([
     supabase
       .from('products')
       .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
@@ -23,6 +23,12 @@ export default async function MarketplacePage() {
       .eq('is_enabled', true)
       .order('price_cents', { ascending: true })
       .limit(20),
+    supabase
+      .from('subscription_tiers')
+      .select('price_monthly, creator_id, creator_profiles(id, slug, display_name, avatar_url, category, categories)')
+      .eq('is_active', true)
+      .order('price_monthly', { ascending: true })
+      .limit(200),
   ])
 
   const products: MarketplaceProduct[] = (productsData.data ?? []).map((p: {
@@ -84,14 +90,46 @@ export default async function MarketplacePage() {
     }]
   })
 
+  // Build subscription coaches: one entry per creator with their cheapest active tier
+  type SubTierRow = {
+    price_monthly: number
+    creator_id: string
+    creator_profiles: { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null }
+      | { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null }[]
+      | null
+  }
+  const subCoachMap = new Map<string, SubscriptionCoach>()
+  for (const row of (subTiersData.data ?? []) as SubTierRow[]) {
+    const cp = Array.isArray(row.creator_profiles) ? row.creator_profiles[0] : row.creator_profiles
+    if (!cp) continue
+    const existing = subCoachMap.get(cp.id)
+    if (!existing || row.price_monthly < existing.min_price_monthly) {
+      subCoachMap.set(cp.id, {
+        id:                 cp.id,
+        slug:               cp.slug,
+        display_name:       cp.display_name,
+        avatar_url:         cp.avatar_url,
+        category:           cp.category,
+        categories:         cp.categories ?? [],
+        min_price_monthly:  row.price_monthly,
+      })
+    }
+  }
+  const subscriptionCoaches: SubscriptionCoach[] = [...subCoachMap.values()]
+    .sort((a, b) => a.min_price_monthly - b.min_price_monthly)
+    .slice(0, 20)
+
   const productIds = products.map(p => p.id)
 
-  const [salesRes, reviewsRes] = await Promise.all([
+  const [salesRes, reviewsRes, favoritesRes] = await Promise.all([
     productIds.length > 0
       ? supabase.from('purchases').select('product_id').in('product_id', productIds)
       : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('reviews').select('product_id, rating').in('product_id', productIds)
+      : Promise.resolve({ data: [] }),
+    productIds.length > 0
+      ? supabase.from('favorites').select('item_id').eq('item_type', 'product').in('item_id', productIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -111,12 +149,19 @@ export default async function MarketplacePage() {
     ratings[id] = { avg: sum / count, count }
   }
 
+  const favoriteCounts: Record<string, number> = {}
+  for (const { item_id } of (favoritesRes.data ?? []) as { item_id: string }[]) {
+    favoriteCounts[item_id] = (favoriteCounts[item_id] ?? 0) + 1
+  }
+
   return (
     <MarketplaceClient
       products={products}
       salesCounts={salesCounts}
       ratings={ratings}
+      favoriteCounts={favoriteCounts}
       coachingCoaches={coachingCoaches}
+      subscriptionCoaches={subscriptionCoaches}
     />
   )
 }
