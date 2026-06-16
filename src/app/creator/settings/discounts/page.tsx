@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency } from '@/lib/utils'
 import {
   Plus, Trash2, Eye, EyeOff, Tag, RefreshCw, Percent, Euro,
-  Gift, Zap, ShoppingBag, Sparkles, Video,
+  Gift, Zap, ShoppingBag, Sparkles, Video, Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +17,10 @@ interface Discount {
   type: 'percent' | 'fixed'
   value: number
   applies_to: 'all' | 'products' | 'subscriptions' | 'sessions'
+  target_product_id: string | null
+  target_tier_id: string | null
+  target_product_name: string | null
+  target_tier_name: string | null
   starts_at: string | null
   ends_at: string | null
   active: boolean
@@ -25,6 +28,9 @@ interface Discount {
   redemption_count: number
   created_at: string
 }
+
+interface ProductOption { id: string; title: string }
+interface TierOption    { id: string; name: string }
 
 const APPLIES_LABELS: Record<string, string> = {
   all:           'Alles',
@@ -37,6 +43,20 @@ const APPLIES_ICONS: Record<string, React.ReactNode> = {
   products:      <ShoppingBag className="h-3 w-3" />,
   subscriptions: <Sparkles    className="h-3 w-3" />,
   sessions:      <Video       className="h-3 w-3" />,
+  product:       <Package     className="h-3 w-3" />,
+  tier:          <Sparkles    className="h-3 w-3" />,
+}
+
+function getAppliesLabel(d: Discount): string {
+  if (d.target_product_id) return `Produkt: ${d.target_product_name ?? '–'}`
+  if (d.target_tier_id)    return `Abo: ${d.target_tier_name ?? '–'}`
+  return APPLIES_LABELS[d.applies_to] ?? d.applies_to
+}
+
+function getAppliesIcon(d: Discount): React.ReactNode {
+  if (d.target_product_id) return APPLIES_ICONS.product
+  if (d.target_tier_id)    return APPLIES_ICONS.tier
+  return APPLIES_ICONS[d.applies_to]
 }
 
 function generateCode(): string {
@@ -54,19 +74,25 @@ function discountStatus(d: Discount): 'active' | 'inactive' | 'expired' | 'sched
 }
 
 const STATUS_CONFIG = {
-  active:    { label: 'Aktiv',       variant: 'success'  as const },
-  inactive:  { label: 'Inaktiv',     variant: 'default'  as const },
-  expired:   { label: 'Abgelaufen',  variant: 'warning'  as const },
-  scheduled: { label: 'Geplant',     variant: 'default'  as const },
-  exhausted: { label: 'Aufgebraucht',variant: 'warning'  as const },
+  active:    { label: 'Aktiv',        variant: 'success'  as const },
+  inactive:  { label: 'Inaktiv',      variant: 'default'  as const },
+  expired:   { label: 'Abgelaufen',   variant: 'warning'  as const },
+  scheduled: { label: 'Geplant',      variant: 'default'  as const },
+  exhausted: { label: 'Aufgebraucht', variant: 'warning'  as const },
 }
+
+// The UI uses an extended set for applies_to; 'product' and 'tier' are virtual values
+// that map to applies_to='products'/'subscriptions' + a target ID on save.
+type AppliesToUI = 'all' | 'products' | 'subscriptions' | 'sessions' | 'product' | 'tier'
 
 interface FormState {
   mode: 'code' | 'auto'
   code: string
   type: 'percent' | 'fixed'
   valueStr: string
-  applies_to: string
+  appliesTo: AppliesToUI
+  targetProductId: string
+  targetTierId: string
   starts_at: string
   ends_at: string
   maxRedemptionsStr: string
@@ -74,11 +100,14 @@ interface FormState {
 
 const INITIAL_FORM: FormState = {
   mode: 'code', code: '', type: 'percent', valueStr: '',
-  applies_to: 'all', starts_at: '', ends_at: '', maxRedemptionsStr: '',
+  appliesTo: 'all', targetProductId: '', targetTierId: '',
+  starts_at: '', ends_at: '', maxRedemptionsStr: '',
 }
 
 export default function DiscountsPage() {
   const [discounts,   setDiscounts]   = useState<Discount[]>([])
+  const [products,    setProducts]    = useState<ProductOption[]>([])
+  const [tiers,       setTiers]       = useState<TierOption[]>([])
   const [loading,     setLoading]     = useState(true)
   const [showForm,    setShowForm]    = useState(false)
   const [saving,      setSaving]      = useState(false)
@@ -88,7 +117,11 @@ export default function DiscountsPage() {
   useEffect(() => {
     fetch('/api/discounts')
       .then(r => r.json())
-      .then(d => setDiscounts(d.discounts ?? []))
+      .then(d => {
+        setDiscounts(d.discounts ?? [])
+        setProducts(d.products  ?? [])
+        setTiers(d.tiers        ?? [])
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -109,26 +142,45 @@ export default function DiscountsPage() {
     if (isNaN(valueNum) || valueNum <= 0) { setFormError('Bitte einen gültigen Wert eingeben'); return }
     if (form.type === 'percent' && (valueNum < 1 || valueNum > 100)) { setFormError('Prozent muss 1–100 sein'); return }
     if (form.mode === 'code' && !form.code.trim()) { setFormError('Bitte einen Code eingeben oder generieren'); return }
+    if (form.appliesTo === 'product' && !form.targetProductId) { setFormError('Bitte ein Produkt auswählen'); return }
+    if (form.appliesTo === 'tier'    && !form.targetTierId)    { setFormError('Bitte ein Abo auswählen');     return }
 
     const value = form.type === 'percent' ? Math.round(valueNum) : Math.round(valueNum * 100)
+
+    // Map virtual UI values to DB columns
+    const applies_to        = form.appliesTo === 'product' ? 'products'      : form.appliesTo === 'tier' ? 'subscriptions' : form.appliesTo
+    const target_product_id = form.appliesTo === 'product' ? form.targetProductId : null
+    const target_tier_id    = form.appliesTo === 'tier'    ? form.targetTierId    : null
+
     setSaving(true)
     try {
       const res = await fetch('/api/discounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code:            form.mode === 'code' ? form.code.toUpperCase().trim() : null,
-          type:            form.type,
+          code:             form.mode === 'code' ? form.code.toUpperCase().trim() : null,
+          type:             form.type,
           value,
-          applies_to:      form.applies_to,
-          starts_at:       form.starts_at || null,
-          ends_at:         form.ends_at   || null,
-          max_redemptions: form.maxRedemptionsStr ? parseInt(form.maxRedemptionsStr, 10) : null,
+          applies_to,
+          target_product_id,
+          target_tier_id,
+          starts_at:        form.starts_at || null,
+          ends_at:          form.ends_at   || null,
+          max_redemptions:  form.maxRedemptionsStr ? parseInt(form.maxRedemptionsStr, 10) : null,
         }),
       })
       const data = await res.json() as { discount?: Discount; error?: string }
       if (!res.ok) { setFormError(data.error ?? 'Fehler beim Speichern'); return }
-      setDiscounts(prev => [data.discount!, ...prev])
+
+      // Enrich locally with names for immediate list display
+      const productName = target_product_id ? (products.find(p => p.id === target_product_id)?.title ?? null) : null
+      const tierName    = target_tier_id    ? (tiers.find(t => t.id === target_tier_id)?.name       ?? null) : null
+      const enriched: Discount = {
+        ...data.discount!,
+        target_product_name: productName,
+        target_tier_name:    tierName,
+      }
+      setDiscounts(prev => [enriched, ...prev])
       resetForm()
     } catch {
       setFormError('Netzwerkfehler')
@@ -144,7 +196,13 @@ export default function DiscountsPage() {
       body: JSON.stringify({ active: !d.active }),
     })
     const data = await res.json() as { discount?: Discount }
-    if (data.discount) setDiscounts(prev => prev.map(x => x.id === d.id ? data.discount! : x))
+    if (data.discount) {
+      setDiscounts(prev => prev.map(x => x.id === d.id ? {
+        ...data.discount!,
+        target_product_name: d.target_product_name,
+        target_tier_name:    d.target_tier_name,
+      } : x))
+    }
   }
 
   async function handleDelete(id: string) {
@@ -158,7 +216,7 @@ export default function DiscountsPage() {
     return formatCurrency(d.value / 100)
   }
 
-  const inputCls = 'w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400'
+  const inputCls  = 'w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400'
   const selectCls = inputCls
 
   if (loading) return <div className="max-w-3xl mx-auto px-4 py-8 text-gray-400">Lädt…</div>
@@ -170,7 +228,7 @@ export default function DiscountsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Rabatte & Gutscheine</h1>
           <p className="text-sm text-gray-500 mt-0.5">Rabattcodes und automatische Rabatte für deine Kunden</p>
         </div>
-        <Button onClick={() => { setShowForm(true) }} className="gap-1.5">
+        <Button onClick={() => setShowForm(true)} className="gap-1.5">
           <Plus className="h-4 w-4" />
           Neuer Rabatt
         </Button>
@@ -280,18 +338,48 @@ export default function DiscountsPage() {
             </div>
 
             {/* Applies to */}
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Gilt für</label>
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-600">Gilt für</label>
               <select
-                value={form.applies_to}
-                onChange={e => setField('applies_to', e.target.value)}
+                value={form.appliesTo}
+                onChange={e => setField('appliesTo', e.target.value as AppliesToUI)}
                 className={selectCls}
               >
                 <option value="all">Alles (Produkte, Abos, Sessions)</option>
                 <option value="products">Nur Produkte</option>
                 <option value="subscriptions">Nur Abonnements</option>
                 <option value="sessions">Nur 1:1 Sessions</option>
+                {products.length > 0 && <option value="product">Ein bestimmtes Produkt</option>}
+                {tiers.length   > 0 && <option value="tier">Ein bestimmtes Abo</option>}
               </select>
+
+              {/* Product picker */}
+              {form.appliesTo === 'product' && (
+                <select
+                  value={form.targetProductId}
+                  onChange={e => setField('targetProductId', e.target.value)}
+                  className={cn(selectCls, 'mt-2')}
+                >
+                  <option value="">– Produkt wählen –</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.title}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Tier picker */}
+              {form.appliesTo === 'tier' && (
+                <select
+                  value={form.targetTierId}
+                  onChange={e => setField('targetTierId', e.target.value)}
+                  className={cn(selectCls, 'mt-2')}
+                >
+                  <option value="">– Abo wählen –</option>
+                  {tiers.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Dates */}
@@ -390,8 +478,8 @@ export default function DiscountsPage() {
 
                     <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
                       <span className="flex items-center gap-1">
-                        {APPLIES_ICONS[d.applies_to]}
-                        {APPLIES_LABELS[d.applies_to]}
+                        {getAppliesIcon(d)}
+                        {getAppliesLabel(d)}
                       </span>
                       {(d.ends_at || d.starts_at) && (
                         <span>

@@ -44,8 +44,10 @@ export default function CartDrawer() {
     const creatorIds = [...new Set(cartItems.map(i => i.creatorId))]
     if (creatorIds.length !== 1) { setAutoDiscount(null); return }
     const totalCents = cartItems.reduce((sum, i) => sum + Math.round(i.price * 100), 0)
+    const singleProductId = cartItems.length === 1 ? cartItems[0].id : null
+    const productParam = singleProductId ? `&productId=${singleProductId}` : ''
     try {
-      const res = await fetch(`/api/discounts/validate?creatorId=${creatorIds[0]}&type=products&amount=${totalCents}`)
+      const res = await fetch(`/api/discounts/validate?creatorId=${creatorIds[0]}&type=products&amount=${totalCents}${productParam}`)
       const d = await res.json() as { valid: boolean; discount?: DiscountResult['id'] extends string ? { id: string; code: string | null; type: 'percent' | 'fixed'; value: number; applies_to: string } : never; savingsCents?: number }
       if (d.valid && d.discount && d.discount.code === null) {
         setAutoDiscount({ ...d.discount, savingsCents: d.savingsCents ?? 0 })
@@ -74,10 +76,12 @@ export default function CartDrawer() {
       return
     }
     const totalCents = items.reduce((sum, i) => sum + Math.round(i.price * 100), 0)
+    const singleProductId = items.length === 1 ? items[0].id : null
+    const productParam = singleProductId ? `&productId=${singleProductId}` : ''
     setVoucherLoading(true)
     setDiscountError('')
     try {
-      const res = await fetch(`/api/discounts/validate?creatorId=${creatorIds[0]}&type=products&code=${encodeURIComponent(trimmed)}&amount=${totalCents}`)
+      const res = await fetch(`/api/discounts/validate?creatorId=${creatorIds[0]}&type=products&code=${encodeURIComponent(trimmed)}&amount=${totalCents}${productParam}`)
       const d = await res.json() as { valid: boolean; discount?: { id: string; code: string | null; type: 'percent' | 'fixed'; value: number; applies_to: string }; savingsCents?: number; error?: string }
       if (d.valid && d.discount) {
         setCodeDiscount({ ...d.discount, savingsCents: d.savingsCents ?? 0 })

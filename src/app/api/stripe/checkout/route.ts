@@ -78,14 +78,18 @@ export async function POST(req: NextRequest) {
   if (discountId) {
     const { data: disc } = await supabase
       .from('discounts')
-      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
+      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
       .eq('id', discountId)
       .single()
 
     const now = new Date()
+    // When targeting a specific product, it must be the only item in the cart
+    const targetProductOk = !disc?.target_product_id ||
+      (productIds.length === 1 && productIds[0] === disc.target_product_id)
     const valid = disc &&
       disc.active &&
-      (disc.applies_to === 'all' || disc.applies_to === 'products') &&
+      (disc.target_product_id ? targetProductOk : (disc.applies_to === 'all' || disc.applies_to === 'products')) &&
+      !disc.target_tier_id &&
       (!disc.starts_at || new Date(disc.starts_at) <= now) &&
       (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
       (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)

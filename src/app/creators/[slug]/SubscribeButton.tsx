@@ -36,7 +36,7 @@ export default function SubscribeButton({ tierId, creatorId, priceMonthly }: Sub
     setCodeError('')
     try {
       const res = await fetch(
-        `/api/discounts/validate?creatorId=${creatorId}&type=subscriptions&code=${encodeURIComponent(trimmed)}&amount=${amountCents}`
+        `/api/discounts/validate?creatorId=${creatorId}&type=subscriptions&code=${encodeURIComponent(trimmed)}&amount=${amountCents}&tierId=${tierId}`
       )
       const d = await res.json() as {
         valid: boolean

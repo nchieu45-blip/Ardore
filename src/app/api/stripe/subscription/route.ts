@@ -32,14 +32,16 @@ export async function POST(req: NextRequest) {
   if (discountId && tier.price_monthly > 0) {
     const { data: disc } = await supabase
       .from('discounts')
-      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
+      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
       .eq('id', discountId)
       .single()
 
     const now = new Date()
+    const tierTargetOk = !disc?.target_tier_id || disc.target_tier_id === tierId
     const valid = disc &&
       disc.active &&
-      (disc.applies_to === 'all' || disc.applies_to === 'subscriptions') &&
+      !disc.target_product_id &&
+      (disc.target_tier_id ? tierTargetOk : (disc.applies_to === 'all' || disc.applies_to === 'subscriptions')) &&
       (!disc.starts_at || new Date(disc.starts_at) <= now) &&
       (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
       (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
