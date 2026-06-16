@@ -38,6 +38,8 @@ export interface MarketplaceProduct {
   level: string | null
   duration: string | null
   creator: Creator
+  creatorHasCoaching?: boolean
+  creatorHasVideoClasses?: boolean
 }
 
 interface Props {

@@ -25,6 +25,7 @@ export interface CoachData {
   productCount: number
   rating: { avg: number; count: number } | null
   hasVideoCoaching: boolean
+  hasGroupClasses: boolean
 }
 
 export default async function CoachesPage() {
@@ -49,7 +50,7 @@ export default async function CoachesPage() {
 
   const creatorIds = creators.map(c => c.id)
 
-  const [productsRes, reviewsRes, coachingOffersRes] = await Promise.all([
+  const [productsRes, reviewsRes, coachingOffersRes, videoClassesRes] = await Promise.all([
     creatorIds.length > 0
       ? supabase
           .from('products')
@@ -69,10 +70,20 @@ export default async function CoachesPage() {
           .eq('is_enabled', true)
           .in('creator_id', creatorIds)
       : Promise.resolve({ data: [] }),
+    creatorIds.length > 0
+      ? supabase
+          .from('video_classes')
+          .select('creator_id')
+          .eq('active', true)
+          .in('creator_id', creatorIds)
+      : Promise.resolve({ data: [] }),
   ])
 
   const videoCoachingIds = new Set(
     (coachingOffersRes.data ?? []).map((o: { creator_id: string }) => o.creator_id)
+  )
+  const groupClassIds = new Set(
+    (videoClassesRes.data ?? []).map((v: { creator_id: string }) => v.creator_id)
   )
 
   // product count per creator + product→creator lookup for ratings
@@ -110,6 +121,7 @@ export default async function CoachesPage() {
     productCount: productCounts[c.id] ?? 0,
     rating: ratings[c.id] ?? null,
     hasVideoCoaching: videoCoachingIds.has(c.id),
+    hasGroupClasses:  groupClassIds.has(c.id),
   }))
 
   return (

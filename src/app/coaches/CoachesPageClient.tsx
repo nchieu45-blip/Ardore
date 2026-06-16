@@ -98,6 +98,12 @@ function CoachCard({ coach }: { coach: CoachData }) {
                   1:1 Sessions
                 </span>
               )}
+              {coach.hasGroupClasses && (
+                <span className="inline-flex items-center gap-1 bg-violet-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <Users className="h-3 w-3" />
+                  Gruppen-Sessions
+                </span>
+              )}
             </div>
             {allCats.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -162,6 +168,7 @@ export default function CoachesPageClient({ coaches }: Props) {
   const category      = searchParams.get('category') ?? 'all'
   const sort          = (searchParams.get('sort') as SortKey) ?? 'newest'
   const videocoaching = searchParams.get('videocoaching') === 'true'
+  const groupclasses  = searchParams.get('groupclasses') === 'true'
   const [search,     setSearch]     = useState('')
   const [moreOpen,   setMoreOpen]   = useState(false)
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
@@ -194,14 +201,16 @@ export default function CoachesPageClient({ coaches }: Props) {
     ),
   ].filter(cat => cat in CATEGORY_LABELS)
 
-  function buildUrl(overrides: { category?: string; sort?: string; videocoaching?: boolean } = {}): string {
-    const cat = overrides.category ?? category
-    const s   = overrides.sort ?? sort
+  function buildUrl(overrides: { category?: string; sort?: string; videocoaching?: boolean; groupclasses?: boolean } = {}): string {
+    const cat = overrides.category    ?? category
+    const s   = overrides.sort        ?? sort
     const vc  = overrides.videocoaching !== undefined ? overrides.videocoaching : videocoaching
+    const gc  = overrides.groupclasses  !== undefined ? overrides.groupclasses  : groupclasses
     const params = new URLSearchParams()
     if (cat !== 'all') params.set('category', cat)
     if (s !== 'newest') params.set('sort', s)
     if (vc) params.set('videocoaching', 'true')
+    if (gc) params.set('groupclasses', 'true')
     const qs = params.toString()
     return `/coaches${qs ? '?' + qs : ''}`
   }
@@ -218,7 +227,8 @@ export default function CoachesPageClient({ coaches }: Props) {
         || c.display_name.toLowerCase().includes(search.toLowerCase())
         || (c.bio ?? '').toLowerCase().includes(search.toLowerCase())
       const matchesVC     = !videocoaching || c.hasVideoCoaching
-      return matchesCat && matchesSearch && matchesVC
+      const matchesGC     = !groupclasses  || c.hasGroupClasses
+      return matchesCat && matchesSearch && matchesVC && matchesGC
     })
     .sort((a, b) => {
       switch (sort) {
@@ -293,6 +303,18 @@ export default function CoachesPageClient({ coaches }: Props) {
             >
               <Video className="h-3 w-3" />
               1:1 Sessions
+            </button>
+            <button
+              onClick={() => go({ groupclasses: !groupclasses, category: 'all' })}
+              className={cn(
+                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                groupclasses
+                  ? 'bg-violet-600 text-white border-violet-600'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600'
+              )}
+            >
+              <Users className="h-3 w-3" />
+              Gruppen-Sessions
             </button>
 
             <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
@@ -384,7 +406,7 @@ export default function CoachesPageClient({ coaches }: Props) {
               Versuche andere Filter oder einen anderen Suchbegriff.
             </p>
             <button
-              onClick={() => { setSearch(''); go({ category: 'all', sort: 'newest', videocoaching: false }) }}
+              onClick={() => { setSearch(''); go({ category: 'all', sort: 'newest', videocoaching: false, groupclasses: false }) }}
               className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
             >
               Filter zurücksetzen

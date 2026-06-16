@@ -63,14 +63,21 @@ export default async function MarketplacePage() {
     }
   })
 
-  const productIds = products.map(p => p.id)
+  const productIds  = products.map(p => p.id)
+  const creatorIds  = [...new Set(products.map(p => p.creator.id))]
 
-  const [salesRes, reviewsRes] = await Promise.all([
+  const [salesRes, reviewsRes, coachingRes, videoClassesRes] = await Promise.all([
     productIds.length > 0
       ? supabase.from('purchases').select('product_id').in('product_id', productIds)
       : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('reviews').select('product_id, rating').in('product_id', productIds)
+      : Promise.resolve({ data: [] }),
+    creatorIds.length > 0
+      ? supabase.from('coaching_offers').select('creator_id').eq('is_enabled', true).in('creator_id', creatorIds)
+      : Promise.resolve({ data: [] }),
+    creatorIds.length > 0
+      ? supabase.from('video_classes').select('creator_id').eq('active', true).in('creator_id', creatorIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -90,9 +97,21 @@ export default async function MarketplacePage() {
     ratings[id] = { avg: sum / count, count }
   }
 
+  const coachingCreatorIds = new Set(
+    (coachingRes.data ?? []).map((o: { creator_id: string }) => o.creator_id)
+  )
+  const videoClassCreatorIds = new Set(
+    (videoClassesRes.data ?? []).map((v: { creator_id: string }) => v.creator_id)
+  )
+  const productsWithFlags = products.map(p => ({
+    ...p,
+    creatorHasCoaching:    coachingCreatorIds.has(p.creator.id),
+    creatorHasVideoClasses: videoClassCreatorIds.has(p.creator.id),
+  }))
+
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
-      <MarketplacePageClient products={products} salesCounts={salesCounts} ratings={ratings} />
+      <MarketplacePageClient products={productsWithFlags} salesCounts={salesCounts} ratings={ratings} />
     </Suspense>
   )
 }

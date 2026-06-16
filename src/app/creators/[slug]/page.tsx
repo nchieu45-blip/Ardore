@@ -72,14 +72,15 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
 const DEFAULT_GRADIENT = 'from-green-400 to-emerald-600'
 
 const SERVICE_LABELS: Record<string, string> = {
-  '1to1_coaching':   '1:1 Coaching',
-  'video_kurs':      'Video Kurs',
-  'online_kurs':     'Online Kurs',
-  'ernaehrungsplan': 'Ernährungsplan',
-  'trainingsplan':   'Trainingsplan',
-  'gruppencoaching': 'Gruppencoaching',
-  'live_sessions':   'Live Sessions',
-  'pdf_guide':       'PDF Guide',
+  '1to1_coaching':    '1:1 Coaching',
+  'video_kurs':       'Video Kurs',
+  'online_kurs':      'Online Kurs',
+  'ernaehrungsplan':  'Ernährungsplan',
+  'trainingsplan':    'Trainingsplan',
+  'gruppencoaching':  'Gruppencoaching',
+  'live_sessions':    'Live Sessions',
+  'pdf_guide':        'PDF Guide',
+  'gruppen_sessions': 'Gruppen-Sessions',
 }
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -497,11 +498,11 @@ export default async function CreatorProfilePage({
               </div>
             )}
 
-            {services.length > 0 && (
+            {(services.length > 0 || videoClasses.length > 0) && (
               <div className="animate-slide-up animate-delay-100">
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
                 <div className="flex flex-wrap gap-2">
-                  {services.map(s => (
+                  {[...services, ...(videoClasses.length > 0 && !services.includes('gruppen_sessions') ? ['gruppen_sessions'] : [])].map(s => (
                     <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-sm font-medium">
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
                       {SERVICE_LABELS[s] ?? s}

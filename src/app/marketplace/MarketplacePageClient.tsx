@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Search, X, ChevronDown, Check, SlidersHorizontal, Filter,
+  Search, X, ChevronDown, Check, SlidersHorizontal, Filter, Video, Users,
 } from 'lucide-react'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
@@ -51,6 +51,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const equipment = searchParams.get('equipment')?.split(',').filter(Boolean) ?? []
   const duration  = searchParams.get('duration')
   const page      = Number(searchParams.get('page') ?? 1)
+  const coaching  = searchParams.get('coaching') === 'true'
+  const group     = searchParams.get('group') === 'true'
 
   // Search is local only (instant, not persisted to URL)
   const [search, setSearch] = useState('')
@@ -87,6 +89,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     equipment?: string[]
     duration?: string | null
     page?: number
+    coaching?: boolean
+    group?: boolean
   } = {}): string {
     const cat = overrides.category ?? category
     const t   = overrides.type     ?? type
@@ -95,6 +99,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     const eq  = overrides.equipment ?? equipment
     const d   = 'duration' in overrides ? overrides.duration : duration
     const pg  = overrides.page ?? page
+    const co  = overrides.coaching !== undefined ? overrides.coaching : coaching
+    const gr  = overrides.group    !== undefined ? overrides.group    : group
 
     const params = new URLSearchParams()
     if (cat !== 'all') params.set('category', cat)
@@ -104,6 +110,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     if (eq.length > 0) params.set('equipment', eq.join(','))
     if (d)             params.set('duration', d)
     if (pg > 1)        params.set('page', String(pg))
+    if (co)            params.set('coaching', 'true')
+    if (gr)            params.set('group', 'true')
 
     const qs = params.toString()
     return `/marketplace${qs ? '?' + qs : ''}`
@@ -124,7 +132,9 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       const matchesEquip    = equipment.length === 0 || equipment.some(e => p.equipment.includes(e))
       const matchesLevel    = !level    || p.level === level
       const matchesDuration = !duration || p.duration === duration
-      return matchesCat && matchesType && matchesSearch && matchesEquip && matchesLevel && matchesDuration
+      const matchesCoaching = !coaching || p.creatorHasCoaching === true
+      const matchesGroup    = !group    || p.creatorHasVideoClasses === true
+      return matchesCat && matchesType && matchesSearch && matchesEquip && matchesLevel && matchesDuration && matchesCoaching && matchesGroup
     })
     .sort((a, b) => {
       switch (sort) {
@@ -148,12 +158,16 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     !!level,
     equipment.length > 0,
     !!duration,
+    coaching,
+    group,
   ].filter(Boolean).length
 
   function resetAll() {
     setSearch('')
     router.push('/marketplace', { scroll: false })
   }
+
+
 
   function goToPage(p: number) {
     go({ page: p })
@@ -271,6 +285,34 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 {label}
               </button>
             ))}
+
+            <div className="h-4 w-px bg-gray-200 flex-shrink-0 mx-0.5" />
+
+            <button
+              onClick={() => go({ coaching: !coaching, page: 1 })}
+              className={cn(
+                'flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                coaching
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+              )}
+            >
+              <Video className="h-3 w-3" />
+              1:1 Coaching
+            </button>
+
+            <button
+              onClick={() => go({ group: !group, page: 1 })}
+              className={cn(
+                'flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                group
+                  ? 'bg-violet-600 text-white border-violet-600'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600'
+              )}
+            >
+              <Users className="h-3 w-3" />
+              Gruppen-Session
+            </button>
 
             {/* Right side: advanced + sort + reset */}
             <div className="ml-auto flex items-center gap-2 flex-shrink-0 pl-2">
