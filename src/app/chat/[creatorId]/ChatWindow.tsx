@@ -35,27 +35,36 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
   }, [messages])
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`chat-${creatorId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `creator_id=eq.${creatorId}` },
-        async (payload) => {
-          const newMsg = payload.new as Message & { sender_id: string }
-          if (newMsg.sender_id === currentUser?.id) return // already added optimistically
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    try {
+      channel = supabase
+        .channel(`chat-${creatorId}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `creator_id=eq.${creatorId}` },
+          async (payload) => {
+            try {
+              const newMsg = payload.new as Message & { sender_id: string }
+              if (newMsg.sender_id === currentUser?.id) return
 
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .eq('id', newMsg.sender_id)
-            .single()
+              const { data: sender } = await supabase
+                .from('profiles')
+                .select('id, full_name, avatar_url')
+                .eq('id', newMsg.sender_id)
+                .single()
 
-          setMessages((prev) => [...prev, { ...newMsg, sender }])
-        }
-      )
-      .subscribe()
+              setMessages((prev) => [...prev, { ...newMsg, sender }])
+            } catch (err) {
+              console.log('[buyer-chat] message handler error:', err)
+            }
+          }
+        )
+        .subscribe()
+    } catch (err) {
+      console.log('[buyer-chat] subscription setup error:', err)
+    }
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { if (channel) supabase.removeChannel(channel) }
   }, [creatorId, currentUser?.id, supabase])
 
   async function sendMessage() {

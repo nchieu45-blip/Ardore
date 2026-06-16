@@ -61,35 +61,39 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.push('/login'); return }
 
-      const { data: creator } = await supabase
-        .from('creator_profiles')
-        .select('id, display_name, bio, category, categories, services, qualifications, avatar_url, banner_url')
-        .eq('user_id', user.id)
-        .single()
+        const { data: creator } = await supabase
+          .from('creator_profiles')
+          .select('id, display_name, bio, category, categories, services, qualifications, avatar_url, banner_url')
+          .eq('user_id', user.id)
+          .single()
 
-      if (!creator) { router.push('/creator/onboarding'); return }
+        if (!creator) { router.push('/creator/onboarding'); return }
 
-      setCreatorId(creator.id)
-      setDisplayName(creator.display_name)
-      setAvatarUrl(creator.avatar_url)
-      setBannerUrl(creator.banner_url)
-      setSelectedCategories(
-        (creator.categories as string[] | null)?.length
-          ? (creator.categories as string[])
-          : creator.category ? [creator.category] : []
-      )
-      setSelectedServices((creator.services as string[] | null) ?? [])
-      setQualifications((creator.qualifications as string[] | null) ?? [])
+        setCreatorId(creator.id)
+        setDisplayName(creator.display_name)
+        setAvatarUrl(creator.avatar_url)
+        setBannerUrl(creator.banner_url)
+        setSelectedCategories(
+          (creator.categories as string[] | null)?.length
+            ? (creator.categories as string[])
+            : creator.category ? [creator.category] : []
+        )
+        setSelectedServices((creator.services as string[] | null) ?? [])
+        setQualifications((creator.qualifications as string[] | null) ?? [])
 
-      reset({
-        display_name: creator.display_name,
-        bio: creator.bio ?? '',
-      })
+        reset({
+          display_name: creator.display_name,
+          bio: creator.bio ?? '',
+        })
 
-      setLoading(false)
+        setLoading(false)
+      } catch (err) {
+        console.log('[creator/settings/profile] load error:', err)
+      }
     }
     load()
   }, [router, supabase, reset])

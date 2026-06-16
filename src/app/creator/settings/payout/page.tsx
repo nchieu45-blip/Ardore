@@ -14,17 +14,21 @@ export default function PayoutPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-      const { data: creator } = await supabase
-        .from('creator_profiles')
-        .select('stripe_account_active')
-        .eq('user_id', user.id)
-        .single()
+        const { data: creator } = await supabase
+          .from('creator_profiles')
+          .select('stripe_account_active')
+          .eq('user_id', user.id)
+          .single()
 
-      setStripeActive(creator?.stripe_account_active ?? false)
-      setLoading(false)
+        setStripeActive(creator?.stripe_account_active ?? false)
+        setLoading(false)
+      } catch (err) {
+        console.log('[creator/settings/payout] load error:', err)
+      }
     }
     load()
   }, [supabase])

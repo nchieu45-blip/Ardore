@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Component, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -11,34 +11,62 @@ import {
   Waves, Zap, Activity, Heart, TrendingDown, Wind,
 } from 'lucide-react'
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() { return { hasError: true } }
+  componentDidCatch(error: unknown) { console.error('[BuyerOnboarding] render error:', error) }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center gap-4 px-4 text-center">
+          <p className="text-gray-700">Etwas ist schiefgelaufen.</p>
+          <button
+            onClick={() => { window.location.href = '/login' }}
+            className="text-sm text-green-600 hover:underline"
+          >
+            Zur Anmeldung
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 const INTERESTS = [
-  { value: 'fitness',         label: 'Fitness',          icon: <Dumbbell  className="h-5 w-5" /> },
-  { value: 'ernaehrung',      label: 'Ernährung',        icon: <Apple     className="h-5 w-5" /> },
-  { value: 'mental',          label: 'Mental Health',    icon: <Brain     className="h-5 w-5" /> },
+  { value: 'fitness',         label: 'Fitness',          icon: <Dumbbell     className="h-5 w-5" /> },
+  { value: 'ernaehrung',      label: 'Ernährung',        icon: <Apple        className="h-5 w-5" /> },
+  { value: 'mental',          label: 'Mental Health',    icon: <Brain        className="h-5 w-5" /> },
   { value: 'abnehmen',        label: 'Abnehmen',         icon: <TrendingDown className="h-5 w-5" /> },
-  { value: 'schlaf',          label: 'Schlaf',           icon: <Moon      className="h-5 w-5" /> },
-  { value: 'yoga',            label: 'Yoga',             icon: <Waves     className="h-5 w-5" /> },
-  { value: 'pilates',         label: 'Pilates',          icon: <Wind      className="h-5 w-5" /> },
-  { value: 'laufen',          label: 'Laufen',           icon: <Zap       className="h-5 w-5" /> },
-  { value: 'krafttraining',   label: 'Krafttraining',    icon: <Activity  className="h-5 w-5" /> },
-  { value: 'meditation',      label: 'Meditation',       icon: <Heart     className="h-5 w-5" /> },
+  { value: 'schlaf',          label: 'Schlaf',           icon: <Moon         className="h-5 w-5" /> },
+  { value: 'yoga',            label: 'Yoga',             icon: <Waves        className="h-5 w-5" /> },
+  { value: 'pilates',         label: 'Pilates',          icon: <Wind         className="h-5 w-5" /> },
+  { value: 'laufen',          label: 'Laufen',           icon: <Zap          className="h-5 w-5" /> },
+  { value: 'krafttraining',   label: 'Krafttraining',    icon: <Activity     className="h-5 w-5" /> },
+  { value: 'meditation',      label: 'Meditation',       icon: <Heart        className="h-5 w-5" /> },
 ]
 
 export default function BuyerOnboardingPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const [mounted,   setMounted]   = useState(false)
   const [firstName, setFirstName] = useState('')
-  const [selected, setSelected] = useState<string[]>([])
-  const [saving, setSaving] = useState(false)
-  const [checking, setChecking] = useState(true)
+  const [selected,  setSelected]  = useState<string[]>([])
+  const [saving,    setSaving]    = useState(false)
+  const [checking,  setChecking]  = useState(true)
+
+  console.log('onboarding render', { firstName, selected, saving, checking, mounted })
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     async function check() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        // Hard redirect — avoids Next.js 16 / React 19 race where router.push()
-        // after an await (while Supabase fires SIGNED_IN events) breaks the router.
         if (!user) { window.location.href = '/login'; return }
         if (user.user_metadata?.buyer_onboarded) { window.location.href = '/buyer'; return }
         setFirstName(user.user_metadata?.full_name?.split(' ')[0] ?? '')
@@ -65,16 +93,17 @@ export default function BuyerOnboardingPage() {
         data: { interests: skip ? [] : selected, buyer_onboarded: true },
       })
     } catch (err) {
-      // Non-critical metadata update — log and proceed to navigation anyway
       console.log('[buyer/onboarding] updateUser failed:', err)
     }
     if (skip) {
       router.push('/buyer')
     } else {
-      const top = selected[0]
+      const top = (selected ?? [])[0]
       router.push(top ? `/creators?category=${top}` : '/creators')
     }
   }
+
+  if (!mounted) return null
 
   if (checking) {
     return (
@@ -85,84 +114,86 @@ export default function BuyerOnboardingPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-gray-50 px-4 py-10">
-      <div className="max-w-xl mx-auto animate-slide-up">
+    <ErrorBoundary>
+      <div className="min-h-[calc(100vh-64px)] bg-gray-50 px-4 py-10">
+        <div className="max-w-xl mx-auto animate-slide-up">
 
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <Link href="/" className="inline-flex items-center gap-2 font-bold text-xl text-green-600 mb-6">
-            <div className="h-8 w-8 rounded-xl bg-green-600 flex items-center justify-center shadow-sm">
-              <Flame className="h-4 w-4 text-white" />
-            </div>
-            Ardore
-          </Link>
+          {/* Logo */}
+          <div className="text-center mb-10">
+            <Link href="/" className="inline-flex items-center gap-2 font-bold text-xl text-green-600 mb-6">
+              <div className="h-8 w-8 rounded-xl bg-green-600 flex items-center justify-center shadow-sm">
+                <Flame className="h-4 w-4 text-white" />
+              </div>
+              Ardore
+            </Link>
 
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Herzlich willkommen{firstName ? `, ${firstName}` : ''}!
-          </h1>
-          <p className="text-gray-500 mt-2">
-            Was sind deine Gesundheits- und Fitnessziele?
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Wähle alles aus, was auf dich zutrifft — wir zeigen dir passende Coaches.
-          </p>
-        </div>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Herzlich willkommen{firstName ? `, ${firstName}` : ''}!
+            </h1>
+            <p className="text-gray-500 mt-2">
+              Was sind deine Gesundheits- und Fitnessziele?
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Wähle alles aus, was auf dich zutrifft — wir zeigen dir passende Coaches.
+            </p>
+          </div>
 
-        {/* Interest grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
-          {INTERESTS.map((interest) => {
-            const isSelected = selected.includes(interest.value)
-            return (
-              <button
-                key={interest.value}
-                type="button"
-                onClick={() => toggle(interest.value)}
-                className={cn(
-                  'relative flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-150',
-                  isSelected
-                    ? 'border-green-600 bg-green-50 text-green-800'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
-                )}
-              >
-                <span className={cn(
-                  'flex-shrink-0 transition-colors',
-                  isSelected ? 'text-green-600' : 'text-gray-400',
-                )}>
-                  {interest.icon}
-                </span>
-                <span className="text-sm font-medium leading-tight">{interest.label}</span>
-                {isSelected && (
-                  <span className="absolute top-2 right-2 h-4 w-4 rounded-full bg-green-600 flex items-center justify-center">
-                    <Check className="h-2.5 w-2.5 text-white" />
+          {/* Interest grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            {(INTERESTS ?? []).map((interest) => {
+              const isSelected = (selected ?? []).includes(interest.value)
+              return (
+                <button
+                  key={interest.value}
+                  type="button"
+                  onClick={() => toggle(interest.value)}
+                  className={cn(
+                    'relative flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-150',
+                    isSelected
+                      ? 'border-green-600 bg-green-50 text-green-800'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
+                  )}
+                >
+                  <span className={cn(
+                    'flex-shrink-0 transition-colors',
+                    isSelected ? 'text-green-600' : 'text-gray-400',
+                  )}>
+                    {interest.icon}
                   </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+                  <span className="text-sm font-medium leading-tight">{interest.label}</span>
+                  {isSelected && (
+                    <span className="absolute top-2 right-2 h-4 w-4 rounded-full bg-green-600 flex items-center justify-center">
+                      <Check className="h-2.5 w-2.5 text-white" />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
 
-        {/* CTAs */}
-        <Button
-          className="w-full"
-          size="lg"
-          loading={saving}
-          onClick={() => finish(false)}
-        >
-          {selected.length > 0 ? 'Passende Coaches entdecken' : 'Coaches entdecken'}
-        </Button>
-
-        <p className="text-center mt-4">
-          <button
-            type="button"
-            onClick={() => finish(true)}
-            disabled={saving}
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          {/* CTAs */}
+          <Button
+            className="w-full"
+            size="lg"
+            loading={saving}
+            onClick={() => finish(false)}
           >
-            Überspringen — direkt zur Übersicht
-          </button>
-        </p>
+            {(selected ?? []).length > 0 ? 'Passende Coaches entdecken' : 'Coaches entdecken'}
+          </Button>
 
+          <p className="text-center mt-4">
+            <button
+              type="button"
+              onClick={() => finish(true)}
+              disabled={saving}
+              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Überspringen — direkt zur Übersicht
+            </button>
+          </p>
+
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   )
 }

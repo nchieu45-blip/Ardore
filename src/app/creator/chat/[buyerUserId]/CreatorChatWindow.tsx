@@ -51,34 +51,42 @@ export default function CreatorChatWindow({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ buyerUserId: buyer.id }),
-    })
+    }).catch((err) => console.log('[creator-chat] mark-read failed:', err))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`creator-chat-${creatorId}-${buyer.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `creator_id=eq.${creatorId}` },
-        async (payload) => {
-          const newMsg = payload.new as Message & { sender_id: string }
-          // Only add if it's from the buyer we're currently chatting with
-          if (newMsg.sender_id !== buyer.id) return
-          if (newMsg.sender_id === currentUserId) return
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    try {
+      channel = supabase
+        .channel(`creator-chat-${creatorId}-${buyer.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `creator_id=eq.${creatorId}` },
+          async (payload) => {
+            try {
+              const newMsg = payload.new as Message & { sender_id: string }
+              if (newMsg.sender_id !== buyer.id) return
+              if (newMsg.sender_id === currentUserId) return
 
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .eq('id', newMsg.sender_id)
-            .single()
+              const { data: sender } = await supabase
+                .from('profiles')
+                .select('id, full_name, avatar_url')
+                .eq('id', newMsg.sender_id)
+                .single()
 
-          setMessages((prev) => [...prev, { ...newMsg, sender }])
-        }
-      )
-      .subscribe()
+              setMessages((prev) => [...prev, { ...newMsg, sender }])
+            } catch (err) {
+              console.log('[creator-chat] message handler error:', err)
+            }
+          }
+        )
+        .subscribe()
+    } catch (err) {
+      console.log('[creator-chat] subscription setup error:', err)
+    }
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { if (channel) supabase.removeChannel(channel) }
   }, [creatorId, buyer.id, currentUserId, supabase])
 
   async function sendMessage() {

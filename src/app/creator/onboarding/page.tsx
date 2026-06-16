@@ -193,6 +193,7 @@ export default function CreatorOnboardingPage() {
   async function uploadImage(file: File, path: string): Promise<string> {
     const { error } = await supabase.storage
       .from('profile-images').upload(path, file, { upsert: true, contentType: file.type })
+    console.log('Storage upload error:', error)
     if (error) throw error
     const { data } = supabase.storage.from('profile-images').getPublicUrl(path)
     return `${data.publicUrl}?t=${Date.now()}`

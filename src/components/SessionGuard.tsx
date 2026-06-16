@@ -11,6 +11,15 @@ import { createClient } from '@/lib/supabase/client'
  */
 export default function SessionGuard() {
   useEffect(() => {
+    function handler(event: PromiseRejectionEvent) {
+      event.preventDefault()
+      console.error('[SessionGuard] Unhandled promise rejection caught:', event.reason)
+    }
+    window.addEventListener('unhandledrejection', handler)
+    return () => window.removeEventListener('unhandledrejection', handler)
+  }, [])
+
+  useEffect(() => {
     async function guard() {
       let supabase: ReturnType<typeof createClient> | null = null
       try {
