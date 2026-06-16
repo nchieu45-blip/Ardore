@@ -16,11 +16,12 @@ export async function POST(req: NextRequest) {
   // Validate subscription-based booking: verify allowance
   let isSubscriptionSession = false
   let resolvedSubscriptionId: string | null = null
+  let tierDurationMinutes: number | null = null
 
   if (subscriptionId && user) {
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('id, buyer_id, status, subscription_tiers(included_video_sessions, video_session_period)')
+      .select('id, buyer_id, status, subscription_tiers(included_video_sessions, video_session_period, included_session_duration_minutes)')
       .eq('id', subscriptionId)
       .single()
 
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
         if (used < total) {
           isSubscriptionSession = true
           resolvedSubscriptionId = subscriptionId
+          tierDurationMinutes = (tier as { included_session_duration_minutes: number | null } | null)?.included_session_duration_minutes ?? null
         }
       }
     }
@@ -65,6 +67,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Videocoaching nicht verfügbar' }, { status: 400 })
   }
 
+  // Subscription sessions use the tier's configured duration when set; paid sessions always use the offer duration
+  const effectiveDuration = isSubscriptionSession && tierDurationMinutes !== null
+    ? tierDurationMinutes
+    : offer.duration_minutes
+
   const scheduledAt = new Date(`${date}T${time}:00`)
   if (isNaN(scheduledAt.getTime())) {
     return NextResponse.json({ error: 'Ungültiges Datum oder Uhrzeit' }, { status: 400 })
@@ -77,7 +84,7 @@ export async function POST(req: NextRequest) {
   if (process.env.DAILY_API_KEY) {
     try {
       // Room expires 30 min after session ends
-      const roomExp = Math.floor(scheduledAt.getTime() / 1000) + (offer.duration_minutes + 30) * 60
+      const roomExp = Math.floor(scheduledAt.getTime() / 1000) + (effectiveDuration + 30) * 60
       const res = await fetch('https://api.daily.co/v1/rooms', {
         method: 'POST',
         headers: {
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest) {
       creator_id:       creatorId,
       buyer_id:         user?.id ?? null,
       scheduled_at:     scheduledAt.toISOString(),
-      duration_minutes: offer.duration_minutes,
+      duration_minutes: effectiveDuration,
       status:                  'confirmed',
       daily_room_name:         dailyRoomName,
       daily_room_url:          dailyRoomUrl,
@@ -148,7 +155,7 @@ export async function POST(req: NextRequest) {
         userId: creator.user_id,
         type: 'new_booking',
         title: 'Neue Session gebucht',
-        message: `${name} hat eine ${offer.duration_minutes}-Min.-Session am ${scheduledDate} um ${scheduledTime} Uhr gebucht.`,
+        message: `${name} hat eine ${effectiveDuration}-Min.-Session am ${scheduledDate} um ${scheduledTime} Uhr gebucht.`,
         link: '/creator/sessions',
       }).catch(() => {})
       if (user?.id) {
@@ -167,7 +174,7 @@ export async function POST(req: NextRequest) {
           coachName: creator.display_name,
           scheduledDate,
           scheduledTime,
-          durationMinutes: offer.duration_minutes,
+          durationMinutes: effectiveDuration,
           sessionUrl,
           role: 'buyer',
         }),
@@ -177,7 +184,7 @@ export async function POST(req: NextRequest) {
               coachName: name,
               scheduledDate,
               scheduledTime,
-              durationMinutes: offer.duration_minutes,
+              durationMinutes: effectiveDuration,
               sessionUrl,
               role: 'creator',
             })

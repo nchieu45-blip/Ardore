@@ -17,12 +17,15 @@ import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { SubscriptionTier } from '@/types'
 
+const DURATION_OPTIONS = [30, 45, 60, 90]
+
 const schema = z.object({
   name: z.string().min(2, 'Mindestens 2 Zeichen').max(50),
   description: z.string().max(300).optional(),
   price_monthly: z.coerce.number().int('Nur ganze Zahlen').min(0, 'Mindestens 0').max(999),
   included_video_sessions: z.coerce.number().int().min(0).max(100).default(0),
   video_session_period: z.enum(['week', 'month']).default('month'),
+  included_session_duration_minutes: z.coerce.number().int().min(0).default(60),
 })
 
 type FormData = z.infer<typeof schema>
@@ -47,6 +50,7 @@ function TierForm({
     defaultValues: {
       included_video_sessions: 0,
       video_session_period: 'month',
+      included_session_duration_minutes: 60,
       ...defaultValues,
     },
   })
@@ -92,9 +96,9 @@ function TierForm({
           <span className="text-sm font-medium text-gray-700">1:1 Video-Sessions inkludiert</span>
           <span className="text-xs text-gray-400">(optional)</span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Anzahl Sessions</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Anzahl</label>
             <input
               type="number"
               min="0"
@@ -107,6 +111,18 @@ function TierForm({
             {errors.included_video_sessions && (
               <p className="text-xs text-red-500 mt-1">{errors.included_video_sessions.message}</p>
             )}
+          </div>
+          <div className={cn('transition-opacity duration-150', sessions === 0 && 'opacity-40')}>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Dauer je Session</label>
+            <select
+              {...register('included_session_duration_minutes')}
+              disabled={sessions === 0}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400 disabled:cursor-not-allowed"
+            >
+              {DURATION_OPTIONS.map(d => (
+                <option key={d} value={d}>{d} Min</option>
+              ))}
+            </select>
           </div>
           <div className={cn('transition-opacity duration-150', sessions === 0 && 'opacity-40')}>
             <label className="block text-xs font-medium text-gray-600 mb-1">Zeitraum</label>
@@ -124,7 +140,7 @@ function TierForm({
           <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-lg">
             <Video className="h-3 w-3" />
             <span>
-              Abonnenten erhalten <strong>{sessions}</strong> kostenlose Session{sessions !== 1 ? 's' : ''} {PERIOD_LABELS[watch('video_session_period') ?? 'month']}
+              Abonnenten erhalten <strong>{sessions}</strong> Session{sessions !== 1 ? 's' : ''} à <strong>{watch('included_session_duration_minutes') ?? 60} Min</strong> {PERIOD_LABELS[watch('video_session_period') ?? 'month']} kostenlos
             </span>
           </div>
         )}
@@ -156,27 +172,31 @@ export default function TiersPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.push('/login'); return }
 
-      const { data: creator } = await supabase
-        .from('creator_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
+        const { data: creator } = await supabase
+          .from('creator_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single()
 
-      if (!creator) { router.push('/creator/onboarding'); return }
+        if (!creator) { router.push('/creator/onboarding'); return }
 
-      setCreatorId(creator.id)
+        setCreatorId(creator.id)
 
-      const { data } = await supabase
-        .from('subscription_tiers')
-        .select('*')
-        .eq('creator_id', creator.id)
-        .order('price_monthly', { ascending: true })
+        const { data } = await supabase
+          .from('subscription_tiers')
+          .select('*')
+          .eq('creator_id', creator.id)
+          .order('price_monthly', { ascending: true })
 
-      setTiers(data ?? [])
-      setLoading(false)
+        setTiers(data ?? [])
+        setLoading(false)
+      } catch (err) {
+        console.log('[creator/settings/tiers] load error:', err)
+      }
     }
     load()
   }, [router, supabase])
@@ -191,6 +211,7 @@ export default function TiersPage() {
       is_active: true,
       included_video_sessions: data.included_video_sessions,
       video_session_period: data.included_video_sessions > 0 ? data.video_session_period : null,
+      included_session_duration_minutes: data.included_video_sessions > 0 ? (data.included_session_duration_minutes ?? 60) : null,
     }).select().single()
 
     if (error) throw new Error(error.message)
@@ -207,6 +228,7 @@ export default function TiersPage() {
         price_monthly: data.price_monthly,
         included_video_sessions: data.included_video_sessions,
         video_session_period: data.included_video_sessions > 0 ? data.video_session_period : null,
+        included_session_duration_minutes: data.included_video_sessions > 0 ? (data.included_session_duration_minutes ?? 60) : null,
       })
       .eq('id', id)
       .select()
@@ -277,6 +299,7 @@ export default function TiersPage() {
                       price_monthly: tier.price_monthly,
                       included_video_sessions: tier.included_video_sessions ?? 0,
                       video_session_period: tier.video_session_period ?? 'month',
+                      included_session_duration_minutes: tier.included_session_duration_minutes ?? 60,
                     }}
                     onSave={(data) => handleEdit(tier.id, data)}
                     onCancel={() => setEditingId(null)}
@@ -307,7 +330,9 @@ export default function TiersPage() {
                       {(tier.included_video_sessions ?? 0) > 0 && (
                         <span className="inline-flex items-center gap-1 mt-1.5 bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-0.5 rounded-full">
                           <Video className="h-3 w-3" />
-                          {tier.included_video_sessions} Session{tier.included_video_sessions !== 1 ? 's' : ''} {PERIOD_LABELS[tier.video_session_period ?? 'month']}
+                          {tier.included_video_sessions} Session{tier.included_video_sessions !== 1 ? 's' : ''}
+                          {tier.included_session_duration_minutes ? ` à ${tier.included_session_duration_minutes} Min` : ''}
+                          {' '}{PERIOD_LABELS[tier.video_session_period ?? 'month']}
                         </span>
                       )}
                     </div>

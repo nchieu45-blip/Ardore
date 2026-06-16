@@ -248,12 +248,12 @@ export default async function CreatorProfilePage({
 
   // Compute remaining subscription sessions for logged-in subscriber
   let subscriberSessions: {
-    subscriptionId: string; remaining: number; total: number; period: 'week' | 'month'
+    subscriptionId: string; remaining: number; total: number; period: 'week' | 'month'; sessionDurationMinutes: number | null
   } | null = null
 
   if (activeSubscription && coachingOffer) {
     const activeTier = tiers.find((t: { id: string }) => t.id === activeSubscription.tier_id) as
-      { id: string; included_video_sessions?: number; video_session_period?: string | null } | undefined
+      { id: string; included_video_sessions?: number; video_session_period?: string | null; included_session_duration_minutes?: number | null } | undefined
     const total  = activeTier?.included_video_sessions ?? 0
     const period = (activeTier?.video_session_period ?? 'month') as 'week' | 'month'
 
@@ -275,7 +275,13 @@ export default async function CreatorProfilePage({
         .neq('status', 'cancelled')
         .gte('created_at', periodStart.toISOString())
       const used = count ?? 0
-      subscriberSessions = { subscriptionId: activeSubscription.id, remaining: Math.max(0, total - used), total, period }
+      subscriberSessions = {
+        subscriptionId: activeSubscription.id,
+        remaining: Math.max(0, total - used),
+        total,
+        period,
+        sessionDurationMinutes: activeTier?.included_session_duration_minutes ?? null,
+      }
     }
   }
 
@@ -491,12 +497,14 @@ export default async function CreatorProfilePage({
                   features: string[]
                   included_video_sessions?: number
                   video_session_period?: 'week' | 'month' | null
+                  included_session_duration_minutes?: number | null
                 }, i: number) => {
                   const isSubscribed     = activeSubscription?.tier_id === tier.id
                   const isFeatured       = i === 0 && tiers.length > 1
                   const tierSessions     = tier.included_video_sessions ?? 0
                   const sessionPeriod    = tier.video_session_period ?? 'month'
                   const periodLabel      = sessionPeriod === 'week' ? 'pro Woche' : 'pro Monat'
+                  const tierDuration     = tier.included_session_duration_minutes ?? coachingOffer?.duration_minutes ?? 60
                   const remainingForTier = isSubscribed ? subscriberSessions?.remaining ?? null : null
                   return (
                     <div
@@ -544,7 +552,7 @@ export default async function CreatorProfilePage({
                             <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 rounded-xl px-3 py-2.5">
                               <Video className="h-4 w-4 text-blue-500 flex-shrink-0" />
                               <span>
-                                <strong>{tierSessions}</strong> Video-Session{tierSessions !== 1 ? 's' : ''} {periodLabel} inkludiert
+                                <strong>{tierSessions}</strong> Session{tierSessions !== 1 ? 's' : ''} à <strong>{tierDuration} Min</strong> {periodLabel} inkludiert
                                 {remainingForTier !== null && (
                                   <span className="ml-1.5 text-blue-600 font-semibold">({remainingForTier} verbleibend)</span>
                                 )}

@@ -15,7 +15,7 @@ export default async function SubscriptionsPage() {
 
   const { data: subscriptions } = await supabase
     .from('subscriptions')
-    .select('*, creator:creator_profiles(id, display_name, slug, avatar_url, category), tier:subscription_tiers(name, price_monthly, included_video_sessions, video_session_period)')
+    .select('*, creator:creator_profiles(id, display_name, slug, avatar_url, category), tier:subscription_tiers(name, price_monthly, included_video_sessions, video_session_period, included_session_duration_minutes)')
     .eq('buyer_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -23,14 +23,14 @@ export default async function SubscriptionsPage() {
 
   // Compute remaining sessions for active subs that include video sessions
   const now = new Date()
-  const sessionsMap: Record<string, { remaining: number; total: number; period: string }> = {}
+  const sessionsMap: Record<string, { remaining: number; total: number; period: string; durationMinutes: number | null }> = {}
 
   await Promise.all(
     subList
       .filter((s: { status: string; tier: { included_video_sessions?: number } | null }) =>
         s.status === 'active' && (s.tier?.included_video_sessions ?? 0) > 0
       )
-      .map(async (sub: { id: string; tier: { included_video_sessions: number; video_session_period: string | null } | null }) => {
+      .map(async (sub: { id: string; tier: { included_video_sessions: number; video_session_period: string | null; included_session_duration_minutes?: number | null } | null }) => {
         const tier   = sub.tier!
         const total  = tier.included_video_sessions
         const period = tier.video_session_period ?? 'month'
@@ -53,7 +53,12 @@ export default async function SubscriptionsPage() {
           .gte('created_at', periodStart.toISOString())
 
         const used = count ?? 0
-        sessionsMap[sub.id] = { remaining: Math.max(0, total - used), total, period }
+        sessionsMap[sub.id] = {
+          remaining: Math.max(0, total - used),
+          total,
+          period,
+          durationMinutes: tier.included_session_duration_minutes ?? null,
+        }
       })
   )
 
@@ -76,10 +81,11 @@ export default async function SubscriptionsPage() {
             status: string
             current_period_end: string
             creator: { id: string; display_name: string; slug: string; avatar_url: string | null; category: string | null } | null
-            tier: { name: string; price_monthly: number; included_video_sessions?: number; video_session_period?: string | null } | null
+            tier: { name: string; price_monthly: number; included_video_sessions?: number; video_session_period?: string | null; included_session_duration_minutes?: number | null } | null
           }) => {
             const sessions = sessionsMap[sub.id] ?? null
             const periodLabel = sessions?.period === 'week' ? 'diese Woche' : 'diesen Monat'
+            const durationLabel = sessions?.durationMinutes ? ` à ${sessions.durationMinutes} Min` : ''
 
             return (
               <Card key={sub.id}>
@@ -104,8 +110,8 @@ export default async function SubscriptionsPage() {
                         }`}>
                           <Video className="h-3 w-3" />
                           {sessions.remaining > 0
-                            ? `Noch ${sessions.remaining} von ${sessions.total} Session${sessions.total !== 1 ? 's' : ''} ${periodLabel}`
-                            : `${sessions.total} Session${sessions.total !== 1 ? 's' : ''} ${periodLabel} (verbraucht)`}
+                            ? `Noch ${sessions.remaining} von ${sessions.total} Session${sessions.total !== 1 ? 's' : ''}${durationLabel} ${periodLabel}`
+                            : `${sessions.total} Session${sessions.total !== 1 ? 's' : ''}${durationLabel} ${periodLabel} (verbraucht)`}
                         </span>
                         {sessions.remaining > 0 && (
                           <Link

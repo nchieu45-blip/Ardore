@@ -11,6 +11,7 @@ interface SubscriberSessions {
   remaining: number
   total: number
   period: 'week' | 'month'
+  sessionDurationMinutes: number | null
 }
 
 interface Props {
@@ -110,6 +111,9 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
 
   const useSubscription   = !!subscriberSessions && subscriberSessions.remaining > 0
   const price             = (offer.price_cents / 100).toFixed(2).replace('.', ',')
+  const displayDuration   = useSubscription && subscriberSessions!.sessionDurationMinutes !== null
+    ? subscriberSessions!.sessionDurationMinutes
+    : offer.duration_minutes
 
   async function book() {
     if (!selected || !chosenSlot || !name.trim() || !email.trim()) return
@@ -172,7 +176,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
           <span>·</span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
-            {offer.duration_minutes} Min
+            {displayDuration} Min
           </span>
         </div>
         {offer.description && (

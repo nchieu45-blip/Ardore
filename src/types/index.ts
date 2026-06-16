@@ -40,6 +40,7 @@ export interface SubscriptionTier {
   created_at: string
   included_video_sessions: number
   video_session_period: 'week' | 'month' | null
+  included_session_duration_minutes: number | null
 }
 
 export interface Product {
