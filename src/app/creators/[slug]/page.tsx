@@ -9,8 +9,9 @@ import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, CheckCircle2, TrendingUp, Star,
-  ChevronRight, GraduationCap,
+  ChevronRight, GraduationCap, Users, Clock, CalendarDays,
 } from 'lucide-react'
+import type { VideoClass } from '@/types'
 
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -188,7 +189,7 @@ export default async function CreatorProfilePage({
 
   const coachingOffer = coachingOfferData?.is_enabled ? coachingOfferData : null
 
-  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes, sessionReviewsRes, autoDiscountsRes] = await Promise.all([
+  const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes, sessionReviewsRes, autoDiscountsRes, videoClassesRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
@@ -211,9 +212,16 @@ export default async function CreatorProfilePage({
       .eq('creator_id', creator.id)
       .eq('active', true)
       .is('code', null),
+    supabase
+      .from('video_classes')
+      .select('*')
+      .eq('creator_id', creator.id)
+      .eq('active', true)
+      .order('created_at', { ascending: false }),
   ])
 
   const tiers = tiersRes.data ?? []
+  const videoClasses = (videoClassesRes.data ?? []) as VideoClass[]
   const activeSubscription = subscriptionRes.data
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
   const currentProfile = currentProfileRes.data
@@ -632,6 +640,74 @@ export default async function CreatorProfilePage({
                             </Button>
                           </Link>
                         )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* VIDEO CLASSES — Phase 1: display only. TODO Phase 2: add booking, payment, and video room */}
+            {videoClasses.length > 0 && (
+              <div className="space-y-4 animate-slide-up animate-delay-100">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Gruppen-Videokurse</h2>
+                {videoClasses.map((vc: VideoClass) => {
+                  const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
+                  const scheduleLabel = vc.schedule_type === 'recurring' && vc.recurring_weekday !== null && vc.recurring_time
+                    ? `Jeden ${WEEKDAYS_DE[vc.recurring_weekday]}, ${vc.recurring_time} Uhr`
+                    : vc.starts_at
+                      ? new Date(vc.starts_at).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'
+                      : null
+                  const priceLabel = vc.price_cents === 0
+                    ? 'Kostenlos'
+                    : vc.included_in_subscription && vc.price_cents > 0
+                      ? `${formatCurrency(vc.price_cents / 100)} · Kostenlos für Abonnenten`
+                      : formatCurrency(vc.price_cents / 100)
+                  return (
+                    <div key={vc.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
+                      <div className="flex items-start gap-4">
+                        <div className="h-11 w-11 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+                          <Users className="h-5 w-5 text-violet-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-1">
+                            <h3 className="font-semibold text-gray-900 leading-snug">{vc.title}</h3>
+                            <span className="flex-shrink-0 text-sm font-bold text-gray-900">{priceLabel}</span>
+                          </div>
+                          {vc.description && (
+                            <p className="text-sm text-gray-500 leading-relaxed mb-2">{vc.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                            {scheduleLabel && (
+                              <span className="inline-flex items-center gap-1">
+                                <CalendarDays className="h-3.5 w-3.5" />
+                                {scheduleLabel}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              {vc.duration_minutes} Min
+                            </span>
+                            {vc.max_participants !== null && (
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="h-3.5 w-3.5" />
+                                Max. {vc.max_participants} Teilnehmer
+                              </span>
+                            )}
+                            {vc.included_in_subscription && (
+                              <span className="inline-flex items-center gap-1 text-green-600 font-medium">
+                                <Sparkles className="h-3.5 w-3.5" />
+                                Im Abo enthalten
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        {/* TODO Phase 2: replace with booking flow (payment + room join) */}
+                        <Button size="sm" disabled className="w-full opacity-50 cursor-not-allowed">
+                          Anmelden – demnächst verfügbar
+                        </Button>
                       </div>
                     </div>
                   )

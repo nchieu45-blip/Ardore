@@ -106,6 +106,23 @@ export interface Review {
   } | null
 }
 
+export interface VideoClass {
+  id: string
+  creator_id: string
+  title: string
+  description: string | null
+  schedule_type: 'once' | 'recurring'
+  starts_at: string | null
+  recurring_weekday: number | null  // 0 = Sunday … 6 = Saturday
+  recurring_time: string | null     // e.g. '18:00'
+  duration_minutes: number
+  max_participants: number | null   // null = unlimited
+  price_cents: number
+  included_in_subscription: boolean
+  active: boolean
+  created_at: string
+}
+
 export interface CreatorStats {
   total_revenue: number
   monthly_revenue: number
