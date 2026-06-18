@@ -41,6 +41,7 @@ function isCreatorRouteActive(href: string, pathname: string): boolean {
 
 type CreatorNavItem = {
   label: string
+  mobileLabel?: string  // shorter label for the 2-column mobile grid
   href: string
   Icon: React.ElementType
   showPublicLink?: true  // renders ExternalLink icon next to the row
@@ -50,8 +51,8 @@ const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
   { label: 'Übersicht',     href: '/creator',                        Icon: LayoutDashboard },
   { label: 'Produkte',      href: '/creator/products',               Icon: Package },
   { label: 'Abos',          href: '/creator/settings/tiers',         Icon: CreditCard },
-  { label: '1:1 Coaching',  href: '/creator/settings/videocoaching', Icon: Video },
-  { label: 'Gruppen-Kurse', href: '/creator/settings/video-classes', Icon: Users },
+  { label: '1:1 Coaching',  mobileLabel: 'Coaching',  href: '/creator/settings/videocoaching', Icon: Video },
+  { label: 'Gruppen-Kurse', mobileLabel: 'Gruppen',   href: '/creator/settings/video-classes', Icon: Users },
   { label: 'Buchungen',     href: '/creator/sessions',               Icon: Calendar },
   { label: 'Nachrichten',   href: '/creator/chat',                   Icon: MessageCircle },
   { label: 'Rabatte',       href: '/creator/settings/discounts',     Icon: Percent },
@@ -271,30 +272,32 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                         Coach-Bereich
                       </p>
                     </div>
-                    {CREATOR_NAV_ITEMS.map(item => (
-                      <div key={item.href} className="flex items-center gap-1">
-                        <Link
-                          href={item.href}
-                          onClick={() => setMenuOpen(false)}
-                          className={`flex-1 ${creatorMobileNavCls(item.href)}`}
-                        >
-                          <item.Icon className="h-4 w-4 mr-2 flex-shrink-0" />
-                          {item.label}
-                        </Link>
-                        {item.showPublicLink && creatorSlug && (
-                          <a
-                            href={`/creators/${creatorSlug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                    <div className="grid grid-cols-2 gap-1">
+                      {CREATOR_NAV_ITEMS.map(item => (
+                        <div key={item.href} className="flex items-center gap-0.5">
+                          <Link
+                            href={item.href}
                             onClick={() => setMenuOpen(false)}
-                            className="p-2 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
-                            title="Profil ansehen"
+                            className={`flex-1 ${creatorMobileNavCls(item.href)}`}
                           >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
+                            <item.Icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                            {item.mobileLabel ?? item.label}
+                          </Link>
+                          {item.showPublicLink && creatorSlug && (
+                            <a
+                              href={`/creators/${creatorSlug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => setMenuOpen(false)}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                              title="Profil ansehen"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
                 <div className="pt-1 border-t border-gray-100 mt-1">
