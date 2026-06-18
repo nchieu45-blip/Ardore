@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 }
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { TrendingUp, Users, ShoppingBag, Plus, ExternalLink, AlertCircle, MessageCircle, Settings2, Video } from 'lucide-react'
+import { TrendingUp, Users, ShoppingBag, Plus, ExternalLink, AlertCircle } from 'lucide-react'
 
 export default async function CreatorDashboardPage() {
   const supabase = await createClient()
@@ -64,28 +64,6 @@ export default async function CreatorDashboardPage() {
             </Button>
           </Link>
         </div>
-      </div>
-
-      {/* Quick-action buttons */}
-      <div className="flex flex-wrap gap-3 mb-6 animate-slide-up animate-delay-100">
-        <Link href="/creator/chat">
-          <Button>
-            <MessageCircle className="h-4 w-4" />
-            Mit Abonnenten chatten
-          </Button>
-        </Link>
-        <Link href="/creator/settings/tiers">
-          <Button variant="outline">
-            <Settings2 className="h-4 w-4" />
-            Abos verwalten
-          </Button>
-        </Link>
-        <Link href="/creator/settings/videocoaching">
-          <Button variant="outline">
-            <Video className="h-4 w-4" />
-            Videocoaching einrichten
-          </Button>
-        </Link>
       </div>
 
       {/* Stripe Connect Warning */}

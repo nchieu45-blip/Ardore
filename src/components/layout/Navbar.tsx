@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, LayoutDashboard, Settings, LogOut, Video, Heart, ShoppingBag, Package, User } from 'lucide-react'
+import { Menu, X, Flame, ChevronDown, Settings, LogOut, Video, Heart, ShoppingBag, User } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import NavbarCartIcon from '@/components/NavbarCartIcon'
 import type { Profile } from '@/types'
@@ -109,14 +109,6 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                               Mein Profil
                             </Link>
                           )}
-                          <Link href={dashboardPath} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                            <LayoutDashboard className="h-4 w-4 text-gray-400" />
-                            Dashboard
-                          </Link>
-                          <Link href="/creator/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
-                            <Video className="h-4 w-4 text-gray-400" />
-                            Buchungen
-                          </Link>
                           <Link href="/creator/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Settings className="h-4 w-4 text-gray-400" />
                             Einstellungen
@@ -229,18 +221,6 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                         Mein Profil
                       </Link>
                     )}
-                    <Link href="/creator" className={mobileNavCls('/creator')} onClick={() => setMenuOpen(false)}>
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Dashboard
-                    </Link>
-                    <Link href="/creator/products" className={mobileNavCls('/creator/products')} onClick={() => setMenuOpen(false)}>
-                      <Package className="h-4 w-4 mr-2" />
-                      Produkte
-                    </Link>
-                    <Link href="/creator/sessions" className={mobileNavCls('/creator/sessions')} onClick={() => setMenuOpen(false)}>
-                      <Video className="h-4 w-4 mr-2" />
-                      Buchungen
-                    </Link>
                     <Link href="/creator/settings" className={mobileNavCls('/creator/settings')} onClick={() => setMenuOpen(false)}>
                       <Settings className="h-4 w-4 mr-2" />
                       Einstellungen
