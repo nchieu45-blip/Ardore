@@ -6,7 +6,11 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Menu, X, Flame, ChevronDown, Settings, LogOut, Video, Heart, ShoppingBag, User } from 'lucide-react'
+import {
+  Menu, X, Flame, ChevronDown, Settings, LogOut, Video, Heart, ShoppingBag, User,
+  LayoutDashboard, Package, CreditCard, Users, Calendar, MessageCircle, Percent,
+  TrendingUp, ExternalLink,
+} from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import NavbarCartIcon from '@/components/NavbarCartIcon'
 import type { Profile } from '@/types'
@@ -15,6 +19,46 @@ interface NavbarProps {
   user?: Profile | null
   creatorSlug?: string | null
 }
+
+// ─── Creator sidebar nav (mirrors CreatorShell.tsx) ───────────────────────────
+
+const CREATOR_SETTINGS_SUBPATHS = [
+  '/creator/settings/tiers',
+  '/creator/settings/videocoaching',
+  '/creator/settings/video-classes',
+  '/creator/settings/discounts',
+  '/creator/settings/profile',
+]
+
+function isCreatorRouteActive(href: string, pathname: string): boolean {
+  if (href === '/creator') return pathname === '/creator'
+  if (href === '/creator/settings') {
+    if (!pathname.startsWith('/creator/settings')) return false
+    return !CREATOR_SETTINGS_SUBPATHS.some(p => pathname.startsWith(p))
+  }
+  return pathname === href || pathname.startsWith(href + '/')
+}
+
+type CreatorNavItem = {
+  label: string
+  href: string
+  Icon: React.ElementType
+  showPublicLink?: true  // renders ExternalLink icon next to the row
+}
+
+const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
+  { label: 'Übersicht',     href: '/creator',                        Icon: LayoutDashboard },
+  { label: 'Produkte',      href: '/creator/products',               Icon: Package },
+  { label: 'Abos',          href: '/creator/settings/tiers',         Icon: CreditCard },
+  { label: '1:1 Coaching',  href: '/creator/settings/videocoaching', Icon: Video },
+  { label: 'Gruppen-Kurse', href: '/creator/settings/video-classes', Icon: Users },
+  { label: 'Buchungen',     href: '/creator/sessions',               Icon: Calendar },
+  { label: 'Nachrichten',   href: '/creator/chat',                   Icon: MessageCircle },
+  { label: 'Rabatte',       href: '/creator/settings/discounts',     Icon: Percent },
+  { label: 'Einnahmen',     href: '/creator/earnings',               Icon: TrendingUp },
+  { label: 'Profil',        href: '/creator/settings/profile',       Icon: User, showPublicLink: true },
+  { label: 'Einstellungen', href: '/creator/settings',               Icon: Settings },
+]
 
 export function Navbar({ user, creatorSlug }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -32,6 +76,13 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
   function mobileNavCls(href: string) {
     const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    return active
+      ? 'flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
+      : 'flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
+  }
+
+  function creatorMobileNavCls(href: string) {
+    const active = isCreatorRouteActive(href, pathname)
     return active
       ? 'flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
       : 'flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
@@ -178,7 +229,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+        <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm max-h-[calc(100svh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
             <Link href="/marketplace" className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
               Marketplace
@@ -215,16 +266,35 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                 )}
                 {user.role === 'creator' && (
                   <>
-                    {creatorSlug && (
-                      <Link href={`/creators/${creatorSlug}`} className={mobileNavCls(`/creators/${creatorSlug}`)} onClick={() => setMenuOpen(false)}>
-                        <User className="h-4 w-4 mr-2" />
-                        Mein Profil
-                      </Link>
-                    )}
-                    <Link href="/creator/settings" className={mobileNavCls('/creator/settings')} onClick={() => setMenuOpen(false)}>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Einstellungen
-                    </Link>
+                    <div className="border-t border-gray-100 mt-1 pt-2 pb-0.5">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pb-1">
+                        Coach-Bereich
+                      </p>
+                    </div>
+                    {CREATOR_NAV_ITEMS.map(item => (
+                      <div key={item.href} className="flex items-center gap-1">
+                        <Link
+                          href={item.href}
+                          onClick={() => setMenuOpen(false)}
+                          className={`flex-1 ${creatorMobileNavCls(item.href)}`}
+                        >
+                          <item.Icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                          {item.label}
+                        </Link>
+                        {item.showPublicLink && creatorSlug && (
+                          <a
+                            href={`/creators/${creatorSlug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setMenuOpen(false)}
+                            className="p-2 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                            title="Profil ansehen"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
                   </>
                 )}
                 <div className="pt-1 border-t border-gray-100 mt-1">
