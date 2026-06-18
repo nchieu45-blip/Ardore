@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import {
   Menu, X, Flame, ChevronDown, Settings, LogOut, Video, Heart, ShoppingBag, User,
-  LayoutDashboard, Package, CreditCard, Users, Calendar, MessageCircle, Percent,
-  TrendingUp, ExternalLink,
+  LayoutDashboard, Package, MessageCircle, ExternalLink,
 } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
 import NavbarCartIcon from '@/components/NavbarCartIcon'
@@ -39,27 +38,56 @@ function isCreatorRouteActive(href: string, pathname: string): boolean {
   return pathname === href || pathname.startsWith(href + '/')
 }
 
-type CreatorNavItem = {
+type CreatorMobileGroup = {
   label: string
-  mobileLabel?: string  // shorter label for the 2-column mobile grid
-  href: string
   Icon: React.ElementType
-  showPublicLink?: true  // renders ExternalLink icon next to the row
+  items: Array<{ label: string; href: string; showPublicLink?: true }>
 }
 
-const CREATOR_NAV_ITEMS: CreatorNavItem[] = [
-  { label: 'Übersicht',     href: '/creator',                        Icon: LayoutDashboard },
-  { label: 'Produkte',      href: '/creator/products',               Icon: Package },
-  { label: 'Abos',          href: '/creator/settings/tiers',         Icon: CreditCard },
-  { label: '1:1 Coaching',  mobileLabel: 'Coaching',  href: '/creator/settings/videocoaching', Icon: Video },
-  { label: 'Gruppen-Kurse', mobileLabel: 'Gruppen',   href: '/creator/settings/video-classes', Icon: Users },
-  { label: 'Buchungen',     href: '/creator/sessions',               Icon: Calendar },
-  { label: 'Nachrichten',   href: '/creator/chat',                   Icon: MessageCircle },
-  { label: 'Rabatte',       href: '/creator/settings/discounts',     Icon: Percent },
-  { label: 'Einnahmen',     href: '/creator/earnings',               Icon: TrendingUp },
-  { label: 'Profil',        href: '/creator/settings/profile',       Icon: User, showPublicLink: true },
-  { label: 'Einstellungen', href: '/creator/settings',               Icon: Settings },
+const CREATOR_MOBILE_GROUPS: CreatorMobileGroup[] = [
+  {
+    label: 'Coach-Bereich',
+    Icon: LayoutDashboard,
+    items: [
+      { label: 'Übersicht', href: '/creator' },
+      { label: 'Einnahmen', href: '/creator/earnings' },
+    ],
+  },
+  {
+    label: 'Angebote',
+    Icon: Package,
+    items: [
+      { label: 'Produkte',      href: '/creator/products' },
+      { label: 'Abos',          href: '/creator/settings/tiers' },
+      { label: '1:1 Coaching',  href: '/creator/settings/videocoaching' },
+      { label: 'Gruppen-Kurse', href: '/creator/settings/video-classes' },
+      { label: 'Rabatte',       href: '/creator/settings/discounts' },
+    ],
+  },
+  {
+    label: 'Kommunikation',
+    Icon: MessageCircle,
+    items: [
+      { label: 'Buchungen',   href: '/creator/sessions' },
+      { label: 'Nachrichten', href: '/creator/chat' },
+    ],
+  },
+  {
+    label: 'Konto',
+    Icon: Settings,
+    items: [
+      { label: 'Profil',        href: '/creator/settings/profile', showPublicLink: true },
+      { label: 'Einstellungen', href: '/creator/settings' },
+    ],
+  },
 ]
+
+function defaultOpenGroup(pathname: string): number {
+  const idx = CREATOR_MOBILE_GROUPS.findIndex(group =>
+    group.items.some(item => isCreatorRouteActive(item.href, pathname))
+  )
+  return idx >= 0 ? idx : 0
+}
 
 export function Navbar({ user, creatorSlug }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -67,6 +95,11 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const [openGroup, setOpenGroup] = useState<number | null>(() => defaultOpenGroup(pathname))
+
+  useEffect(() => {
+    if (menuOpen) setOpenGroup(defaultOpenGroup(pathname))
+  }, [menuOpen, pathname])
 
   function navCls(href: string) {
     const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
@@ -77,13 +110,6 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
   function mobileNavCls(href: string) {
     const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
-    return active
-      ? 'flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
-      : 'flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
-  }
-
-  function creatorMobileNavCls(href: string) {
-    const active = isCreatorRouteActive(href, pathname)
     return active
       ? 'flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
       : 'flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
@@ -266,39 +292,65 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                   </>
                 )}
                 {user.role === 'creator' && (
-                  <>
-                    <div className="border-t border-gray-100 mt-1 pt-2 pb-0.5">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 pb-1">
-                        Coach-Bereich
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      {CREATOR_NAV_ITEMS.map(item => (
-                        <div key={item.href} className="flex items-center gap-0.5">
-                          <Link
-                            href={item.href}
-                            onClick={() => setMenuOpen(false)}
-                            className={`flex-1 ${creatorMobileNavCls(item.href)}`}
+                  <div className="border-t border-gray-100 mt-1 pt-1 space-y-0.5">
+                    {CREATOR_MOBILE_GROUPS.map((group, idx) => {
+                      const isOpen = openGroup === idx
+                      const hasActive = group.items.some(item => isCreatorRouteActive(item.href, pathname))
+                      return (
+                        <div key={group.label}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenGroup(isOpen ? null : idx)}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                              hasActive
+                                ? 'text-green-700'
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
                           >
-                            <item.Icon className="h-4 w-4 mr-2 flex-shrink-0" />
-                            {item.mobileLabel ?? item.label}
-                          </Link>
-                          {item.showPublicLink && creatorSlug && (
-                            <a
-                              href={`/creators/${creatorSlug}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={() => setMenuOpen(false)}
-                              className="p-1.5 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
-                              title="Profil ansehen"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
+                            <span className="flex items-center gap-2.5">
+                              <group.Icon className={`h-4 w-4 flex-shrink-0 ${hasActive ? 'text-green-600' : 'text-gray-400'}`} />
+                              <span className="font-medium">{group.label}</span>
+                            </span>
+                            <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isOpen && (
+                            <div className="pl-8 pb-1 space-y-0.5">
+                              {group.items.map(item => {
+                                const active = isCreatorRouteActive(item.href, pathname)
+                                return (
+                                  <div key={item.href} className="flex items-center gap-1">
+                                    <Link
+                                      href={item.href}
+                                      onClick={() => setMenuOpen(false)}
+                                      className={`flex-1 flex items-center px-3 py-2 rounded-xl text-sm transition-colors ${
+                                        active
+                                          ? 'bg-green-50 text-green-700 font-medium'
+                                          : 'text-gray-600 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {item.label}
+                                    </Link>
+                                    {item.showPublicLink && creatorSlug && (
+                                      <a
+                                        href={`/creators/${creatorSlug}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setMenuOpen(false)}
+                                        className="p-1.5 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                                        title="Profil ansehen"
+                                      >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  </>
+                      )
+                    })}
+                  </div>
                 )}
                 <div className="pt-1 border-t border-gray-100 mt-1">
                   <button onClick={handleSignOut} className="w-full flex items-center px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors">
