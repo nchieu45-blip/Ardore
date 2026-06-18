@@ -8,13 +8,15 @@ import { z } from 'zod'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyResolver = any
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { Upload, FileText, Video, BookOpen, Image as ImageIcon, Check } from 'lucide-react'
+import {
+  Upload, FileText, Video, BookOpen, Image as ImageIcon,
+  Check, Globe, ArrowLeft, X,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 import { CategoryPicker } from '@/components/ui/CategoryPicker'
+import Link from 'next/link'
 
 const schema = z.object({
   title: z.string().min(3, 'Mindestens 3 Zeichen').max(100),
@@ -26,67 +28,28 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 const PRODUCT_TYPES = [
-  { value: 'pdf', label: 'PDF / E-Book', icon: <FileText className="h-5 w-5" />, desc: 'Trainingsplan, Ernährungsguide, etc.' },
-  { value: 'video', label: 'Video', icon: <Video className="h-5 w-5" />, desc: 'Einzelnes Video oder Tutorial' },
-  { value: 'image', label: 'Bild', icon: <ImageIcon className="h-5 w-5" />, desc: 'Foto, Grafik, Infografik' },
-  { value: 'course', label: 'Kurs', icon: <BookOpen className="h-5 w-5" />, desc: 'Mehrere Lektionen / Programm' },
+  { value: 'pdf',    label: 'PDF / E-Book', Icon: FileText,   desc: 'Trainingsplan, Ernährungsguide …' },
+  { value: 'video',  label: 'Video',        Icon: Video,      desc: 'Einzelnes Video oder Tutorial' },
+  { value: 'image',  label: 'Bild',         Icon: ImageIcon,  desc: 'Foto, Grafik, Infografik' },
+  { value: 'course', label: 'Kurs',         Icon: BookOpen,   desc: 'Mehrere Lektionen / Programm' },
 ]
 
 const ACCEPT_BY_TYPE: Record<string, string> = {
-  pdf: '.pdf',
-  video: '.mp4,.mov,.webm',
-  image: '.jpg,.jpeg,.png,.webp,.gif',
+  pdf:    '.pdf',
+  video:  '.mp4,.mov,.webm',
+  image:  '.jpg,.jpeg,.png,.webp,.gif',
   course: '.pdf,.mp4,.mov,.zip,.rar',
 }
 
 const HINT_BY_TYPE: Record<string, string> = {
-  pdf: 'PDF – Max. 500 MB',
-  video: 'MP4, MOV, WEBM – Max. 500 MB',
-  image: 'JPG, PNG, WEBP, GIF – Max. 50 MB',
+  pdf:    'PDF – Max. 500 MB',
+  video:  'MP4, MOV, WEBM – Max. 500 MB',
+  image:  'JPG, PNG, WEBP, GIF – Max. 50 MB',
   course: 'PDF, MP4, ZIP – Max. 500 MB',
 }
 
-function FileUploadZone({
-  file,
-  onChange,
-  accept,
-  hint,
-  label,
-}: {
-  file: File | null
-  onChange: (f: File | null) => void
-  accept: string
-  hint: string
-  label: string
-}) {
-  return (
-    <label className={cn(
-      'flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-colors',
-      file ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
-    )}>
-      <div className="flex flex-col items-center gap-2 text-center px-4">
-        <Upload className={cn('h-8 w-8', file ? 'text-green-600' : 'text-gray-400')} />
-        {file ? (
-          <>
-            <p className="text-sm font-medium text-green-700">{file.name}</p>
-            <p className="text-xs text-green-600">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm font-medium text-gray-700">{label}</p>
-            <p className="text-xs text-gray-400">{hint}</p>
-          </>
-        )}
-      </div>
-      <input
-        type="file"
-        className="hidden"
-        accept={accept}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-      />
-    </label>
-  )
-}
+const THUMB_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_THUMB_BYTES = 10 * 1024 * 1024
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -108,8 +71,21 @@ export default function NewProductPage() {
   })
 
   const selectedType = watch('type')
+  const isBusy = isSubmitting || uploading
 
-  async function onSubmit(data: FormData) {
+  function handleThumbnailChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (!THUMB_TYPES.includes(f.type)) { setThumbnailError('Nur JPG, PNG oder WEBP erlaubt'); return }
+    if (f.size > MAX_THUMB_BYTES) { setThumbnailError('Datei zu groß – max. 10 MB'); return }
+    setThumbnailError('')
+    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview)
+    setThumbnail(f)
+    setThumbnailPreview(URL.createObjectURL(f))
+    e.target.value = ''
+  }
+
+  async function submitForm(data: FormData, isPublished: boolean) {
     setError('')
     setUploading(true)
     try {
@@ -121,7 +97,6 @@ export default function NewProductPage() {
         .select('id')
         .eq('user_id', user.id)
         .single()
-
       if (!creator) { router.push('/creator/onboarding'); return }
 
       let fileUrl: string | null = null
@@ -130,9 +105,7 @@ export default function NewProductPage() {
       if (file) {
         const ext = file.name.split('.').pop()
         const path = `${creator.id}/${Date.now()}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(path, file, { upsert: false })
+        const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { upsert: false })
         if (uploadError) throw new Error('Datei-Upload fehlgeschlagen')
         const { data: urlData } = supabase.storage.from('products').getPublicUrl(path)
         fileUrl = urlData.publicUrl
@@ -141,9 +114,7 @@ export default function NewProductPage() {
       if (thumbnail) {
         const ext = thumbnail.name.split('.').pop()
         const path = `${creator.id}/${Date.now()}_thumb.${ext}`
-        const { error: thumbError } = await supabase.storage
-          .from('thumbnails')
-          .upload(path, thumbnail, { upsert: false })
+        const { error: thumbError } = await supabase.storage.from('thumbnails').upload(path, thumbnail, { upsert: false })
         if (thumbError) throw new Error('Thumbnail-Upload fehlgeschlagen')
         const { data: thumbUrlData } = supabase.storage.from('thumbnails').getPublicUrl(path)
         thumbnailUrl = thumbUrlData.publicUrl
@@ -161,9 +132,8 @@ export default function NewProductPage() {
         duration: selectedDuration,
         file_url: fileUrl,
         thumbnail_url: thumbnailUrl,
-        is_published: false,
+        is_published: isPublished,
       })
-
       if (insertError) throw new Error(insertError.message)
 
       router.push('/creator/products')
@@ -176,193 +146,133 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Neues Produkt erstellen</h1>
-        <p className="text-gray-500">Füge ein neues Produkt zu deinem Portfolio hinzu</p>
+    <div className="min-h-full bg-gray-50/40">
+      {/* Sticky action bar */}
+      <div className="sticky top-16 z-20 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <Link href="/creator/products" className="text-gray-400 hover:text-gray-600 transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <span className="text-sm font-semibold text-gray-900">Neues Produkt</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSubmit(data => submitForm(data, false))}
+              disabled={isBusy}
+              className="px-4 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Als Entwurf speichern
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit(data => submitForm(data, true))}
+              disabled={isBusy}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {isBusy ? 'Wird gespeichert…' : 'Veröffentlichen'}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Product Type */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Produkttyp</h2>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {PRODUCT_TYPES.map((type) => (
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-5">
+        {/* Section 1: Grundlagen */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Grundlagen</h2>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-3">Produkttyp</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {PRODUCT_TYPES.map(({ value, label, Icon, desc }) => (
                 <button
-                  key={type.value}
+                  key={value}
                   type="button"
-                  onClick={() => {
-                    setValue('type', type.value as FormData['type'])
-                    setFile(null)
-                  }}
+                  onClick={() => { setValue('type', value as FormData['type']); setFile(null) }}
                   className={cn(
                     'flex flex-col items-center gap-2 p-4 rounded-xl border-2 text-center transition-all',
-                    selectedType === type.value
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    selectedType === value
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                   )}
                 >
-                  {type.icon}
-                  <span className="text-sm font-medium">{type.label}</span>
-                  <span className="text-xs opacity-70">{type.desc}</span>
+                  <Icon className={cn('h-5 w-5', selectedType === value ? 'text-green-600' : 'text-gray-400')} />
+                  <span className={cn('text-xs font-semibold leading-tight', selectedType === value ? 'text-green-700' : 'text-gray-600')}>{label}</span>
+                  <span className="text-[10px] text-gray-400 leading-tight">{desc}</span>
                 </button>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Details */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Produkt-Details</h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              label="Titel"
-              placeholder="z.B. 12-Wochen Trainingsplan"
-              error={errors.title?.message}
-              {...register('title')}
-            />
-            <Textarea
-              label="Beschreibung (optional)"
-              placeholder="Beschreibe dein Produkt..."
-              {...register('description')}
-            />
-            <Input
-              label="Preis (€)"
-              type="number"
-              step="0.01"
-              min="0.50"
-              placeholder="9.99"
-              error={errors.price?.message}
-              hint="Mindestpreis: 0,50 €"
-              {...register('price')}
-            />
-          </CardContent>
-        </Card>
+          <Input
+            label="Titel"
+            placeholder="z.B. 12-Wochen Trainingsplan"
+            error={errors.title?.message}
+            {...register('title')}
+          />
 
-        {/* Tags */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Tags & Filter</h2>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Categories */}
-            <CategoryPicker
-              label="Kategorien"
-              selected={selectedCategories}
-              onChange={setSelectedCategories}
-            />
+          <Input
+            label="Preis (€)"
+            type="number"
+            step="0.01"
+            min="0.50"
+            placeholder="9.99"
+            error={errors.price?.message}
+            hint="Mindestpreis: 0,50 €"
+            {...register('price')}
+          />
+        </section>
 
-            {/* Equipment */}
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
-              <div className="flex flex-wrap gap-2">
-                {EQUIPMENT_OPTIONS.map(opt => {
-                  const active = selectedEquipment.includes(opt.value)
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setSelectedEquipment(
-                        active ? selectedEquipment.filter(v => v !== opt.value) : [...selectedEquipment, opt.value]
-                      )}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                        active
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      )}
-                    >
-                      {active && <Check className="h-3 w-3" />}
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
+        {/* Section 2: Inhalt */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Inhalt</h2>
+          <label className={cn(
+            'flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl cursor-pointer transition-all',
+            file ? 'h-28 border-green-400 bg-green-50' : 'h-44 border-gray-200 hover:border-green-400 hover:bg-gray-50/60'
+          )}>
+            <div className="flex flex-col items-center gap-2.5 text-center px-4">
+              {file ? (
+                <>
+                  <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center">
+                    <Check className="h-5 w-5 text-green-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-green-700">{file.name}</p>
+                  <p className="text-xs text-green-500">{(file.size / 1024 / 1024).toFixed(1)} MB – Datei bereit</p>
+                </>
+              ) : (
+                <>
+                  <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Upload className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Produktdatei hochladen</p>
+                    <p className="text-xs text-gray-400 mt-0.5">oder hier ablegen</p>
+                  </div>
+                  <p className="text-xs text-gray-300">{HINT_BY_TYPE[selectedType]}</p>
+                </>
+              )}
             </div>
-
-            {/* Level */}
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Level</p>
-              <div className="flex flex-wrap gap-2">
-                {LEVEL_OPTIONS.map(opt => {
-                  const active = selectedLevel === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setSelectedLevel(active ? null : opt.value)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                        active
-                          ? 'bg-green-700 text-white border-green-700'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Duration — only for video / course */}
-            {(selectedType === 'video' || selectedType === 'course') && (
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Dauer</p>
-                <div className="flex flex-wrap gap-2">
-                  {DURATION_OPTIONS.map(opt => {
-                    const active = selectedDuration === opt.value
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setSelectedDuration(active ? null : opt.value)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                          active
-                            ? 'bg-green-700 text-white border-green-700'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Main file upload */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Produktdatei hochladen</h2>
-          </CardHeader>
-          <CardContent>
-            <FileUploadZone
-              file={file}
-              onChange={setFile}
+            <input
+              type="file"
+              className="hidden"
               accept={ACCEPT_BY_TYPE[selectedType]}
-              hint={HINT_BY_TYPE[selectedType]}
-              label="Datei auswählen"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
-          </CardContent>
-        </Card>
+          </label>
+        </section>
 
-        {/* Thumbnail upload */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Vorschaubild (optional)</h2>
-          </CardHeader>
-          <CardContent>
+        {/* Section 3: Darstellung */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Darstellung</h2>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1.5">
+              Cover-Bild <span className="text-gray-400 font-normal">(optional)</span>
+            </p>
             {thumbnailPreview ? (
-              <div className="relative rounded-xl overflow-hidden border border-gray-200">
+              <div className="relative rounded-xl overflow-hidden border border-gray-100">
                 <img src={thumbnailPreview} alt="Vorschau" className="w-full h-52 object-cover" />
                 <button
                   type="button"
@@ -372,68 +282,143 @@ export default function NewProductPage() {
                     setThumbnailPreview(null)
                     setThumbnailError('')
                   }}
-                  className="absolute top-2 right-2 h-8 w-8 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors"
+                  className="absolute top-2 right-2 h-7 w-7 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+                  aria-label="Bild entfernen"
                 >
-                  <Upload className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
-                <p className="absolute bottom-2 left-3 text-[11px] text-white/80 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                  {thumbnail?.name}
-                </p>
+                <label className="absolute bottom-2 right-2 flex items-center gap-1 px-2.5 py-1.5 bg-white/90 hover:bg-white rounded-lg text-xs font-medium cursor-pointer border border-gray-100 shadow-sm transition-colors">
+                  <Upload className="h-3 w-3" />
+                  Ändern
+                  <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp" onChange={handleThumbnailChange} />
+                </label>
               </div>
             ) : (
-              <label className={cn(
-                'flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-colors',
-                'border-gray-300 hover:border-green-400 hover:bg-gray-50'
-              )}>
+              <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-all border-gray-200 hover:border-green-400 hover:bg-gray-50/60">
                 <div className="flex flex-col items-center gap-2 text-center px-4">
-                  <Upload className="h-8 w-8 text-gray-400" />
-                  <p className="text-sm font-medium text-gray-700">Vorschaubild auswählen</p>
+                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <ImageIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">Cover-Bild auswählen</p>
                   <p className="text-xs text-gray-400">JPG, PNG, WEBP – Max. 10 MB</p>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".jpg,.jpeg,.png,.webp"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (!f) return
-                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
-                      setThumbnailError('Nur JPG, PNG oder WEBP erlaubt')
-                      return
-                    }
-                    if (f.size > 10 * 1024 * 1024) {
-                      setThumbnailError('Datei zu groß – max. 10 MB')
-                      return
-                    }
-                    setThumbnailError('')
-                    setThumbnail(f)
-                    setThumbnailPreview(URL.createObjectURL(f))
-                    e.target.value = ''
-                  }}
-                />
+                <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp" onChange={handleThumbnailChange} />
               </label>
             )}
-            {thumbnailError && (
-              <p className="mt-2 text-xs text-red-600">{thumbnailError}</p>
-            )}
-          </CardContent>
-        </Card>
+            {thumbnailError && <p className="mt-1.5 text-xs text-red-600">{thumbnailError}</p>}
+          </div>
+
+          <Textarea
+            label="Beschreibung"
+            placeholder="Beschreibe dein Produkt – was erhalten Käufer, für wen ist es geeignet?"
+            hint="Optional – max. 1.000 Zeichen"
+            {...register('description')}
+          />
+        </section>
+
+        {/* Section 4: Kategorien */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Kategorien & Metadaten</h2>
+
+          <CategoryPicker label="Kategorien" selected={selectedCategories} onChange={setSelectedCategories} />
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
+            <div className="flex flex-wrap gap-2">
+              {EQUIPMENT_OPTIONS.map(opt => {
+                const active = selectedEquipment.includes(opt.value)
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSelectedEquipment(active ? selectedEquipment.filter(v => v !== opt.value) : [...selectedEquipment, opt.value])}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                      active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    )}
+                  >
+                    {active && <Check className="h-3 w-3" />}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Level</p>
+            <div className="flex flex-wrap gap-2">
+              {LEVEL_OPTIONS.map(opt => {
+                const active = selectedLevel === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSelectedLevel(active ? null : opt.value)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                      active ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {(selectedType === 'video' || selectedType === 'course') && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Dauer</p>
+              <div className="flex flex-wrap gap-2">
+                {DURATION_OPTIONS.map(opt => {
+                  const active = selectedDuration === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedDuration(active ? null : opt.value)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                        active ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </section>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg px-4 py-3">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
             {error}
           </div>
         )}
 
-        <div className="flex gap-3">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>
-            Abbrechen
-          </Button>
-          <Button type="submit" className="flex-1" loading={isSubmitting || uploading}>
-            Produkt speichern
-          </Button>
+        {/* Bottom actions */}
+        <div className="flex gap-3 pb-4">
+          <button
+            type="button"
+            onClick={handleSubmit(data => submitForm(data, false))}
+            disabled={isBusy}
+            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Als Entwurf speichern
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit(data => submitForm(data, true))}
+            disabled={isBusy}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            <Globe className="h-4 w-4" />
+            {isBusy ? 'Wird gespeichert…' : 'Veröffentlichen'}
+          </button>
         </div>
-      </form>
+      </div>
     </div>
   )
 }

@@ -8,9 +8,7 @@ import { z } from 'zod'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyResolver = any
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import {
   FileText, Video, BookOpen, Image as ImageIcon,
@@ -52,11 +50,8 @@ const TYPE_LABELS: Record<string, string> = {
   pdf: 'PDF / E-Book', video: 'Video', image: 'Bild', course: 'Kurs',
 }
 
-const TYPE_ICONS: Record<string, React.ReactNode> = {
-  pdf:    <FileText  className="h-4 w-4" />,
-  video:  <Video     className="h-4 w-4" />,
-  image:  <ImageIcon className="h-4 w-4" />,
-  course: <BookOpen  className="h-4 w-4" />,
+const TYPE_ICONS: Record<string, React.ElementType> = {
+  pdf: FileText, video: Video, image: ImageIcon, course: BookOpen,
 }
 
 export default function EditProductForm({ product }: { product: Product }) {
@@ -68,7 +63,6 @@ export default function EditProductForm({ product }: { product: Product }) {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(product.level)
   const [selectedDuration, setSelectedDuration] = useState<string | null>(product.duration)
 
-  // Thumbnail state
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [removeThumb, setRemoveThumb] = useState(false)
@@ -86,14 +80,8 @@ export default function EditProductForm({ product }: { product: Product }) {
   function handleThumbnailChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-    if (!THUMB_TYPES.includes(f.type)) {
-      setThumbError('Nur JPG, PNG oder WEBP erlaubt')
-      return
-    }
-    if (f.size > MAX_THUMB_BYTES) {
-      setThumbError('Datei zu groß – max. 10 MB')
-      return
-    }
+    if (!THUMB_TYPES.includes(f.type)) { setThumbError('Nur JPG, PNG oder WEBP erlaubt'); return }
+    if (f.size > MAX_THUMB_BYTES) { setThumbError('Datei zu groß – max. 10 MB'); return }
     setThumbError('')
     if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview)
     setThumbnailFile(f)
@@ -171,258 +159,272 @@ export default function EditProductForm({ product }: { product: Product }) {
     }
   }
 
+  const TypeIcon = TYPE_ICONS[product.type]
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link href="/creator/products" className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Produkt bearbeiten</h1>
-          <p className="text-gray-500 text-sm flex items-center gap-2 mt-0.5">
-            <span className="flex items-center gap-1.5">
-              {TYPE_ICONS[product.type]}
-              {TYPE_LABELS[product.type]}
-            </span>
-            <span className="text-gray-300">·</span>
-            <Badge variant={product.is_published ? 'success' : 'default'}>
-              {product.is_published ? 'Veröffentlicht' : 'Entwurf'}
-            </Badge>
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        {/* Details */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Produkt-Details</h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              label="Titel"
-              placeholder="z.B. 12-Wochen Trainingsplan"
-              error={errors.title?.message}
-              {...register('title')}
-            />
-            <Textarea
-              label="Beschreibung (optional)"
-              placeholder="Beschreibe dein Produkt..."
-              {...register('description')}
-            />
-            <Input
-              label="Preis (€)"
-              type="number"
-              step="0.01"
-              min="0.50"
-              placeholder="9.99"
-              error={errors.price?.message}
-              hint="Mindestpreis: 0,50 €"
-              {...register('price')}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Thumbnail */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Vorschaubild</h2>
-          </CardHeader>
-          <CardContent>
-            {displayThumbUrl ? (
-              <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                <img
-                  src={displayThumbUrl}
-                  alt="Vorschau"
-                  className="w-full h-52 object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={handleRemoveThumbnail}
-                  className="absolute top-2 right-2 h-8 w-8 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors"
-                  aria-label="Bild entfernen"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <label className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-xs font-medium cursor-pointer border border-gray-200 shadow-sm transition-colors">
-                  <Upload className="h-3.5 w-3.5" />
-                  Ändern
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept={THUMB_ACCEPT}
-                    onChange={handleThumbnailChange}
-                  />
-                </label>
-              </div>
-            ) : (
-              <label className={cn(
-                'flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-colors',
-                'border-gray-300 hover:border-green-400 hover:bg-gray-50'
-              )}>
-                <div className="flex flex-col items-center gap-2 text-center px-4">
-                  <Upload className="h-8 w-8 text-gray-400" />
-                  <p className="text-sm font-medium text-gray-700">Vorschaubild auswählen</p>
-                  <p className="text-xs text-gray-400">JPG, PNG, WEBP – Max. 10 MB</p>
-                </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept={THUMB_ACCEPT}
-                  onChange={handleThumbnailChange}
-                />
-              </label>
-            )}
-            {thumbError && (
-              <p className="mt-2 text-xs text-red-600">{thumbError}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tags */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Tags & Filter</h2>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <CategoryPicker
-              label="Kategorien"
-              selected={selectedCategories}
-              onChange={setSelectedCategories}
-            />
-
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
-              <div className="flex flex-wrap gap-2">
-                {EQUIPMENT_OPTIONS.map(opt => {
-                  const active = selectedEquipment.includes(opt.value)
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setSelectedEquipment(
-                        active ? selectedEquipment.filter(v => v !== opt.value) : [...selectedEquipment, opt.value]
-                      )}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                        active
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      )}
-                    >
-                      {active && <Check className="h-3 w-3" />}
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
+    <div className="min-h-full bg-gray-50/40">
+      {/* Sticky action bar */}
+      <div className="sticky top-16 z-20 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link href="/creator/products" className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-semibold text-gray-900 truncate">Produkt bearbeiten</span>
+              <span className="hidden sm:flex items-center gap-1 text-xs text-gray-400 flex-shrink-0">
+                <TypeIcon className="h-3.5 w-3.5" />
+                {TYPE_LABELS[product.type]}
+              </span>
+              <Badge variant={product.is_published ? 'success' : 'default'} className="flex-shrink-0">
+                {product.is_published ? 'Live' : 'Entwurf'}
+              </Badge>
             </div>
-
-            <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Level</p>
-              <div className="flex flex-wrap gap-2">
-                {LEVEL_OPTIONS.map(opt => {
-                  const active = selectedLevel === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setSelectedLevel(active ? null : opt.value)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                        active
-                          ? 'bg-green-700 text-white border-green-700'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {(product.type === 'video' || product.type === 'course') && (
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Dauer</p>
-                <div className="flex flex-wrap gap-2">
-                  {DURATION_OPTIONS.map(opt => {
-                    const active = selectedDuration === opt.value
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setSelectedDuration(active ? null : opt.value)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
-                          active
-                            ? 'bg-green-700 text-white border-green-700'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <Card>
-          <CardContent className="pt-5 space-y-3">
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
             {!product.is_published ? (
               <>
                 <button
                   type="button"
-                  onClick={handleSubmit(data => save(data, true))}
+                  onClick={handleSubmit(data => save(data, false))}
                   disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                  className="px-4 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  <Globe className="h-4 w-4" />
-                  {saving ? 'Wird gespeichert…' : 'Veröffentlichen'}
+                  Als Entwurf speichern
                 </button>
                 <button
                   type="button"
-                  onClick={handleSubmit(data => save(data, false))}
+                  onClick={handleSubmit(data => save(data, true))}
                   disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  Als Entwurf speichern
+                  <Globe className="h-3.5 w-3.5" />
+                  {saving ? 'Wird gespeichert…' : 'Veröffentlichen'}
                 </button>
               </>
             ) : (
               <>
                 <button
                   type="button"
-                  onClick={handleSubmit(data => save(data, true))}
+                  onClick={handleSubmit(data => save(data, false))}
                   disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                  className="hidden sm:flex items-center gap-1.5 px-4 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  <Check className="h-4 w-4" />
-                  {saving ? 'Wird gespeichert…' : 'Änderungen speichern'}
+                  <EyeOff className="h-3.5 w-3.5" />
+                  Zurückziehen
                 </button>
                 <button
                   type="button"
-                  onClick={handleSubmit(data => save(data, false))}
+                  onClick={handleSubmit(data => save(data, true))}
                   disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  <EyeOff className="h-4 w-4" />
-                  Zurückziehen (als Entwurf)
+                  <Check className="h-3.5 w-3.5" />
+                  {saving ? 'Wird gespeichert…' : 'Änderungen speichern'}
                 </button>
               </>
             )}
-            <Link
-              href="/creator/products"
-              className="block text-center text-sm text-gray-400 hover:text-gray-600 transition-colors pt-1"
-            >
-              Abbrechen
-            </Link>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4 py-8 space-y-5">
+        {/* Section 1: Grundlagen */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Grundlagen</h2>
+
+          <Input
+            label="Titel"
+            placeholder="z.B. 12-Wochen Trainingsplan"
+            error={errors.title?.message}
+            {...register('title')}
+          />
+
+          <Input
+            label="Preis (€)"
+            type="number"
+            step="0.01"
+            min="0.50"
+            placeholder="9.99"
+            error={errors.price?.message}
+            hint="Mindestpreis: 0,50 €"
+            {...register('price')}
+          />
+        </section>
+
+        {/* Section 2: Darstellung */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Darstellung</h2>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1.5">Cover-Bild</p>
+            {displayThumbUrl ? (
+              <div className="relative rounded-xl overflow-hidden border border-gray-100">
+                <img src={displayThumbUrl} alt="Vorschau" className="w-full h-52 object-cover" />
+                <button
+                  type="button"
+                  onClick={handleRemoveThumbnail}
+                  className="absolute top-2 right-2 h-7 w-7 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+                  aria-label="Bild entfernen"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+                <label className="absolute bottom-2 right-2 flex items-center gap-1 px-2.5 py-1.5 bg-white/90 hover:bg-white rounded-lg text-xs font-medium cursor-pointer border border-gray-100 shadow-sm transition-colors">
+                  <Upload className="h-3 w-3" />
+                  Ändern
+                  <input type="file" className="hidden" accept={THUMB_ACCEPT} onChange={handleThumbnailChange} />
+                </label>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-all border-gray-200 hover:border-green-400 hover:bg-gray-50/60">
+                <div className="flex flex-col items-center gap-2 text-center px-4">
+                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <ImageIcon className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">Cover-Bild auswählen</p>
+                  <p className="text-xs text-gray-400">JPG, PNG, WEBP – Max. 10 MB</p>
+                </div>
+                <input type="file" className="hidden" accept={THUMB_ACCEPT} onChange={handleThumbnailChange} />
+              </label>
+            )}
+            {thumbError && <p className="mt-1.5 text-xs text-red-600">{thumbError}</p>}
+          </div>
+
+          <Textarea
+            label="Beschreibung"
+            placeholder="Beschreibe dein Produkt – was erhalten Käufer, für wen ist es geeignet?"
+            hint="Optional – max. 1.000 Zeichen"
+            {...register('description')}
+          />
+        </section>
+
+        {/* Section 3: Kategorien */}
+        <section className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Kategorien & Metadaten</h2>
+
+          <CategoryPicker label="Kategorien" selected={selectedCategories} onChange={setSelectedCategories} />
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
+            <div className="flex flex-wrap gap-2">
+              {EQUIPMENT_OPTIONS.map(opt => {
+                const active = selectedEquipment.includes(opt.value)
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSelectedEquipment(active ? selectedEquipment.filter(v => v !== opt.value) : [...selectedEquipment, opt.value])}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                      active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    )}
+                  >
+                    {active && <Check className="h-3 w-3" />}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Level</p>
+            <div className="flex flex-wrap gap-2">
+              {LEVEL_OPTIONS.map(opt => {
+                const active = selectedLevel === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSelectedLevel(active ? null : opt.value)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                      active ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {(product.type === 'video' || product.type === 'course') && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Dauer</p>
+              <div className="flex flex-wrap gap-2">
+                {DURATION_OPTIONS.map(opt => {
+                  const active = selectedDuration === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedDuration(active ? null : opt.value)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                        active ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Bottom actions */}
+        <div className="flex gap-3 pb-4">
+          {!product.is_published ? (
+            <>
+              <button
+                type="button"
+                onClick={handleSubmit(data => save(data, false))}
+                disabled={saving}
+                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Als Entwurf speichern
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit(data => save(data, true))}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <Globe className="h-4 w-4" />
+                {saving ? 'Wird gespeichert…' : 'Veröffentlichen'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleSubmit(data => save(data, false))}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                <EyeOff className="h-4 w-4" />
+                Zurückziehen
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit(data => save(data, true))}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <Check className="h-4 w-4" />
+                {saving ? 'Wird gespeichert…' : 'Änderungen speichern'}
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="text-center pb-2">
+          <Link href="/creator/products" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            Abbrechen
+          </Link>
+        </div>
       </div>
     </div>
   )
