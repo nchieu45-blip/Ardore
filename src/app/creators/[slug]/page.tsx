@@ -376,13 +376,13 @@ export default async function CreatorProfilePage({
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
         <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
-        {/* Name + categories overlay — hidden on mobile, visible md+ */}
-        <div className="hidden md:block absolute inset-x-0 bottom-0 px-8 pb-6 min-w-0">
-          <h2 className="text-4xl lg:text-5xl font-bold text-white break-words min-w-0 leading-tight">
+        {/* Faded decorative name + categories — always visible, purely decorative */}
+        <div className="absolute inset-x-0 bottom-0 px-5 sm:px-8 pb-4 sm:pb-6 pointer-events-none select-none">
+          <h2 aria-hidden className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white/30 break-words leading-none tracking-tight">
             {creator.display_name}
           </h2>
           {allCategories.length > 0 && (
-            <p className="text-sm text-white/75 mt-1 font-medium tracking-widest break-words">
+            <p aria-hidden className="text-xs sm:text-sm text-white/20 mt-1 sm:mt-2 font-semibold tracking-widest break-words">
               {allCategories.slice(0, 4).map(cat => (CATEGORY_LABELS[cat] ?? cat).toUpperCase()).join(' · ')}
             </p>
           )}
