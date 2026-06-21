@@ -22,6 +22,8 @@ import BookingWidget from './BookingWidget'
 import HeartButton from '@/components/HeartButton'
 import VideoClassBookButton from './VideoClassBookButton'
 
+export const revalidate = 0
+
 const CATEGORY_LABELS: Record<string, string> = {
   // current canonical keys from lib/categories
   krafttraining: 'Krafttraining',
