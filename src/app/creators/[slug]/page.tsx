@@ -8,7 +8,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
-  Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star,
+  Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star, CheckCircle2,
   ChevronRight, GraduationCap, Users, Clock, CalendarDays,
 } from 'lucide-react'
 import type { VideoClass } from '@/types'
@@ -433,13 +433,14 @@ export default async function CreatorProfilePage({
             <p className="text-gray-600 max-w-2xl leading-relaxed mb-6">{creator.bio}</p>
           )}
 
-          {/* Schwerpunkte — descriptive focus-area tags, not a bookable menu */}
+          {/* Dienstleistungen */}
           {(services.length > 0 || videoClasses.length > 0) && (
             <div className="mb-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Schwerpunkte</p>
-              <div className="flex flex-wrap gap-1.5">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
+              <div className="flex flex-wrap gap-2">
                 {[...services, ...(videoClasses.length > 0 && !services.includes('gruppen_sessions') ? ['gruppen_sessions'] : [])].map(s => (
-                  <span key={s} className="px-2.5 py-1 bg-gray-50 border border-gray-200 text-gray-600 text-xs font-medium rounded-full">
+                  <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 border border-green-200 text-green-800 text-sm font-medium rounded-full">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
                     {SERVICE_LABELS[s] ?? s}
                   </span>
                 ))}
