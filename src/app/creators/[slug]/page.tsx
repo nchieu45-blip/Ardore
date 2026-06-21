@@ -8,7 +8,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
-  Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star, CheckCircle2,
+  Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star,
   ChevronRight, GraduationCap, Users, Clock, CalendarDays,
 } from 'lucide-react'
 import type { VideoClass } from '@/types'
@@ -367,7 +367,7 @@ export default async function CreatorProfilePage({
   const isOwner = user?.id === creator.user_id
 
   return (
-    <div className="min-h-screen bg-gray-50/40">
+    <div className="min-h-screen bg-gray-50/40 overflow-x-hidden">
       {/* Full-width banner — clean, no overlaid text or pills */}
       <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-56 sm:h-64 overflow-hidden animate-fade-in`}>
         {creator.banner_url && (
@@ -414,8 +414,8 @@ export default async function CreatorProfilePage({
         {/* Profile info */}
         <div className="mb-8 animate-slide-up">
           {/* Name + qualifications badge */}
-          <div className="flex items-center gap-3 flex-wrap mb-2">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
+          <div className="flex items-center gap-3 flex-wrap mb-2 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight break-words min-w-0">{creator.display_name}</h1>
             {qualifications.length > 0 && (
               <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                 <GraduationCap className="h-3.5 w-3.5" />
@@ -453,8 +453,7 @@ export default async function CreatorProfilePage({
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
               <div className="flex flex-wrap gap-2">
                 {[...services, ...(videoClasses.length > 0 && !services.includes('gruppen_sessions') ? ['gruppen_sessions'] : [])].map(s => (
-                  <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 border border-green-200 text-green-800 text-sm font-medium rounded-full">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                  <span key={s} className="inline-flex items-center px-3 py-1 bg-green-50 border border-green-200 text-green-800 text-sm font-medium rounded-full">
                     {SERVICE_LABELS[s] ?? s}
                   </span>
                 ))}
