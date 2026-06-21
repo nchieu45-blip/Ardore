@@ -279,43 +279,45 @@ export default function CoachesPageClient({ coaches }: Props) {
       {/* ── Sticky filter bar ─────────────────────────────────────── */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            {/* Always-visible primary pills */}
-            <button
-              onClick={() => go({ category: 'all', videocoaching: false })}
-              className={cn(
-                'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                category === 'all' && !videocoaching
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-              )}
-            >
-              Alle
-            </button>
-            <button
-              onClick={() => go({ videocoaching: !videocoaching, category: 'all' })}
-              className={cn(
-                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                videocoaching
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
-              )}
-            >
-              <Video className="h-3 w-3" />
-              1:1 Sessions
-            </button>
-            <button
-              onClick={() => go({ groupclasses: !groupclasses, category: 'all' })}
-              className={cn(
-                'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                groupclasses
-                  ? 'bg-violet-600 text-white border-violet-600'
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600'
-              )}
-            >
-              <Users className="h-3 w-3" />
-              Gruppen-Sessions
-            </button>
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Scrollable primary pills */}
+            <div className="flex items-center gap-2 overflow-x-auto flex-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden min-w-0">
+              <button
+                onClick={() => go({ category: 'all', videocoaching: false })}
+                className={cn(
+                  'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                  category === 'all' && !videocoaching
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                )}
+              >
+                Alle
+              </button>
+              <button
+                onClick={() => go({ videocoaching: !videocoaching, category: 'all' })}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                  videocoaching
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
+                )}
+              >
+                <Video className="h-3 w-3" />
+                1:1 Sessions
+              </button>
+              <button
+                onClick={() => go({ groupclasses: !groupclasses, category: 'all' })}
+                className={cn(
+                  'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                  groupclasses
+                    ? 'bg-violet-600 text-white border-violet-600'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600'
+                )}
+              >
+                <Users className="h-3 w-3" />
+                Gruppen-Sessions
+              </button>
+            </div>
 
             <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
 
