@@ -369,20 +369,20 @@ export default async function CreatorProfilePage({
   return (
     <div className="min-h-screen bg-gray-50/40 overflow-x-hidden">
       {/* Full-width banner */}
-      <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-56 sm:h-64 overflow-hidden animate-fade-in`}>
+      <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-44 md:h-56 lg:h-64 overflow-hidden animate-fade-in`}>
         {creator.banner_url && (
           <img src={creator.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
         <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
-        {/* Name + categories text overlay */}
-        <div className="absolute inset-x-0 bottom-0 px-5 sm:px-8 pb-4 sm:pb-6 min-w-0">
-          <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white break-words min-w-0 leading-tight">
+        {/* Name + categories overlay — hidden on mobile, visible md+ */}
+        <div className="hidden md:block absolute inset-x-0 bottom-0 px-8 pb-6 min-w-0">
+          <h2 className="text-4xl lg:text-5xl font-bold text-white break-words min-w-0 leading-tight">
             {creator.display_name}
           </h2>
           {allCategories.length > 0 && (
-            <p className="text-xs sm:text-sm text-white/75 mt-1 font-medium tracking-widest break-words">
+            <p className="text-sm text-white/75 mt-1 font-medium tracking-widest break-words">
               {allCategories.slice(0, 4).map(cat => (CATEGORY_LABELS[cat] ?? cat).toUpperCase()).join(' · ')}
             </p>
           )}
