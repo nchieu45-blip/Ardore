@@ -134,6 +134,13 @@ function normalizeProfile(raw: ReviewProfile | ReviewProfile[] | null): ReviewPr
   return Array.isArray(raw) ? raw[0] ?? null : raw
 }
 
+function formatReviewerName(fullName: string | null | undefined): string {
+  if (!fullName) return 'Anonym'
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length < 2) return parts[0]
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const supabase = await createClient()
@@ -414,6 +421,13 @@ export default async function CreatorProfilePage({
                 <GraduationCap className="h-3.5 w-3.5" />
                 Qualifiziert
               </span>
+            )}
+            {sessionReviewCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                <span className="text-sm font-semibold text-gray-900">{avgSessionRating!.toFixed(1)}</span>
+                <span className="text-sm text-gray-500">· {sessionReviewCount} Bewertung{sessionReviewCount !== 1 ? 'en' : ''}</span>
+              </div>
             )}
           </div>
 
@@ -824,52 +838,66 @@ export default async function CreatorProfilePage({
               </div>
             )}
 
-            {sessionReviews.length > 0 && (
-              <div className="animate-slide-up">
-                <div className="flex items-center gap-3 mb-5">
-                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Coaching-Bewertungen</h2>
-                  <div className="flex items-center gap-1.5 bg-violet-50 px-3 py-1 rounded-full">
-                    <Star className="h-4 w-4 text-violet-600 fill-violet-600" />
-                    <span className="text-sm font-semibold text-violet-700">{avgSessionRating!.toFixed(1)}</span>
-                    <span className="text-xs text-violet-500">· {sessionReviewCount} Bewertung{sessionReviewCount !== 1 ? 'en' : ''}</span>
+            <div className="animate-slide-up">
+              <div className="flex items-center gap-3 mb-5">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Bewertungen</h2>
+                {sessionReviewCount > 0 && (
+                  <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-full">
+                    <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                    <span className="text-sm font-semibold text-gray-900">{avgSessionRating!.toFixed(1)}</span>
+                    <span className="text-xs text-gray-500">· {sessionReviewCount} Bewertung{sessionReviewCount !== 1 ? 'en' : ''}</span>
                   </div>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {sessionReviews.map(review => {
-                    const profile = normalizeProfile(review.profiles)
-                    return (
-                      <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {profile?.avatar_url ? (
-                              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              <span className="text-sm font-semibold text-gray-500">
-                                {(profile?.full_name ?? '?')[0].toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{profile?.full_name ?? 'Anonymer Nutzer'}</p>
-                            <p className="text-xs text-gray-400">
-                              {new Date(review.created_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}
-                            </p>
-                          </div>
-                          <div className="flex gap-0.5 flex-shrink-0">
-                            {[1, 2, 3, 4, 5].map(s => (
-                              <Star key={s} className={`h-3.5 w-3.5 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-100'}`} />
-                            ))}
-                          </div>
-                        </div>
-                        {review.content && (
-                          <p className="text-sm text-gray-600 leading-relaxed">&ldquo;{review.content}&rdquo;</p>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                )}
               </div>
-            )}
+
+              {sessionReviews.length === 0 ? (
+                <p className="text-sm text-gray-400">Noch keine Bewertungen – sei der Erste!</p>
+              ) : (
+                <>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {sessionReviews.slice(0, 6).map(review => {
+                      const profile = normalizeProfile(review.profiles)
+                      return (
+                        <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {profile?.avatar_url ? (
+                                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="text-sm font-semibold text-gray-500">
+                                  {(profile?.full_name ?? '?')[0].toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">
+                                {formatReviewerName(profile?.full_name)}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(review.created_at).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
+                              </p>
+                            </div>
+                            <div className="flex gap-0.5 flex-shrink-0">
+                              {[1, 2, 3, 4, 5].map(s => (
+                                <Star key={s} className={`h-3.5 w-3.5 ${s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-100'}`} />
+                              ))}
+                            </div>
+                          </div>
+                          {review.content && (
+                            <p className="text-sm text-gray-600 leading-relaxed">&ldquo;{review.content}&rdquo;</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {sessionReviewCount > 6 && (
+                    <p className="mt-4 text-sm text-green-600 font-medium cursor-pointer hover:underline">
+                      Alle {sessionReviewCount} Bewertungen anzeigen
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Right column: sticky booking widget (desktop only) */}
