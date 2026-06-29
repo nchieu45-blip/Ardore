@@ -376,17 +376,6 @@ export default async function CreatorProfilePage({
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
         <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
-        {/* Faded decorative name + categories — always visible, purely decorative */}
-        <div className="absolute inset-x-0 bottom-0 px-5 sm:px-8 pb-4 sm:pb-6 pointer-events-none select-none">
-          <h2 aria-hidden className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white/30 break-words leading-none tracking-tight">
-            {creator.display_name}
-          </h2>
-          {allCategories.length > 0 && (
-            <p aria-hidden className="text-xs sm:text-sm text-white/20 mt-1 sm:mt-2 font-semibold tracking-widest break-words">
-              {allCategories.slice(0, 4).map(cat => (CATEGORY_LABELS[cat] ?? cat).toUpperCase()).join(' · ')}
-            </p>
-          )}
-        </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-4">
