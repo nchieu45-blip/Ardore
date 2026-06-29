@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 
-export const FROM = 'Ardore <onboarding@resend.dev>'
+export const FROM = 'Ardore <noreply@ardore-health.com>'
 
 let _resend: Resend | null = null
 
