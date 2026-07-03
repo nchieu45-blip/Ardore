@@ -14,10 +14,11 @@ interface Props {
   creatorId: string
   creatorName: string
   creatorSlug: string
+  isDemo?: boolean
 }
 
 export default function BuyButtonLarge({
-  productId, price, title, type, thumbnailUrl, creatorId, creatorName, creatorSlug,
+  productId, price, title, type, thumbnailUrl, creatorId, creatorName, creatorSlug, isDemo = false,
 }: Props) {
   const [loading, setLoading] = useState(false)
 
@@ -44,21 +45,25 @@ export default function BuyButtonLarge({
 
   return (
     <div className="space-y-2">
-      <AddToCartButton item={item} size="lg" />
-      <button
-        onClick={handleDirectBuy}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors"
-      >
-        {loading ? (
-          <span className="h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-        ) : (
-          <>
-            <Zap className="h-3.5 w-3.5" />
-            Direkt kaufen
-          </>
-        )}
-      </button>
+      <AddToCartButton item={item} size="lg" isDemo={isDemo} />
+      {isDemo ? (
+        <p className="text-center text-xs text-gray-400">Demo-Profil – kein Kauf möglich</p>
+      ) : (
+        <button
+          onClick={handleDirectBuy}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+        >
+          {loading ? (
+            <span className="h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+          ) : (
+            <>
+              <Zap className="h-3.5 w-3.5" />
+              Direkt kaufen
+            </>
+          )}
+        </button>
+      )}
     </div>
   )
 }

@@ -25,11 +25,19 @@ export async function POST(req: NextRequest) {
 
   const { data: products } = await supabase
     .from('products')
-    .select('id, title, price, creator_id, creator:creator_profiles(stripe_account_id, stripe_account_active)')
+    .select('id, title, price, creator_id, creator:creator_profiles(stripe_account_id, stripe_account_active, is_demo)')
     .in('id', productIds)
 
   if (!products || products.length === 0) {
     return NextResponse.json({ error: 'Produkte nicht gefunden' }, { status: 404 })
+  }
+
+  const hasDemo = products.some(p => {
+    const cr = Array.isArray(p.creator) ? (p.creator as { is_demo: boolean | null }[])[0] : p.creator as { is_demo: boolean | null } | null
+    return cr?.is_demo === true
+  })
+  if (hasDemo) {
+    return NextResponse.json({ error: 'Demo-Produkte können nicht gekauft werden.' }, { status: 403 })
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
@@ -53,8 +61,8 @@ export async function POST(req: NextRequest) {
   type ProductRow = {
     id: string
     creator_id: string
-    creator: { stripe_account_id: string | null; stripe_account_active: boolean | null } | null
-      | { stripe_account_id: string | null; stripe_account_active: boolean | null }[]
+    creator: { stripe_account_id: string | null; stripe_account_active: boolean | null; is_demo: boolean | null } | null
+      | { stripe_account_id: string | null; stripe_account_active: boolean | null; is_demo: boolean | null }[]
   }
 
   const creatorIds = [...new Set((products as ProductRow[]).map(p => p.creator_id))]

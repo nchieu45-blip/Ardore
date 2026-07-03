@@ -816,6 +816,7 @@ export default async function CreatorProfilePage({
                                 creatorId={creator.id}
                                 creatorName={creator.display_name}
                                 creatorSlug={creator.slug}
+                                isDemo={creator.is_demo ?? false}
                               />
                             ) : (
                               <Link href="/login"><Button size="sm">Kaufen</Button></Link>

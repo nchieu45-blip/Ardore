@@ -10,9 +10,10 @@ interface Props {
   item: CartItem
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  isDemo?: boolean
 }
 
-export default function AddToCartButton({ item, size = 'md', className }: Props) {
+export default function AddToCartButton({ item, size = 'md', className, isDemo = false }: Props) {
   const [inCart, setInCart] = useState(false)
 
   useEffect(() => {
@@ -36,6 +37,23 @@ export default function AddToCartButton({ item, size = 'md', className }: Props)
     sm: 'px-3 py-1.5 text-xs gap-1.5',
     md: 'px-4 py-2 text-sm gap-2',
     lg: 'px-5 py-3 text-sm gap-2 w-full justify-center',
+  }
+
+  if (isDemo) {
+    return (
+      <button
+        disabled
+        className={cn(
+          'inline-flex items-center rounded-xl font-semibold cursor-not-allowed',
+          sizeClasses[size],
+          'bg-gray-100 text-gray-400 border border-gray-200',
+          className
+        )}
+      >
+        <ShoppingCart className="h-3.5 w-3.5 flex-shrink-0" />
+        Demo
+      </button>
+    )
   }
 
   return (

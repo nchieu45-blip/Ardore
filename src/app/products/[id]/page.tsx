@@ -85,7 +85,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const { data: product } = await supabase
     .from('products')
-    .select('*, creator_profiles(id, slug, display_name, avatar_url, bio, categories, category)')
+    .select('*, creator_profiles(id, slug, display_name, avatar_url, bio, categories, category, is_demo)')
     .eq('id', id)
     .eq('is_published', true)
     .single()
@@ -283,6 +283,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     creatorId={creator.id}
                     creatorName={creator.display_name}
                     creatorSlug={creator.slug}
+                    isDemo={creator.is_demo ?? false}
                   />
                 ) : (
                   <Link href="/login" className="block">
