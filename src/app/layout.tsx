@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://ardore.de'
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://www.ardore-health.com'
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),

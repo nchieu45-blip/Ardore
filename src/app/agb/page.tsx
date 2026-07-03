@@ -27,7 +27,7 @@ export default function AgbPage() {
           <p>
             Diese Allgemeinen Geschäftsbedingungen gelten für alle Verträge, die zwischen
             [Firmenname] (nachfolgend „Ardore") und den Nutzern (Käufer und Creator) über
-            die Plattform ardore.de geschlossen werden. Abweichende Bedingungen des Nutzers
+            die Plattform ardore-health.com geschlossen werden. Abweichende Bedingungen des Nutzers
             werden nicht anerkannt.
           </p>
         </section>
