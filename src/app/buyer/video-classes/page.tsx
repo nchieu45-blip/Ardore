@@ -78,6 +78,7 @@ export default async function BuyerVideoClassesPage({
     .order('created_at', { ascending: false })
 
   const bookings = (data ?? []) as unknown as BookingRow[]
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
 
   return (

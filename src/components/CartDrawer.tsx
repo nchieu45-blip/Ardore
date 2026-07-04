@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { X, Trash2, ShoppingCart, ArrowRight, Package, Tag, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
 import {
@@ -60,7 +61,7 @@ export default function CartDrawer() {
   }, [])
 
   useEffect(() => {
-    checkAutoDiscount(items)
+    checkAutoDiscount(items) // eslint-disable-line react-hooks/set-state-in-effect
     // reset code discount when cart changes
     setCodeDiscount(null)
     setVoucher('')
@@ -168,9 +169,9 @@ export default function CartDrawer() {
             <ul className="divide-y divide-gray-50 px-5 py-2">
               {items.map(item => (
                 <li key={item.id} className="py-4 flex items-start gap-3">
-                  <div className="h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 shadow-sm">
+                  <div className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 shadow-sm">
                     {item.thumbnail_url ? (
-                      <img src={item.thumbnail_url} alt={item.title} className="h-full w-full object-cover" />
+                      <Image src={item.thumbnail_url} alt={item.title} fill className="object-cover" />
                     ) : (
                       <div className="h-full w-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center">
                         <Package className="h-6 w-6 text-white/70" />

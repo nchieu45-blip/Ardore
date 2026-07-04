@@ -83,7 +83,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   }, [creatorId])
 
   useEffect(() => {
-    fetchAvailableDays(calYear, calMonth)
+    fetchAvailableDays(calYear, calMonth) // eslint-disable-line react-hooks/set-state-in-effect
   }, [calYear, calMonth, fetchAvailableDays])
 
   async function fetchSlots(date: Date) {

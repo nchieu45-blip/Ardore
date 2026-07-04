@@ -59,6 +59,34 @@ function Toggle({ on, busy, onToggle }: { on: boolean; busy: boolean; onToggle: 
   )
 }
 
+interface GroupProps {
+  title: string
+  items: PrefItem[]
+  prefs: NotifPrefs
+  saving: keyof NotifPrefs | null
+  toggle: (key: keyof NotifPrefs) => void
+}
+
+function Group({ title, items, prefs, saving, toggle }: GroupProps) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{title}</p>
+      <div className="divide-y divide-gray-50">
+        {items.map(item => (
+          <div key={item.key} className="flex items-center justify-between py-2.5">
+            <span className="text-sm text-gray-700">{item.label}</span>
+            <Toggle
+              on={prefs[item.key]}
+              busy={saving === item.key}
+              onToggle={() => toggle(item.key)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function NotificationPreferencesSection({
   initialPrefs,
   isCreator = false,
@@ -93,26 +121,6 @@ export default function NotificationPreferencesSection({
     }
   }
 
-  function Group({ title, items }: { title: string; items: PrefItem[] }) {
-    return (
-      <div>
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{title}</p>
-        <div className="divide-y divide-gray-50">
-          {items.map(item => (
-            <div key={item.key} className="flex items-center justify-between py-2.5">
-              <span className="text-sm text-gray-700">{item.label}</span>
-              <Toggle
-                on={prefs[item.key]}
-                busy={saving === item.key}
-                onToggle={() => toggle(item.key)}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="rounded-2xl border border-gray-100 bg-white shadow-sm px-5 py-4">
       <div className="flex items-center gap-2 mb-4">
@@ -120,8 +128,8 @@ export default function NotificationPreferencesSection({
         <h2 className="font-semibold text-gray-900 text-sm">Benachrichtigungen</h2>
       </div>
       <div className="space-y-5">
-        <Group title="E-Mail" items={emailPrefs} />
-        <Group title="In-App" items={inappPrefs} />
+        <Group title="E-Mail" items={emailPrefs} prefs={prefs} saving={saving} toggle={toggle} />
+        <Group title="In-App" items={inappPrefs} prefs={prefs} saving={saving} toggle={toggle} />
       </div>
       {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
     </div>

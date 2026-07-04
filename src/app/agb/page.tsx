@@ -26,7 +26,7 @@ export default function AgbPage() {
           <h2>§ 1 Geltungsbereich</h2>
           <p>
             Diese Allgemeinen Geschäftsbedingungen gelten für alle Verträge, die zwischen
-            [Firmenname] (nachfolgend „Ardore") und den Nutzern (Käufer und Creator) über
+            [Firmenname] (nachfolgend {'„Ardore“'}) und den Nutzern (Käufer und Creator) über
             die Plattform ardore-health.com geschlossen werden. Abweichende Bedingungen des Nutzers
             werden nicht anerkannt.
           </p>
@@ -80,7 +80,7 @@ export default function AgbPage() {
         <section>
           <h2>§ 6 Vertragsschluss und Bestellung</h2>
           <p>
-            Mit dem Klick auf „Jetzt kaufen" bzw. „Abonnieren" gibt der Käufer ein
+            Mit dem Klick auf {'„Jetzt kaufen"'} bzw. {'„Abonnieren"'} gibt der Käufer ein
             verbindliches Kaufangebot ab. Der Vertrag kommt mit der Kaufbestätigung per
             E-Mail oder der Freischaltung des Inhalts zustande.
           </p>

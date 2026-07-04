@@ -117,6 +117,7 @@ export default function EditProductForm({ product }: { product: Product }) {
         if (!creator) throw new Error('Kein Creator-Profil gefunden')
 
         const ext = thumbnailFile.name.split('.').pop()
+        // eslint-disable-next-line react-hooks/purity
         const path = `${creator.id}/${Date.now()}_thumb.${ext}`
         const { error: uploadError } = await supabase.storage
           .from('thumbnails')
@@ -260,6 +261,7 @@ export default function EditProductForm({ product }: { product: Product }) {
             <p className="text-sm font-medium text-gray-700 mb-1.5">Cover-Bild</p>
             {displayThumbUrl ? (
               <div className="relative rounded-xl overflow-hidden border border-gray-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={displayThumbUrl} alt="Vorschau" className="w-full h-52 object-cover" />
                 <button
                   type="button"

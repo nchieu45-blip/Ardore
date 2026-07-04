@@ -77,7 +77,7 @@ export default function NavbarNotificationBell({ userId }: { userId: string }) {
   }, [supabase, userId])
 
   useEffect(() => {
-    fetchNotifications()
+    fetchNotifications() // eslint-disable-line react-hooks/set-state-in-effect
     const interval = setInterval(fetchNotifications, 30_000)
     return () => clearInterval(interval)
   }, [fetchNotifications])

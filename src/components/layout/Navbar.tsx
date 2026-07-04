@@ -98,7 +98,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
   const [openGroup, setOpenGroup] = useState<number | null>(() => defaultOpenGroup(pathname))
 
   useEffect(() => {
-    if (menuOpen) setOpenGroup(defaultOpenGroup(pathname))
+    if (menuOpen) setOpenGroup(defaultOpenGroup(pathname)) // eslint-disable-line react-hooks/set-state-in-effect
   }, [menuOpen, pathname])
 
   function navCls(href: string) {

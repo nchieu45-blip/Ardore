@@ -58,6 +58,7 @@ export default async function CreatorSessionsPage() {
 
   const rows = (bookingsRes.data ?? []) as BookingRow[]
   const policyHours = (offerRes.data as { cancellation_policy_hours?: number } | null)?.cancellation_policy_hours ?? 24
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
 
   const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
@@ -166,7 +167,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booki
             </span>
           </div>
           {b.notes && (
-            <p className="text-xs text-gray-400 mt-2 italic line-clamp-2">„{b.notes}"</p>
+            <p className="text-xs text-gray-400 mt-2 italic line-clamp-2">{'„'}{b.notes}{'"'}</p>
           )}
           {isAboSession ? (
             <span className="inline-flex items-center gap-1 mt-1 bg-purple-50 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">

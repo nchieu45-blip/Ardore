@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { FileText, Play, GraduationCap, Image as ImageIcon } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
@@ -104,10 +105,11 @@ export function ProductCard({
           hasThumb ? 'bg-gray-100' : `bg-gradient-to-br ${gradient}`,
         ].join(' ')}>
           {hasThumb ? (
-            <img
+            <Image
               src={product.thumbnail_url!}
               alt={product.title}
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
             <>

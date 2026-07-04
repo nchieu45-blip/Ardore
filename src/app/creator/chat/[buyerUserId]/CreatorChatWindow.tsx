@@ -28,7 +28,6 @@ interface Props {
 
 export default function CreatorChatWindow({
   creatorId,
-  creatorUserId,
   buyer,
   currentUserId,
   currentUserName,

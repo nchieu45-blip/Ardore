@@ -63,7 +63,7 @@ export function FavoritesProvider({
 
       setFavorites(prev => {
         const next = new Set(prev)
-        wasFav ? next.delete(key) : next.add(key)
+        if (wasFav) { next.delete(key) } else { next.add(key) }
         return next
       })
 
@@ -83,7 +83,7 @@ export function FavoritesProvider({
       } catch {
         setFavorites(prev => {
           const next = new Set(prev)
-          wasFav ? next.add(key) : next.delete(key)
+          if (wasFav) { next.add(key) } else { next.delete(key) }
           return next
         })
       }

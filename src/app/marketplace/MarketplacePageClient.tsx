@@ -65,7 +65,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   function toggleGroup(label: string) {
     setOpenGroups(prev => {
       const next = new Set(prev)
-      next.has(label) ? next.delete(label) : next.add(label)
+      if (next.has(label)) { next.delete(label) } else { next.add(label) }
       return next
     })
   }
@@ -441,7 +441,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
           <p className="text-sm text-gray-500">
             <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
             {filtered.length === 1 ? 'Produkt' : 'Produkte'} gefunden
-            {search && <span className="text-gray-400"> für „{search}"</span>}
+            {search && <span className="text-gray-400"> für {'„'}{search}{'"'}</span>}
           </p>
           {activeFilterCount > 0 && (
             <span className="inline-flex items-center gap-1.5 text-xs bg-green-50 text-green-700 px-2.5 py-1 rounded-full border border-green-100 font-medium">

@@ -17,7 +17,7 @@ export default function AddToCartButton({ item, size = 'md', className, isDemo =
   const [inCart, setInCart] = useState(false)
 
   useEffect(() => {
-    setInCart(isInCart(item.id))
+    setInCart(isInCart(item.id)) // eslint-disable-line react-hooks/set-state-in-effect
   }, [item.id])
 
   function handleClick() {

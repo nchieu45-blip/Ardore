@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Video, Clock, Calendar, ArrowLeft, User } from 'lucide-react'
 import Link from 'next/link'
@@ -54,6 +54,7 @@ export default async function SessionPage({
 
   const scheduledAt = new Date(b.scheduled_at)
   const endAt       = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
+  // eslint-disable-next-line react-hooks/purity
   const now         = Date.now()
   const msUntil     = scheduledAt.getTime() - now
   const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
@@ -95,7 +96,7 @@ export default async function SessionPage({
               </span>
             </div>
             {b.notes && isCreator && (
-              <p className="text-sm text-gray-500 mt-3 italic">„{b.notes}"</p>
+              <p className="text-sm text-gray-500 mt-3 italic">{'„'}{b.notes}{'"'}</p>
             )}
           </div>
           <div className="text-right">

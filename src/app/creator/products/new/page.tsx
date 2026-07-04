@@ -273,6 +273,7 @@ export default function NewProductPage() {
             </p>
             {thumbnailPreview ? (
               <div className="relative rounded-xl overflow-hidden border border-gray-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={thumbnailPreview} alt="Vorschau" className="w-full h-52 object-cover" />
                 <button
                   type="button"

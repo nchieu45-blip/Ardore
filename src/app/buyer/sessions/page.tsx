@@ -62,10 +62,13 @@ export default async function BuyerSessionsPage({
 
   const rows = (bookingsRes.data ?? []) as unknown as BookingRow[]
 
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now()
+
   // Fetch cancellation policies for creators of upcoming confirmed sessions
   const upcomingCreatorIds = [...new Set(
     rows
-      .filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > Date.now())
+      .filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
       .map(b => b.creator_id)
   )]
   const policyMap = new Map<string, number>()
@@ -82,8 +85,6 @@ export default async function BuyerSessionsPage({
   for (const r of (reviewsRes.data ?? []) as { booking_id: string; rating: number; content: string | null }[]) {
     reviewMap.set(r.booking_id, { rating: r.rating, content: r.content })
   }
-
-  const now = Date.now()
 
   const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
   const past     = rows.filter(b => b.status !== 'confirmed' || new Date(b.scheduled_at).getTime() <= now)

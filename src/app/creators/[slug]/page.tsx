@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StarRating } from '@/components/ui/StarRating'
@@ -9,11 +8,12 @@ import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star,
-  ChevronRight, GraduationCap, Users, Clock, CalendarDays,
+  GraduationCap, Users, Clock, CalendarDays,
 } from 'lucide-react'
 import type { VideoClass } from '@/types'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import SubscribeButton from './SubscribeButton'
 import BuyButton from './BuyButton'
@@ -371,7 +371,7 @@ export default async function CreatorProfilePage({
       {/* Full-width banner */}
       <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-44 md:h-56 lg:h-64 overflow-hidden animate-fade-in`}>
         {creator.banner_url && (
-          <img src={creator.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <Image src={creator.banner_url} alt="" fill className="object-cover" />
         )}
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
@@ -772,7 +772,7 @@ export default async function CreatorProfilePage({
                         <CardContent className="flex items-start gap-4 p-5 flex-1">
                           <Link href={`/products/${product.id}`} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
                             {product.thumbnail_url ? (
-                              <img src={product.thumbnail_url} alt={product.title} className="absolute inset-0 w-full h-full object-cover" />
+                              <Image src={product.thumbnail_url} alt={product.title} fill className="object-cover" />
                             ) : (
                               <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
                                 {TYPE_ICONS[product.type]}
@@ -860,9 +860,9 @@ export default async function CreatorProfilePage({
                       return (
                         <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
                           <div className="flex items-start gap-3 mb-3">
-                            <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            <div className="relative h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                               {profile?.avatar_url ? (
-                                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                                <Image src={profile.avatar_url} alt="" fill className="object-cover" />
                               ) : (
                                 <span className="text-sm font-semibold text-gray-500">
                                   {(profile?.full_name ?? '?')[0].toUpperCase()}

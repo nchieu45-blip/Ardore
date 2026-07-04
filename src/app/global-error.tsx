@@ -25,6 +25,7 @@ export default function GlobalError({
           >
             Erneut versuchen
           </button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/" className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
             Startseite
           </a>

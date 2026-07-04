@@ -277,7 +277,6 @@ export default function CreatorOnboardingPage() {
   }
 
   const totalSteps = STEPS.length   // 4
-  const remainingSteps = totalSteps + 1 - step  // steps left including current
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-50 px-4 py-10">

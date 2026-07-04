@@ -22,7 +22,7 @@ function toYMD(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export default function RescheduleModal({ bookingId, creatorId, coachName, onClose, onSuccess }: Props) {
+export default function RescheduleModal({ bookingId, creatorId, onClose, onSuccess }: Props) {
   const today = new Date()
   const [year,      setYear]      = useState(today.getFullYear())
   const [month,     setMonth]     = useState(today.getMonth())
@@ -35,6 +35,7 @@ export default function RescheduleModal({ bookingId, creatorId, coachName, onClo
   const [submitting,   setSubmitting]   = useState(false)
   const [error,        setError]        = useState<string | null>(null)
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setDaysLoading(true)
     setAvailDays([])
@@ -59,6 +60,7 @@ export default function RescheduleModal({ bookingId, creatorId, coachName, onClo
       .catch(() => {})
       .finally(() => setSlotsLoading(false))
   }, [creatorId, selectedDate])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleSubmit() {
     if (!selectedDate || !selectedSlot) return

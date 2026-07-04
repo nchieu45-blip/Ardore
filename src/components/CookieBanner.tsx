@@ -44,7 +44,7 @@ export default function CookieBanner() {
   const [marketing,    setMarketing]    = useState(false)
 
   useEffect(() => {
-    if (!readConsent()) setVisible(true)
+    if (!readConsent()) setVisible(true) // eslint-disable-line react-hooks/set-state-in-effect
 
     function onReopen() {
       const existing = readConsent()

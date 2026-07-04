@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import Image from 'next/image'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -158,10 +159,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           {/* Hero image */}
           <div className="relative rounded-3xl overflow-hidden aspect-video bg-gray-100 shadow-sm animate-fade-in">
             {product.thumbnail_url ? (
-              <img
+              <Image
                 src={product.thumbnail_url}
                 alt={product.title}
-                className="absolute inset-0 w-full h-full object-cover"
+                fill
+                className="object-cover"
               />
             ) : (
               <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[type]} flex items-center justify-center`}>
@@ -354,7 +356,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 <Card className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full">
                   <div className="relative h-32 overflow-hidden bg-gray-100">
                     {p.thumbnail_url ? (
-                      <img src={p.thumbnail_url} alt={p.title} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <Image src={p.thumbnail_url} alt={p.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[p.type]} flex items-center justify-center opacity-80`}>
                         {TYPE_ICONS[p.type]}

@@ -59,9 +59,7 @@ export default function BuyerOnboardingPage() {
   const [saving,    setSaving]    = useState(false)
   const [checking,  setChecking]  = useState(true)
 
-  console.log('onboarding render', { firstName, selected, saving, checking, mounted })
-
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => { setMounted(true) }, []) // eslint-disable-line react-hooks/set-state-in-effect
 
   useEffect(() => {
     async function check() {

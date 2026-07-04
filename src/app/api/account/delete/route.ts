@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   // Verify the caller is authenticated
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // ── 1. Collect data needed for notifications ────────────────────────────
-    const [profileRes, creatorRes] = await Promise.all([
+    const [, creatorRes] = await Promise.all([
       service.from('profiles').select('full_name').eq('id', user.id).single(),
       service.from('creator_profiles').select('id, display_name').eq('user_id', user.id).maybeSingle(),
     ])

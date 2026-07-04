@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarClock, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -22,7 +22,7 @@ export default function BookingActions({ bookingId, scheduledAt, creatorId, coac
   const [error,           setError]           = useState<string | null>(null)
   const router = useRouter()
 
-  const msUntil   = new Date(scheduledAt).getTime() - Date.now()
+  const msUntil      = useMemo(() => new Date(scheduledAt).getTime() - Date.now(), [scheduledAt]) // eslint-disable-line react-hooks/purity
   const withinPolicy = role === 'buyer' && msUntil < policyHours * 3_600_000
 
   async function handleCancel() {

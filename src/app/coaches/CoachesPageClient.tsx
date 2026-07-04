@@ -177,7 +177,7 @@ export default function CoachesPageClient({ coaches }: Props) {
   function toggleGroup(label: string) {
     setOpenGroups(prev => {
       const next = new Set(prev)
-      next.has(label) ? next.delete(label) : next.add(label)
+      if (next.has(label)) { next.delete(label) } else { next.add(label) }
       return next
     })
   }
@@ -395,7 +395,7 @@ export default function CoachesPageClient({ coaches }: Props) {
         <p className="text-sm text-gray-500 mb-6">
           <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
           {filtered.length === 1 ? 'Coach' : 'Coaches'} gefunden
-          {search && <span className="text-gray-400"> für „{search}"</span>}
+          {search && <span className="text-gray-400"> für {'„'}{search}{'"'}</span>}
         </p>
 
         {filtered.length === 0 ? (

@@ -148,7 +148,7 @@ export default function FaqContent() {
       {/* No results */}
       {query && totalVisible === 0 && (
         <div className="text-center py-12 text-gray-400 text-sm">
-          Keine Ergebnisse für „{query}". Versuche einen anderen Suchbegriff.
+          Keine Ergebnisse für {'„'}{query}{'"'}. Versuche einen anderen Suchbegriff.
         </div>
       )}
 

@@ -63,7 +63,7 @@ function RegisterContent() {
       // after an await (while Supabase fires SIGNED_IN events) breaks the client router.
       if (signUpData.session) {
         await supabase.auth.getSession()
-        window.location.href = role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding'
+        window.location.assign(role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding')
         return
       }
       // Email confirmation required — user exists but no session yet.

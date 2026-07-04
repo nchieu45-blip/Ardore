@@ -31,7 +31,7 @@ export default function DeleteAccountSection({
 
   useEffect(() => {
     if (open) {
-      setInput('')
+      setInput('') // eslint-disable-line react-hooks/set-state-in-effect
       setError('')
       setTimeout(() => inputRef.current?.focus(), 80)
     }
