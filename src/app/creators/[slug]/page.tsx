@@ -671,7 +671,7 @@ export default async function CreatorProfilePage({
                         ) : user ? (
                           <SubscribeButton tierId={tier.id} creatorId={creator.id} priceMonthly={tier.price_monthly} autoDiscount={tierAutoDiscount} />
                         ) : (
-                          <Link href="/login" className="block">
+                          <Link href={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`} className="block">
                             <Button size="sm" className="w-full gap-1.5">
                               <Lock className="h-3.5 w-3.5" />
                               Anmelden zum Abonnieren
@@ -750,6 +750,7 @@ export default async function CreatorProfilePage({
                           isFull={isFull}
                           userIsRegistered={userIsRegistered}
                           isLoggedIn={!!user}
+                          loginHref={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`}
                         />
                       </div>
                     </div>
@@ -806,7 +807,7 @@ export default async function CreatorProfilePage({
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
                                 <Check className="h-3 w-3" /> Gekauft
                               </span>
-                            ) : user ? (
+                            ) : (
                               <BuyButton
                                 productId={product.id}
                                 price={product.price}
@@ -818,8 +819,6 @@ export default async function CreatorProfilePage({
                                 creatorSlug={creator.slug}
                                 isDemo={creator.is_demo ?? false}
                               />
-                            ) : (
-                              <Link href="/login"><Button size="sm">Kaufen</Button></Link>
                             )}
                           </div>
                         </CardContent>

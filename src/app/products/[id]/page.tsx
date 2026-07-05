@@ -275,7 +275,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     <Check className="h-4 w-4" />
                     Bereits gekauft
                   </div>
-                ) : user ? (
+                ) : (
                   <BuyButtonLarge
                     productId={id}
                     price={product.price}
@@ -287,10 +287,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     creatorSlug={creator.slug}
                     isDemo={creator.is_demo ?? false}
                   />
-                ) : (
-                  <Link href="/login" className="block">
-                    <Button size="lg" className="w-full">Anmelden &amp; kaufen</Button>
-                  </Link>
                 )}
 
                 {/* Trust badges */}

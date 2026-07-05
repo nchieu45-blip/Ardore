@@ -12,6 +12,7 @@ interface Props {
   isFull: boolean
   userIsRegistered: boolean
   isLoggedIn: boolean
+  loginHref?: string
 }
 
 export default function VideoClassBookButton({
@@ -20,6 +21,7 @@ export default function VideoClassBookButton({
   isFull,
   userIsRegistered,
   isLoggedIn,
+  loginHref = '/login',
 }: Props) {
   const router = useRouter()
   const [loading,  setLoading]  = useState(false)
@@ -46,7 +48,7 @@ export default function VideoClassBookButton({
   if (!isLoggedIn) {
     return (
       <a
-        href="/login"
+        href={loginHref}
         className="flex items-center justify-center gap-1.5 w-full py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors"
       >
         <Lock className="h-3.5 w-3.5" />

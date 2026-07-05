@@ -36,8 +36,12 @@ export default function BuyButtonLarge({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: [{ productId }] }),
       })
+      if (res.status === 401) {
+        window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname))
+        return
+      }
       const { url } = await res.json()
-      if (url) window.location.href = url
+      if (url) window.location.assign(url)
     } finally {
       setLoading(false)
     }

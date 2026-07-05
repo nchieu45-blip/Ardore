@@ -116,7 +116,7 @@ export default function CartDrawer() {
         }),
       })
       const data = await res.json()
-      if (res.status === 401) { setOpen(false); router.push('/login'); return }
+      if (res.status === 401) { setOpen(false); router.push('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
       if (data.url) window.location.href = data.url
     } finally {
       setLoading(false)

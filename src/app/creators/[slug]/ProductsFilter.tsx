@@ -4,9 +4,7 @@ import { useState } from 'react'
 import { FileText, Video, BookOpen, Image as ImageIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
-import Link from 'next/link'
 import BuyButton from './BuyButton'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -22,7 +20,7 @@ interface Product {
 interface Props {
   products: Product[]
   purchasedIds: string[]
-  isLoggedIn: boolean
+  isDemo?: boolean
   creatorId: string
   creatorName: string
   creatorSlug: string
@@ -52,7 +50,7 @@ const TYPE_LABELS: Record<ProductType, string> = {
   image: 'Bild',
 }
 
-export default function ProductsFilter({ products, purchasedIds, isLoggedIn, creatorId, creatorName, creatorSlug }: Props) {
+export default function ProductsFilter({ products, purchasedIds, isDemo = false, creatorId, creatorName, creatorSlug }: Props) {
   const [active, setActive] = useState<Filter>('all')
 
   const purchasedSet = new Set(purchasedIds)
@@ -108,12 +106,8 @@ export default function ProductsFilter({ products, purchasedIds, isLoggedIn, cre
                     <span className="font-semibold text-gray-900">{formatCurrency(product.price)}</span>
                     {owned ? (
                       <Badge variant="success">Gekauft</Badge>
-                    ) : isLoggedIn ? (
-                      <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} />
                     ) : (
-                      <Link href="/login">
-                        <Button size="sm">Kaufen</Button>
-                      </Link>
+                      <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} isDemo={isDemo} />
                     )}
                   </div>
                 </CardContent>

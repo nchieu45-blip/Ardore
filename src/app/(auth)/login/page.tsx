@@ -18,10 +18,15 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+function safeRedirect(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || /^\/[a-z][a-z\d+\-.]*:/i.test(raw)) return '/'
+  return raw
+}
+
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') ?? '/'
+  const redirect = safeRedirect(searchParams.get('redirect'))
   const supabase = createClient()
   const [error, setError] = useState('')
 
