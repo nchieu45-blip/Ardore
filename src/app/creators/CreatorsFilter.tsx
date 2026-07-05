@@ -141,7 +141,7 @@ export default function CreatorsFilter({ creators, categories }: Props) {
                     <div className="absolute -top-4 -left-4 h-16 w-16 rounded-full bg-white/10" />
                   </div>
                   <div className="p-5">
-                    <div className="-mt-11 mb-3">
+                    <div className="-mt-11 mb-3 relative z-10">
                       <Avatar src={creator.avatar_url} name={creator.display_name} size="lg" className="ring-4 ring-white shadow-md" />
                     </div>
                     <div className="mb-2">

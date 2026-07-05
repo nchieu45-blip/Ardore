@@ -15,8 +15,7 @@ export function Footer() {
               Ardore
             </Link>
             <p className="text-sm leading-relaxed max-w-sm">
-              Die Plattform für Fitness-, Ernährungs- und Gesundheitscoaches in Deutschland.
-              Teile dein Wissen und baue deine Community auf.
+              Der Marktplatz für Health-Coaching in Deutschland — finde qualifizierte Coaches für Fitness, Ernährung und Mental Health oder verkaufe dein eigenes Coaching.
             </p>
           </div>
           <div>
@@ -41,7 +40,7 @@ export function Footer() {
         </div>
         <div className="border-t border-gray-800 mt-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <span>© {new Date().getFullYear()} Ardore. Alle Rechte vorbehalten.</span>
-          <span className="text-gray-600">Made with ♥ for Fitness-Community in Deutschland</span>
+          <span className="text-gray-600">Made with ♥ in Deutschland</span>
         </div>
       </div>
     </footer>

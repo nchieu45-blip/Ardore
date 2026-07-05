@@ -380,7 +380,7 @@ export default async function CreatorProfilePage({
 
       <div className="max-w-5xl mx-auto px-4">
         {/* Avatar + action buttons — overlaps banner */}
-        <div className="-mt-16 mb-4 flex items-end justify-between gap-4 flex-wrap animate-fade-in">
+        <div className="-mt-16 mb-4 flex items-end justify-between gap-4 flex-wrap animate-fade-in relative z-10">
           <Avatar
             src={creator.avatar_url}
             name={creator.display_name}

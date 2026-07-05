@@ -8,6 +8,7 @@ import {
   Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft, Video,
 } from 'lucide-react'
 import MarketplaceRows, { type CoachingCoach, type SubscriptionCoach } from './MarketplaceRows'
+import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 import { ProductCard } from '@/components/ui/ProductCard'
@@ -579,6 +580,28 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                 <p className="text-sm text-green-100/70 leading-relaxed">{s.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ───────────────────────────────────────────────── */}
+      <section className="bg-white py-16 px-4">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Bereit loszulegen?</h2>
+          <p className="text-gray-500 text-sm mb-8 max-w-xl mx-auto">
+            Entdecke Kurse, Trainingspläne und persönliches Coaching — oder starte selbst als Coach auf Ardore.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/marketplace">
+              <Button className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto gap-2">
+                Marktplatz entdecken <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/landing">
+              <Button variant="outline" className="w-full sm:w-auto">
+                Als Coach starten
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
