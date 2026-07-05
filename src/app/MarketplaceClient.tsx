@@ -464,7 +464,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Du bist Coach?</h2>
-            <p className="text-gray-500 text-sm">Ardore ist dein Verkaufskanal — ohne eigene Website.</p>
+            <p className="text-gray-500 text-sm">Bau dein Coaching-Business auf — ohne eigene Website.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl border border-green-100 p-7 flex flex-col">

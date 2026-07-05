@@ -369,7 +369,7 @@ export default function LandingPage() {
         <div className="relative max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Bereit, loszulegen?</h2>
           <p className="text-green-100/80 mb-10 text-lg max-w-xl mx-auto leading-relaxed">
-            Erstelle dein Coach-Profil in 10 Minuten und starte deinen zweiten Verkaufskanal noch heute.
+            Erstelle dein Coach-Profil in 10 Minuten und starte dein Coaching-Business noch heute.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
             <Link href="/register?role=creator">
