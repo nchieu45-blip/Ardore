@@ -10,7 +10,7 @@ interface AuthShellProps {
 }
 
 const FEATURES = [
-  { icon: <Sparkles    className="h-4 w-4" />, text: 'Hunderte Premium-Inhalte von geprüften Coaches' },
+  { icon: <Sparkles    className="h-4 w-4" />, text: 'Hunderte Premium-Inhalte von qualifizierten Coaches' },
   { icon: <MessageCircle className="h-4 w-4" />, text: 'Direkt mit deinem Coach chatten' },
   { icon: <ShieldCheck className="h-4 w-4" />, text: 'Sicher, verschlüsselt und DSGVO-konform' },
 ]

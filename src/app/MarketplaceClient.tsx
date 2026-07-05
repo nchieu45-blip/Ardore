@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Search, ChevronDown,
-  TrendingUp, Sparkles, ShieldCheck, Check, SlidersHorizontal,
+  Sparkles, ShieldCheck, Check, SlidersHorizontal,
   Star, BarChart2, CreditCard, ShoppingBag,
   Share2, Rocket, CheckCircle2, ArrowRight, ChevronLeft, Video,
 } from 'lucide-react'
@@ -77,12 +77,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'price_desc',   label: 'Preis ↓' },
 ]
 
-const TRUST_BADGES = [
-  { icon: <ShieldCheck className="h-4 w-4 text-green-600" />, label: 'Geprüfte Coaches' },
-  { icon: <Sparkles    className="h-4 w-4 text-green-600" />, label: 'Premium Inhalte' },
-  { icon: <TrendingUp  className="h-4 w-4 text-green-600" />, label: 'Top Bestseller' },
-]
-
 const TRUST_ITEMS = [
   {
     icon: <ShieldCheck className="h-5 w-5 text-green-600" />,
@@ -102,7 +96,7 @@ const TRUST_ITEMS = [
   {
     icon: <CreditCard className="h-5 w-5 text-green-600" />,
     title: 'Sichere Zahlungen via Stripe',
-    desc: 'Geld-zurück-Garantie bei jedem Kauf.',
+    desc: 'Verschlüsselte Bezahlung über Stripe — deine Daten bleiben geschützt.',
   },
 ]
 
@@ -191,16 +185,16 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
           {/* Label */}
           <div className="animate-slide-up inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-6">
             <Sparkles className="h-3.5 w-3.5" />
-            Gesundheit &amp; Fitness Marketplace
+            Der Marktplatz für Health-Coaching
           </div>
 
           <h1 className="animate-slide-up animate-delay-100 text-4xl md:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
-            Entdecke Premium-Inhalte<br className="hidden md:block" />
-            <span className="text-green-300"> von echten Experten</span>
+            Finde den Coach,<br className="hidden md:block" />
+            <span className="text-green-300"> der zu dir passt</span>
           </h1>
 
           <p className="animate-slide-up animate-delay-200 text-green-100/80 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-            Kurse, Guides und Videos von geprüften Gesundheits- und Fitnesscoaches
+            Kurse, Trainingspläne und 1:1-Coaching von qualifizierten Gesundheits- und Fitnesscoaches
           </p>
 
           {/* Search */}
@@ -219,15 +213,6 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
             <CoachFinderWidget />
           </div>
 
-          {/* Trust badges */}
-          <div className="animate-slide-up animate-delay-500 flex flex-wrap items-center justify-center gap-4">
-            {TRUST_BADGES.map(b => (
-              <div key={b.label} className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/10 text-white/80 text-xs px-3 py-1.5 rounded-full">
-                {b.icon}
-                {b.label}
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 

@@ -100,7 +100,7 @@ export default async function BuyerVideoClassesPage({
         <div className="text-center py-20 rounded-2xl border-2 border-dashed border-gray-200">
           <Users className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700 mb-1">Noch keine Gruppen-Kurse gebucht</p>
-          <p className="text-sm text-gray-400 mb-5">Entdecke Live-Sessions von geprüften Coaches.</p>
+          <p className="text-sm text-gray-400 mb-5">Entdecke Live-Sessions von qualifizierten Coaches.</p>
           <Link href="/coaches" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors">
             Coaches entdecken →
           </Link>

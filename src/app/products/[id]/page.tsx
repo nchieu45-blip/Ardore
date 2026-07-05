@@ -10,7 +10,7 @@ import { formatCurrency } from '@/lib/utils'
 import {
   FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Star, Users, ArrowRight, ChevronRight,
-  Shield, RefreshCw, MessageCircle,
+  Shield, Lock, MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -138,7 +138,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const trust = [
     { icon: Shield,     label: 'Sichere Zahlung', sub: 'SSL-verschlüsselt' },
-    { icon: RefreshCw,  label: '14-Tage Garantie', sub: 'Geld-zurück' },
+    { icon: Lock,       label: 'Sichere Zahlung',  sub: 'via Stripe' },
     { icon: Users,      label: 'Direkt-Download', sub: 'Sofort verfügbar' },
   ]
 
