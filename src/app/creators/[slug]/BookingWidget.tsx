@@ -170,6 +170,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
           discountId:     !useSubscription && discount ? discount.id : undefined,
         }),
       })
+      if (res.status === 401) { window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
       const json = await res.json() as { bookingId?: string; error?: string }
       if (!res.ok) throw new Error(json.error ?? 'Buchungsfehler')
       setBookingId(json.bookingId ?? null)
