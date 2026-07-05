@@ -248,13 +248,13 @@ export default function CoachesPageClient({ coaches }: Props) {
         <div className="relative max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-5">
             <Users className="h-3.5 w-3.5" />
-            {coaches.length} geprüfte Coaches
+            {coaches.length} qualifizierte Coaches
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight">
             Finde deinen Coach
           </h1>
           <p className="text-green-100/70 text-base mb-8 max-w-md mx-auto">
-            Geprüfte Experten für Fitness, Ernährung, Mental Health und mehr
+            Qualifizierte Experten für Fitness, Ernährung, Mental Health und mehr
           </p>
           <div className="relative max-w-xl mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
