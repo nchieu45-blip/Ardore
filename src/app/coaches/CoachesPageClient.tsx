@@ -71,7 +71,7 @@ function CoachCard({ coach }: { coach: CoachData }) {
 
         <div className="px-5 pb-5 flex flex-col flex-1">
           {/* Avatar overlapping banner */}
-          <div className="-mt-7 mb-3">
+          <div className="-mt-7 mb-3 relative z-10">
             <Avatar
               src={coach.avatar_url}
               name={coach.display_name}

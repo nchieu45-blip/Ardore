@@ -37,7 +37,7 @@ export function CoachCardSkeleton() {
     <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
       <Skeleton className="h-20 rounded-none" />
       <div className="px-5 pb-5">
-        <div className="-mt-7 mb-3">
+        <div className="-mt-7 mb-3 relative z-10">
           <Skeleton className="h-14 w-14 rounded-full" />
         </div>
         <Skeleton className="h-5 w-2/3 mb-2" />

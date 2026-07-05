@@ -32,12 +32,12 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight tracking-tight">
-            Dein zusätzlicher<br className="hidden md:block" /> Verkaufskanal —
+            Bau dein Coaching-Business auf —<br className="hidden md:block" />
             <span className="text-green-300"> ohne eigene Website</span>
           </h1>
 
           <p className="text-green-100/80 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Egal ob du schon auf anderen Plattformen oder sozialen Medien aktiv bist — Ardore ist dein zentraler Marktplatz für Health Coaches in Deutschland.
+            Shop, Buchungssystem, Bezahlung und Kundenverwaltung — Ardore übernimmt die Technik, du konzentrierst dich aufs Coaching.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
@@ -47,7 +47,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="/">
-              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="border-white/30 text-white bg-transparent hover:bg-white/10 w-full sm:w-auto">
                 Marktplatz ansehen
               </Button>
             </Link>
