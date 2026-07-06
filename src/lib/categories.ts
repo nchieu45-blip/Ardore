@@ -47,6 +47,13 @@ export const CATEGORY_GROUPS: { label: string; items: { key: string; label: stri
 
 export const ALL_CATEGORIES = CATEGORY_GROUPS.flatMap(g => g.items)
 
-export const CATEGORY_LABEL_MAP: Record<string, string> = Object.fromEntries(
-  ALL_CATEGORIES.map(c => [c.key, c.label])
-)
+export const CATEGORY_LABEL_MAP: Record<string, string> = {
+  ...Object.fromEntries(ALL_CATEGORIES.map(c => [c.key, c.label])),
+  // Legacy slugs used by coaches onboarded before the category rename
+  fitness:          'Fitness',
+  ernaehrung:       'Ernährung',
+  schlaf:           'Schlaf',
+  stressmanagement: 'Stressmanagement',
+  rueckenschmerzen: 'Rückenschmerzen',
+  mobility:         'Mobility & Dehnen',
+}

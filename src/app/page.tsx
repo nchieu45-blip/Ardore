@@ -5,7 +5,7 @@ import type { CoachingCoach, SubscriptionCoach } from './MarketplaceRows'
 
 export const metadata: Metadata = {
   title: 'Ardore – Fitness & Gesundheitscoaches',
-  description: 'Entdecke Trainingspläne, Kurse und Ernährungsberatung von den besten Coaches Deutschlands. Starte heute mit deinem Fitnessziel.',
+  description: 'Entdecke Trainingspläne, Kurse und Ernährungsberatung von qualifizierten Coaches. Starte heute mit deinem Fitnessziel.',
 }
 
 export default async function MarketplacePage() {

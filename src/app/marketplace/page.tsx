@@ -6,7 +6,7 @@ import MarketplacePageClient from './MarketplacePageClient'
 
 export const metadata: Metadata = {
   title: 'Marketplace',
-  description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von den besten Coaches Deutschlands.',
+  description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von qualifizierten Coaches.',
   openGraph: {
     title: 'Marketplace – Ardore',
     description: 'Digitale Produkte von Fitness- und Gesundheitscoaches.',

@@ -154,7 +154,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${c.display_name} – Coach auf Ardore`
   const description = c.bio?.slice(0, 160) ?? `Entdecke Produkte und Abonnements von ${c.display_name} auf Ardore`
   return {
-    title,
+    title: { absolute: title },
     description,
     openGraph: {
       title,
@@ -762,7 +762,7 @@ export default async function CreatorProfilePage({
             {products.length > 0 && (
               <div className="space-y-4 animate-slide-up animate-delay-100">
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Produkte</h2>
-                {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null }) => {
+                {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null; is_demo?: boolean }) => {
                   const owned = purchasedIds.has(product.id)
                   const stats = ratingStats[product.id]
                   const productReviews = reviewsByProduct[product.id] ?? []
@@ -771,9 +771,9 @@ export default async function CreatorProfilePage({
                       <div className="flex gap-0">
                         <div className={`w-2 bg-gradient-to-b ${TYPE_GRADIENTS[product.type]} flex-shrink-0 rounded-l-2xl`} />
                         <CardContent className="flex items-start gap-4 p-5 flex-1">
-                          <Link href={`/products/${product.id}`} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
+                          <Link href={`/products/${product.id}`} aria-label={product.title} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
                             {product.thumbnail_url ? (
-                              <Image src={product.thumbnail_url} alt={product.title} fill className="object-cover" />
+                              <Image src={product.thumbnail_url} alt="" fill sizes="56px" className="object-cover" />
                             ) : (
                               <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
                                 {TYPE_ICONS[product.type]}
@@ -817,7 +817,7 @@ export default async function CreatorProfilePage({
                                 creatorId={creator.id}
                                 creatorName={creator.display_name}
                                 creatorSlug={creator.slug}
-                                isDemo={creator.is_demo ?? false}
+                                isDemo={(creator.is_demo ?? false) || (product.is_demo ?? false)}
                               />
                             )}
                           </div>

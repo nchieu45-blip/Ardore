@@ -5,7 +5,7 @@ import CoachesPageClient from './CoachesPageClient'
 
 export const metadata: Metadata = {
   title: 'Coaches entdecken',
-  description: 'Finde deinen Coach: Fitness, Ernährung, Yoga, Mental Health und mehr. Durchsuche hunderte zertifizierter Coaches in Deutschland.',
+  description: 'Finde deinen Coach: Fitness, Ernährung, Yoga und Mental Health. Qualifizierte Coaches in Deutschland — Kurse, 1:1-Sessions und mehr.',
   openGraph: {
     title: 'Coaches entdecken – Ardore',
     description: 'Finde den richtigen Coach für deine Ziele.',

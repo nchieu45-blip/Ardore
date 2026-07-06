@@ -90,7 +90,7 @@ export default function BestsellerSection({ products, purchasedIds, isLoggedIn, 
                   ) : isLoggedIn ? (
                     <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} />
                   ) : (
-                    <Link href="/login">
+                    <Link href={`/login?redirect=${encodeURIComponent(`/products/${product.id}`)}`}>
                       <Button size="sm">Kaufen</Button>
                     </Link>
                   )}
