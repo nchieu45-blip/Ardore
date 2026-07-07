@@ -4,6 +4,8 @@ import type { Metadata } from 'next'
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import MarketplacePageClient from './MarketplacePageClient'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Marketplace',
   description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von qualifizierten Coaches.',

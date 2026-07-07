@@ -3,6 +3,8 @@ import type { Metadata } from 'next'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import type { CoachingCoach, SubscriptionCoach } from './MarketplaceRows'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Ardore – Fitness & Gesundheitscoaches',
   description: 'Entdecke Trainingspläne, Kurse und Ernährungsberatung von qualifizierten Coaches. Starte heute mit deinem Fitnessziel.',
