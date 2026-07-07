@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   const rawItems: { productId: string }[] = body.items
     ?? (body.productId ? [{ productId: body.productId }] : [])
   const discountId: string | null = body.discountId ?? null
+  const withdrawalConsent: boolean = body.withdrawalConsent === true
 
   if (rawItems.length === 0) {
     return NextResponse.json({ error: 'Keine Produkte' }, { status: 400 })
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const { data: products } = await supabase
     .from('products')
-    .select('id, title, price, creator_id, creator:creator_profiles(stripe_account_id, stripe_account_active, is_demo)')
+    .select('id, title, price, type, creator_id, creator:creator_profiles(stripe_account_id, stripe_account_active, is_demo)')
     .in('id', productIds)
 
   if (!products || products.length === 0) {
@@ -39,6 +40,19 @@ export async function POST(req: NextRequest) {
   if (hasDemo) {
     return NextResponse.json({ error: 'Demo-Produkte können nicht gekauft werden.' }, { status: 403 })
   }
+
+  const DIGITAL_TYPES = new Set(['pdf', 'video', 'course', 'image'])
+  type ProductWithType = { type: string }
+  const hasDigital = (products as ProductWithType[]).some(p => DIGITAL_TYPES.has(p.type))
+
+  if (hasDigital && !withdrawalConsent) {
+    return NextResponse.json(
+      { error: 'Zustimmung zum sofortigen Beginn der Leistung und Widerrufsverzicht fehlt.' },
+      { status: 400 }
+    )
+  }
+
+  const consentTimestamp = hasDigital ? new Date().toISOString() : null
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!
 
@@ -135,6 +149,11 @@ export async function POST(req: NextRequest) {
       product_ids: productIds.join(','),
       // Keep legacy field for single-product backward compat with webhook
       ...(productIds.length === 1 ? { product_id: productIds[0], creator_id: creatorIds[0] } : {}),
+      // Withdrawal-right consent (§ 356 Abs. 5 BGB) — only set for digital content
+      ...(consentTimestamp ? {
+        withdrawal_consent_at:      consentTimestamp,
+        withdrawal_consent_version: 'widerruf-v1',
+      } : {}),
     },
     success_url: `${appUrl}/buyer/library?success=1`,
     cancel_url: `${appUrl}/marketplace`,

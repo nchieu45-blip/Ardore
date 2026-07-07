@@ -47,10 +47,20 @@ export interface PurchaseReceiptData {
   amountPaid: number
   creatorName: string
   libraryUrl: string
+  withdrawalConsentAt?: string  // ISO timestamp; present for digital content purchases
 }
 
 export function purchaseReceiptHtml(d: PurchaseReceiptData) {
   const amount = `${d.amountPaid.toFixed(2).replace('.', ',')} €`
+  const consentDate = d.withdrawalConsentAt
+    ? new Date(d.withdrawalConsentAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', dateStyle: 'long', timeStyle: 'short' })
+    : null
+  const consentBlock = consentDate
+    ? `<p style="font-size:11px;color:#6b7280;border-top:1px solid #e5e7eb;margin:20px 0 0;padding-top:12px;line-height:1.5;">
+        <strong>Bestätigung des Verzichts auf das Widerrufsrecht (§ 356 Abs. 5 BGB):</strong><br>
+        Du hast am ${consentDate} Uhr ausdrücklich zugestimmt, dass mit der Ausführung des Vertrags vor Ablauf der Widerrufsfrist begonnen wird, und bestätigt, dass du dein Widerrufsrecht verlierst, sobald die Bereitstellung der digitalen Inhalte begonnen hat.
+      </p>`
+    : ''
   return layout(`
     <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Dein Kauf war erfolgreich! 🎉</h2>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Danke, ${d.buyerName}. Hier ist deine Kaufbestätigung.</p>
@@ -73,11 +83,18 @@ export function purchaseReceiptHtml(d: PurchaseReceiptData) {
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
       Fragen? Schreib uns einfach zurück.
     </p>
+    ${consentBlock}
   `)
 }
 
 export function purchaseReceiptText(d: PurchaseReceiptData) {
-  return `Hallo ${d.buyerName},\n\nDu hast erfolgreich "${d.productTitle}" von ${d.creatorName} für ${d.amountPaid.toFixed(2)} € gekauft.\n\nZur Bibliothek: ${d.libraryUrl}\n\n– Das Ardore-Team`
+  const consentDate = d.withdrawalConsentAt
+    ? new Date(d.withdrawalConsentAt).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', dateStyle: 'long', timeStyle: 'short' })
+    : null
+  const consentLine = consentDate
+    ? `\n\n---\nBestätigung Widerrufsverzicht (§ 356 Abs. 5 BGB):\nDu hast am ${consentDate} Uhr ausdrücklich zugestimmt, dass mit der Ausführung des Vertrags vor Ablauf der Widerrufsfrist begonnen wird, und bestätigt, dass du dein Widerrufsrecht verlierst, sobald die Bereitstellung der digitalen Inhalte begonnen hat.`
+    : ''
+  return `Hallo ${d.buyerName},\n\nDu hast erfolgreich "${d.productTitle}" von ${d.creatorName} für ${d.amountPaid.toFixed(2)} € gekauft.\n\nZur Bibliothek: ${d.libraryUrl}${consentLine}\n\n– Das Ardore-Team`
 }
 
 // ─── New subscriber notification ────────────────────────────────────────────

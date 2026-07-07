@@ -65,6 +65,10 @@ export async function POST(req: NextRequest) {
                 product_id: pid,
                 amount_paid: Math.round(amount * 100) / 100,
                 stripe_payment_intent_id: paymentIntentId,
+                // Withdrawal-right consent proof (§ 356 Abs. 5 BGB)
+                // Columns added by migration 015; null for non-digital or pre-migration purchases
+                withdrawal_consent_at:      meta.withdrawal_consent_at      ?? null,
+                withdrawal_consent_version: meta.withdrawal_consent_version ?? null,
               }
             })
           )
@@ -86,6 +90,7 @@ export async function POST(req: NextRequest) {
                 amountPaid: totalPaid / productIds.length,
                 creatorName,
                 libraryUrl: `${APP_URL}/buyer/library`,
+                withdrawalConsentAt: meta.withdrawal_consent_at ?? undefined,
               }).catch(console.error)
             }
           }

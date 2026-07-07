@@ -23,14 +23,15 @@ interface DiscountResult {
 }
 
 export default function CartDrawer() {
-  const [open,          setOpen]          = useState(false)
-  const [items,         setItems]         = useState<CartItem[]>([])
-  const [loading,       setLoading]       = useState(false)
-  const [voucher,       setVoucher]       = useState('')
-  const [codeDiscount,  setCodeDiscount]  = useState<DiscountResult | null>(null)
-  const [autoDiscount,  setAutoDiscount]  = useState<DiscountResult | null>(null)
-  const [discountError, setDiscountError] = useState('')
-  const [voucherLoading,setVoucherLoading]= useState(false)
+  const [open,              setOpen]              = useState(false)
+  const [items,             setItems]             = useState<CartItem[]>([])
+  const [loading,           setLoading]           = useState(false)
+  const [voucher,           setVoucher]           = useState('')
+  const [codeDiscount,      setCodeDiscount]      = useState<DiscountResult | null>(null)
+  const [autoDiscount,      setAutoDiscount]      = useState<DiscountResult | null>(null)
+  const [discountError,     setDiscountError]     = useState('')
+  const [voucherLoading,    setVoucherLoading]    = useState(false)
+  const [withdrawalConsent, setWithdrawalConsent] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -62,10 +63,11 @@ export default function CartDrawer() {
 
   useEffect(() => {
     checkAutoDiscount(items) // eslint-disable-line react-hooks/set-state-in-effect
-    // reset code discount when cart changes
+    // reset code discount and withdrawal consent when cart changes
     setCodeDiscount(null)
     setVoucher('')
     setDiscountError('')
+    setWithdrawalConsent(false)
   }, [items, checkAutoDiscount])
 
   async function applyVoucher() {
@@ -104,6 +106,12 @@ export default function CartDrawer() {
   const totalCents        = Math.max(0, subtotalCents - savingsCents)
   const singleCreator     = [...new Set(items.map(i => i.creatorId))].length === 1
 
+  // All cart items are digital content (pdf/video/course/image).
+  // The withdrawal-right checkbox is required whenever the cart is non-empty.
+  const DIGITAL_TYPES     = new Set(['pdf', 'video', 'course', 'image'])
+  const hasDigital        = items.some(i => DIGITAL_TYPES.has(i.type))
+  const checkoutDisabled  = loading || (hasDigital && !withdrawalConsent)
+
   async function handleCheckout() {
     setLoading(true)
     try {
@@ -111,8 +119,9 @@ export default function CartDrawer() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items:      items.map(i => ({ productId: i.id })),
-          discountId: effectiveDiscount?.id ?? null,
+          items:             items.map(i => ({ productId: i.id })),
+          discountId:        effectiveDiscount?.id ?? null,
+          withdrawalConsent: withdrawalConsent,
         }),
       })
       const data = await res.json()
@@ -283,9 +292,23 @@ export default function CartDrawer() {
 
             <p className="text-[11px] text-gray-400">inkl. MwSt. · Einmalzahlung</p>
 
+            {hasDigital && (
+              <label className="flex items-start gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={withdrawalConsent}
+                  onChange={e => setWithdrawalConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 accent-green-600 cursor-pointer"
+                />
+                <span className="text-[11px] text-gray-500 leading-relaxed group-hover:text-gray-700 transition-colors">
+                  Ich stimme ausdrücklich zu, dass mit der Ausführung des Vertrags vor Ablauf der Widerrufsfrist begonnen wird. Mir ist bekannt, dass ich dadurch mein Widerrufsrecht verliere, sobald die Bereitstellung der digitalen Inhalte begonnen hat.
+                </span>
+              </label>
+            )}
+
             <button
               onClick={handleCheckout}
-              disabled={loading}
+              disabled={checkoutDisabled}
               className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl text-sm transition-colors shadow-sm"
             >
               {loading ? (
