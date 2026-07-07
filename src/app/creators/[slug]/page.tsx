@@ -23,6 +23,7 @@ import HeartButton from '@/components/HeartButton'
 import VideoClassBookButton from './VideoClassBookButton'
 
 export const revalidate = 0
+export const dynamic = 'force-dynamic'
 
 const CATEGORY_LABELS: Record<string, string> = {
   // current canonical keys from lib/categories
@@ -150,7 +151,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     .eq('slug', slug)
     .single()
 
-  if (!c) return { title: 'Coach – Ardore' }
+  if (!c) return { title: { absolute: 'Coach – Ardore' } }
   const title = `${c.display_name} – Coach auf Ardore`
   const description = c.bio?.slice(0, 160) ?? `Entdecke Produkte und Abonnements von ${c.display_name} auf Ardore`
   return {

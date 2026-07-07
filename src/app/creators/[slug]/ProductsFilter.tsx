@@ -5,6 +5,8 @@ import { FileText, Video, BookOpen, Image as ImageIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency } from '@/lib/utils'
+import Image from 'next/image'
+import Link from 'next/link'
 import BuyButton from './BuyButton'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -15,6 +17,8 @@ interface Product {
   description: string | null
   type: ProductType
   price: number
+  thumbnail_url?: string | null
+  is_demo?: boolean
 }
 
 interface Props {
@@ -37,10 +41,17 @@ const FILTERS: { key: Filter; label: string }[] = [
 ]
 
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf: <FileText className="h-5 w-5 text-green-600" />,
-  video: <Video className="h-5 w-5 text-green-600" />,
-  course: <BookOpen className="h-5 w-5 text-green-600" />,
-  image: <ImageIcon className="h-5 w-5 text-green-600" />,
+  pdf:    <FileText  className="h-5 w-5 text-white/80" />,
+  video:  <Video     className="h-5 w-5 text-white/80" />,
+  course: <BookOpen  className="h-5 w-5 text-white/80" />,
+  image:  <ImageIcon className="h-5 w-5 text-white/80" />,
+}
+
+const TYPE_GRADIENTS: Record<ProductType, string> = {
+  pdf:    'from-blue-500 to-blue-700',
+  video:  'from-violet-500 to-violet-700',
+  course: 'from-amber-400 to-orange-500',
+  image:  'from-pink-500 to-rose-600',
 }
 
 const TYPE_LABELS: Record<ProductType, string> = {
@@ -87,15 +98,28 @@ export default function ProductsFilter({ products, purchasedIds, isDemo = false,
         ) : (
           filtered.map(product => {
             const owned = purchasedSet.has(product.id)
+            const productIsDemo = isDemo || (product.is_demo ?? false)
             return (
               <Card key={product.id}>
                 <CardContent className="flex items-start gap-4 p-5">
-                  <div className="h-12 w-12 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
-                    {TYPE_ICONS[product.type]}
-                  </div>
+                  <Link
+                    href={`/products/${product.id}`}
+                    aria-label={product.title}
+                    className="relative h-12 w-12 rounded-xl overflow-hidden flex-shrink-0 block"
+                  >
+                    {product.thumbnail_url ? (
+                      <Image src={product.thumbnail_url} alt="" fill sizes="48px" className="object-cover" />
+                    ) : (
+                      <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
+                        {TYPE_ICONS[product.type]}
+                      </div>
+                    )}
+                  </Link>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-gray-900">{product.title}</h3>
+                      <Link href={`/products/${product.id}`} className="hover:text-green-700 transition-colors">
+                        <h3 className="font-medium text-gray-900">{product.title}</h3>
+                      </Link>
                       <Badge variant="outline">{TYPE_LABELS[product.type]}</Badge>
                     </div>
                     {product.description && (
@@ -107,7 +131,7 @@ export default function ProductsFilter({ products, purchasedIds, isDemo = false,
                     {owned ? (
                       <Badge variant="success">Gekauft</Badge>
                     ) : (
-                      <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} isDemo={isDemo} />
+                      <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} creatorId={creatorId} creatorName={creatorName} creatorSlug={creatorSlug} isDemo={productIsDemo} />
                     )}
                   </div>
                 </CardContent>
