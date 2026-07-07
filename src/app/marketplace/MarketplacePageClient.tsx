@@ -24,8 +24,9 @@ const TYPE_OPTIONS: { key: 'all' | ProductType; label: string }[] = [
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'popular',      label: 'Beliebteste' },
-  { key: 'best_selling', label: 'Meistverkauft' },
-  { key: 'top_rated',    label: 'Best bewertet' },
+  // TODO: re-enable post-launch when sales/review data exists
+  // { key: 'best_selling', label: 'Meistverkauft' },
+  // { key: 'top_rated',    label: 'Best bewertet' },
   { key: 'newest',       label: 'Neueste' },
   { key: 'price_asc',    label: 'Preis ↑' },
   { key: 'price_desc',   label: 'Preis ↓' },

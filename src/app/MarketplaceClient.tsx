@@ -531,13 +531,12 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-green-700">ML</span>
+                      <span className="text-xs font-bold text-green-700">DK</span>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-gray-900">Max Lange</p>
-                      <p className="text-[10px] text-gray-400">Fitness · 60 Min</p>
+                      <p className="text-xs font-semibold text-gray-900">Daniel Krüger</p>
+                      <p className="text-[10px] text-gray-400">Krafttraining · 60 Min</p>
                     </div>
-                    <span className="ml-auto text-xs font-bold text-green-700">80 €</span>
                   </div>
                 </div>
               </div>

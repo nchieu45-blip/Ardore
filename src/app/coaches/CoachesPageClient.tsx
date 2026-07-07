@@ -39,7 +39,8 @@ type SortKey = 'newest' | 'most_products' | 'top_rated'
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'newest',        label: 'Neueste' },
   { key: 'most_products', label: 'Meiste Produkte' },
-  { key: 'top_rated',     label: 'Top bewertet' },
+  // TODO: re-enable post-launch when review data exists
+  // { key: 'top_rated', label: 'Top bewertet' },
 ]
 
 interface Props {

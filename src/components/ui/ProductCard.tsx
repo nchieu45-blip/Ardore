@@ -89,7 +89,7 @@ export function ProductCard({
 
   return (
     <Link
-      href={`/creators/${product.creator.slug}`}
+      href={`/products/${product.id}`}
       className={[
         'block',
         compact ? 'flex-shrink-0 w-48' : 'w-full',
