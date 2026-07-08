@@ -195,7 +195,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
             {(['Finde', 'den', 'Coach,'] as const).map((w, i) => (
               <span key={w} className="hero-word" style={{ animationDelay: `${0.15 + i * 0.07}s` }}>
-                {w}{' '}
+                {w}{' '}
               </span>
             ))}
             <br className="hidden md:block" />
