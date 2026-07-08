@@ -191,27 +191,29 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
             Der Marktplatz für Health-Coaching
           </div>
 
-          {/* H1: each word animates in individually */}
+          {/* H1: word spans use hero-word (inline-block). Space inside each span
+              prevents collapse; non-breaking space ( ) guarantees it survives. */}
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
             {(['Finde', 'den', 'Coach,'] as const).map((w, i) => (
               <span key={w} className="hero-word" style={{ animationDelay: `${0.15 + i * 0.07}s` }}>
-                {w}{' '}
+                {w}{'\u00A0'}
               </span>
             ))}
             <br className="hidden md:block" />
             {(['der', 'zu', 'dir', 'passt'] as const).map((w, i) => (
               <span key={w} className="hero-word text-green-300" style={{ animationDelay: `${0.15 + (i + 3) * 0.07}s` }}>
-                {w}{i < 3 ? ' ' : ''}
+                {w}{i < 3 ? '\u00A0' : ''}
               </span>
             ))}
           </h1>
 
-          <p className="hero-word text-green-100/80 text-lg mb-10 max-w-xl mx-auto leading-relaxed" style={{ animationDelay: '0.55s' }}>
+          {/* hero-rise = display:block so subline/search/finder stack & center */}
+          <p className="hero-rise text-green-100/80 text-lg mb-10 max-w-xl mx-auto leading-relaxed" style={{ animationDelay: '0.55s' }}>
             Kurse, Trainingspläne und 1:1-Coaching von qualifizierten Gesundheits- und Fitnesscoaches
           </p>
 
           {/* Search */}
-          <div className="hero-word relative max-w-xl mx-auto mb-10" style={{ animationDelay: '0.7s' }}>
+          <div className="hero-rise relative max-w-xl mx-auto mb-10" style={{ animationDelay: '0.7s' }}>
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               value={search}
@@ -222,7 +224,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
           </div>
 
           {/* KI-Coach-Finder */}
-          <div className="hero-word w-full max-w-xl mx-auto mb-8" style={{ animationDelay: '0.85s' }}>
+          <div className="hero-rise w-full max-w-xl mx-auto mb-8" style={{ animationDelay: '0.85s' }}>
             <CoachFinderWidget />
           </div>
 
