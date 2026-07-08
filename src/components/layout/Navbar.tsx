@@ -104,8 +104,8 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
   function navCls(href: string) {
     const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
     return active
-      ? 'px-3 py-2 text-sm rounded-lg font-medium bg-green-50 text-green-700 transition-all'
-      : 'px-3 py-2 text-sm rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all'
+      ? 'nav-link px-3 py-2 text-sm rounded-lg font-medium bg-green-50 text-green-700 transition-all'
+      : 'nav-link px-3 py-2 text-sm rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all'
   }
 
   function mobileNavCls(href: string) {

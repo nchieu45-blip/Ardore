@@ -9,6 +9,7 @@ import {
 import { Avatar } from '@/components/ui/Avatar'
 import { ProductCard, type ProductCardData } from '@/components/ui/ProductCard'
 import HeartButton from '@/components/HeartButton'
+import Reveal from '@/components/motion/Reveal'
 
 interface Creator {
   id: string
@@ -82,7 +83,7 @@ function categoryLabel(categories: string[], fallback: string | null): string | 
 function CoachCard({ creator, productCount }: { creator: Creator; productCount: number }) {
   return (
     <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-40 [scroll-snap-align:start] block">
-      <div className="relative rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+      <div className="hp-card relative rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
         <HeartButton type="coach" itemId={creator.id} className="absolute top-2 right-2" />
         <Avatar
           src={creator.avatar_url}
@@ -114,7 +115,7 @@ function AboCoachCard({ coach }: { coach: SubscriptionCoach }) {
 
   return (
     <Link href={`/creators/${coach.slug}`} className="flex-shrink-0 w-48 [scroll-snap-align:start] block">
-      <div className="relative rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col items-center text-center">
+      <div className="hp-card relative rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col items-center text-center">
         <HeartButton type="coach" itemId={coach.id} className="absolute top-2 right-2" />
         <Avatar
           src={coach.avatar_url}
@@ -293,88 +294,98 @@ export default function MarketplaceRows({
 
       {/* Rail 1 — Neu auf Ardore */}
       {newest.length >= 1 && (
-        <ScrollRow
-          title="Neu auf Ardore"
-          icon={<Clock className="h-4 w-4 text-blue-500" />}
-          showAllHref="/marketplace?sort=newest"
-        >
-          {newest.map(p => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              salesCount={salesCounts[p.id]}
-              rating={ratings[p.id]}
-              compact
-              scrollSnap
-            />
-          ))}
-        </ScrollRow>
+        <Reveal>
+          <ScrollRow
+            title="Neu auf Ardore"
+            icon={<Clock className="h-4 w-4 text-blue-500" />}
+            showAllHref="/marketplace?sort=newest"
+          >
+            {newest.map(p => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                salesCount={salesCounts[p.id]}
+                rating={ratings[p.id]}
+                compact
+                scrollSnap
+              />
+            ))}
+          </ScrollRow>
+        </Reveal>
       )}
 
       {/* Rail 2 — Beliebt */}
       {popular.length >= 1 && (
-        <ScrollRow
-          title="Beliebt"
-          icon={<TrendingUp className="h-4 w-4 text-amber-500" />}
-          showAllHref="/marketplace?sort=best_selling"
-        >
-          {popular.map(p => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              salesCount={salesCounts[p.id]}
-              rating={ratings[p.id]}
-              compact
-              scrollSnap
-            />
-          ))}
-        </ScrollRow>
+        <Reveal>
+          <ScrollRow
+            title="Beliebt"
+            icon={<TrendingUp className="h-4 w-4 text-amber-500" />}
+            showAllHref="/marketplace?sort=best_selling"
+          >
+            {popular.map(p => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                salesCount={salesCounts[p.id]}
+                rating={ratings[p.id]}
+                compact
+                scrollSnap
+              />
+            ))}
+          </ScrollRow>
+        </Reveal>
       )}
 
       {/* Rail 3 — Top bewertet */}
       {topRated.length >= 1 && (
-        <ScrollRow
-          title="Top bewertet"
-          icon={<Star className="h-4 w-4 text-amber-400" />}
-          showAllHref="/marketplace?sort=top_rated"
-        >
-          {topRated.map(p => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              salesCount={salesCounts[p.id]}
-              rating={ratings[p.id]}
-              compact
-              scrollSnap
-            />
-          ))}
-        </ScrollRow>
+        <Reveal>
+          <ScrollRow
+            title="Top bewertet"
+            icon={<Star className="h-4 w-4 text-amber-400" />}
+            showAllHref="/marketplace?sort=top_rated"
+          >
+            {topRated.map(p => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                salesCount={salesCounts[p.id]}
+                rating={ratings[p.id]}
+                compact
+                scrollSnap
+              />
+            ))}
+          </ScrollRow>
+        </Reveal>
       )}
 
       {/* Rail 4 — Coaching-Abos entdecken */}
       {subscriptionCoaches.length >= 1 && (
-        <ScrollRow
-          title="Coaching-Abos entdecken"
-          icon={<Layers className="h-4 w-4 text-violet-500" />}
-          showAllHref="/coaches"
-        >
-          {subscriptionCoaches.map(c => (
-            <AboCoachCard key={c.id} coach={c} />
-          ))}
-        </ScrollRow>
+        <Reveal>
+          <ScrollRow
+            title="Coaching-Abos entdecken"
+            icon={<Layers className="h-4 w-4 text-violet-500" />}
+            showAllHref="/coaches"
+          >
+            {subscriptionCoaches.map(c => (
+              <AboCoachCard key={c.id} coach={c} />
+            ))}
+          </ScrollRow>
+        </Reveal>
       )}
 
       {/* Rail 5 — Empfohlene Coaches */}
       {topCoaches.length >= 1 && (
-        <ScrollRow
-          title="Empfohlene Coaches"
-          icon={<Users className="h-4 w-4 text-green-600" />}
-          showAllHref="/coaches"
-        >
-          {topCoaches.map(c => (
-            <CoachCard key={c.slug} creator={c} productCount={coachProductCount.get(c.slug) ?? 0} />
-          ))}
-        </ScrollRow>
+        <Reveal>
+          <ScrollRow
+            title="Empfohlene Coaches"
+            icon={<Users className="h-4 w-4 text-green-600" />}
+            showAllHref="/coaches"
+          >
+            {topCoaches.map(c => (
+              <CoachCard key={c.slug} creator={c} productCount={coachProductCount.get(c.slug) ?? 0} />
+            ))}
+          </ScrollRow>
+        </Reveal>
       )}
 
     </div>

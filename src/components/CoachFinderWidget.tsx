@@ -38,6 +38,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const QUICK_GOALS = ['Abnehmen', 'Krafttraining', 'Ernährung', 'Mental Health', 'Yoga']
 
+const TYPING_GOALS = [
+  'Ich will 5 kg abnehmen …',
+  'Ich will besser schlafen …',
+  'Ich will Muskeln aufbauen …',
+  'Ich will Stress abbauen …',
+]
+
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
   content: 'Was ist dein Ziel? Ich finde den passenden Coach für dich.',
@@ -47,8 +54,47 @@ export default function CoachFinderWidget() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
+  const [typedPlaceholder, setTypedPlaceholder] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const hasConversation = messages.length > 1
+
+  useEffect(() => {
+    if (hasConversation || inputFocused || input) return
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    let goalIdx = 0
+    let charIdx = 0
+    let deleting = false
+    let timerId: ReturnType<typeof setTimeout>
+
+    function tick() {
+      const goal = TYPING_GOALS[goalIdx]
+      if (!deleting) {
+        charIdx++
+        setTypedPlaceholder(goal.slice(0, charIdx))
+        if (charIdx === goal.length) {
+          deleting = true
+          timerId = setTimeout(tick, 1600)
+        } else {
+          timerId = setTimeout(tick, 55)
+        }
+      } else {
+        charIdx--
+        setTypedPlaceholder(goal.slice(0, charIdx))
+        if (charIdx === 0) {
+          deleting = false
+          goalIdx = (goalIdx + 1) % TYPING_GOALS.length
+          timerId = setTimeout(tick, 400)
+        } else {
+          timerId = setTimeout(tick, 28)
+        }
+      }
+    }
+
+    timerId = setTimeout(tick, 1200)
+    return () => clearTimeout(timerId)
+  }, [hasConversation, inputFocused, input])
 
   useEffect(() => {
     if (hasConversation) {
@@ -195,12 +241,13 @@ export default function CoachFinderWidget() {
       {/* Quick goals (only before first user message) */}
       {messages.length === 1 && (
         <div className="px-4 py-2 flex flex-wrap gap-1.5">
-          {QUICK_GOALS.map(goal => (
+          {QUICK_GOALS.map((goal, idx) => (
             <button
               key={goal}
               onClick={() => send(goal)}
               disabled={loading}
-              className="px-3 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full hover:bg-green-100 transition-colors disabled:opacity-50"
+              style={{ animationDelay: `${0.95 + idx * 0.07}s` }}
+              className="hero-rise hp-chip px-3 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full hover:bg-green-100 transition-colors disabled:opacity-50"
             >
               {goal}
             </button>
@@ -217,7 +264,9 @@ export default function CoachFinderWidget() {
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Beschreib dein Ziel…"
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+            placeholder={inputFocused || input ? 'Beschreib dein Ziel…' : (typedPlaceholder || 'Beschreib dein Ziel…')}
             className="flex-1 bg-transparent text-sm outline-none text-gray-800 placeholder-gray-400"
             disabled={loading}
           />

@@ -14,6 +14,7 @@ import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/produc
 import { ProductCard } from '@/components/ui/ProductCard'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
 import { ALL_CATEGORIES, CATEGORY_LABEL_MAP } from '@/lib/categories'
+import Reveal from '@/components/motion/Reveal'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -175,32 +176,42 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
     })
 
   return (
-    <div>
+    <div className="hp-home">
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-green-800 py-20 px-4">
-        {/* Decorative blobs */}
-        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-green-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl" />
+        {/* Animated orbs */}
+        <div className="drift-orb pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-green-500/35 blur-[60px]" />
+        <div className="drift-orb-r pointer-events-none absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-emerald-400/35 blur-[60px]" style={{ animationDelay: '-5.5s' }} />
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-green-700/10 blur-3xl" />
 
         <div className="relative max-w-4xl mx-auto text-center">
           {/* Label */}
-          <div className="animate-slide-up inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-6">
+          <div className="hero-word inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-6" style={{ animationDelay: '0.1s' }}>
             <Sparkles className="h-3.5 w-3.5" />
             Der Marktplatz für Health-Coaching
           </div>
 
-          <h1 className="animate-slide-up animate-delay-100 text-4xl md:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
-            Finde den Coach,<br className="hidden md:block" />
-            <span className="text-green-300"> der zu dir passt</span>
+          {/* H1: each word animates in individually */}
+          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
+            {(['Finde', 'den', 'Coach,'] as const).map((w, i) => (
+              <span key={w} className="hero-word" style={{ animationDelay: `${0.15 + i * 0.07}s` }}>
+                {w}{' '}
+              </span>
+            ))}
+            <br className="hidden md:block" />
+            {(['der', 'zu', 'dir', 'passt'] as const).map((w, i) => (
+              <span key={w} className="hero-word text-green-300" style={{ animationDelay: `${0.15 + (i + 3) * 0.07}s` }}>
+                {w}{i < 3 ? ' ' : ''}
+              </span>
+            ))}
           </h1>
 
-          <p className="animate-slide-up animate-delay-200 text-green-100/80 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
+          <p className="hero-word text-green-100/80 text-lg mb-10 max-w-xl mx-auto leading-relaxed" style={{ animationDelay: '0.55s' }}>
             Kurse, Trainingspläne und 1:1-Coaching von qualifizierten Gesundheits- und Fitnesscoaches
           </p>
 
           {/* Search */}
-          <div className="animate-slide-up animate-delay-300 relative max-w-xl mx-auto mb-10">
+          <div className="hero-word relative max-w-xl mx-auto mb-10" style={{ animationDelay: '0.7s' }}>
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               value={search}
@@ -211,7 +222,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
           </div>
 
           {/* KI-Coach-Finder */}
-          <div className="animate-slide-up animate-delay-400 w-full max-w-xl mx-auto mb-8">
+          <div className="hero-word w-full max-w-xl mx-auto mb-8" style={{ animationDelay: '0.85s' }}>
             <CoachFinderWidget />
           </div>
 
@@ -220,7 +231,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
 
       {/* ── Trust section ───────────────────────────────────────── */}
       <section className="bg-white border-b border-gray-100 py-10 px-4">
-        <div className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Reveal stagger className="max-w-7xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {TRUST_ITEMS.map(item => (
             <div key={item.title} className="flex items-start gap-3">
               <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -232,7 +243,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
               </div>
             </div>
           ))}
-        </div>
+        </Reveal>
       </section>
 
       {showGridView ? (
@@ -464,11 +475,11 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
       {/* ── Für Coaches ──────────────────────────────────────────── */}
       <section className="bg-gray-50 border-t border-gray-100 py-16 px-4">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
+          <Reveal className="text-center mb-10">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Du bist Coach?</h2>
             <p className="text-gray-500 text-sm">Bau dein Coaching-Business auf — ohne eigene Website.</p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
+          </Reveal>
+          <Reveal stagger className="grid md:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl border border-green-100 p-7 flex flex-col">
               <div className="h-11 w-11 rounded-xl bg-green-600 flex items-center justify-center mb-4 shadow-sm">
                 <Share2 className="h-5 w-5 text-white" />
@@ -493,13 +504,13 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                 Mehr erfahren <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ── Video coaching teaser ─────────────────────────────────── */}
       <section className="bg-white border-t border-gray-100 py-16 px-4">
-        <div className="max-w-5xl mx-auto">
+        <Reveal className="max-w-5xl mx-auto">
           <div className="rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 overflow-hidden">
             <div className="grid md:grid-cols-2 gap-0 items-center">
               <div className="p-8 md:p-10">
@@ -543,14 +554,16 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
               </div>
             </div>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* ── So funktioniert Ardore ───────────────────────────────── */}
       <section className="bg-gradient-to-br from-green-950 to-green-800 py-16 px-4">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl font-bold text-white text-center mb-10">So funktioniert Ardore</h2>
-          <div className="grid md:grid-cols-3 gap-6">
+          <Reveal className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-white">So funktioniert Ardore</h2>
+          </Reveal>
+          <Reveal stagger className="grid md:grid-cols-3 gap-6">
             {[
               {
                 step: 1,
@@ -580,20 +593,20 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                 <p className="text-sm text-green-100/70 leading-relaxed">{s.desc}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ── Final CTA ───────────────────────────────────────────────── */}
       <section className="bg-white py-16 px-4">
-        <div className="max-w-3xl mx-auto text-center">
+        <Reveal className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Bereit loszulegen?</h2>
           <p className="text-gray-500 text-sm mb-8 max-w-xl mx-auto">
             Entdecke Kurse, Trainingspläne und persönliches Coaching — oder starte selbst als Coach auf Ardore.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/marketplace">
-              <Button className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto gap-2">
+              <Button className="hp-btn-primary bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto gap-2">
                 Marktplatz entdecken <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -603,7 +616,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
               </Button>
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   )

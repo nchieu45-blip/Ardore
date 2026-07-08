@@ -96,7 +96,7 @@ export function ProductCard({
         scrollSnap ? '[scroll-snap-align:start]' : '',
       ].filter(Boolean).join(' ')}
     >
-      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200 group">
+      <div className="hp-card rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200 group">
 
         {/* ── Thumbnail ─────────────────────────────────── */}
         <div className={[
