@@ -11,6 +11,7 @@ import {
   GraduationCap, Users, Clock, CalendarDays,
 } from 'lucide-react'
 import type { VideoClass } from '@/types'
+import { showSalesCount } from '@/lib/salesCount'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -286,7 +287,14 @@ export default async function CreatorProfilePage({
   for (const { product_id } of (totalSalesRes.data ?? []) as { product_id: string }[]) {
     productSalesCounts[product_id] = (productSalesCounts[product_id] ?? 0) + 1
   }
-  const totalSales = Object.values(productSalesCounts).reduce((sum, n) => sum + n, 0)
+  const showSalesIds = new Set(
+    products
+      .filter((p: { show_sales_count?: boolean }) => p.show_sales_count !== false)
+      .map((p: { id: string }) => p.id)
+  )
+  const totalSales = Object.entries(productSalesCounts)
+    .filter(([id]) => showSalesIds.has(id))
+    .reduce((sum, [, n]) => sum + n, 0)
 
   const reviewsByProduct: Record<string, {
     id: string; product_id: string; buyer_id: string; rating: number; content: string | null; created_at: string
@@ -798,7 +806,7 @@ export default async function CreatorProfilePage({
                                 <StarRating rating={stats.avg} count={stats.count} size="sm" />
                               </div>
                             )}
-                            {(productSalesCounts[product.id] ?? 0) >= 50 && (
+                            {showSalesCount({ show_sales_count: (product as { show_sales_count?: boolean }).show_sales_count }, productSalesCounts[product.id] ?? 0) && (productSalesCounts[product.id] ?? 0) >= 50 && (
                               <p className="text-xs text-gray-400 mt-1">{productSalesCounts[product.id]} mal gekauft</p>
                             )}
                           </div>

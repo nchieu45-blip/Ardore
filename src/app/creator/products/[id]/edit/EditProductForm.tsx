@@ -44,6 +44,7 @@ interface Product {
   duration: string | null
   is_published: boolean
   thumbnail_url: string | null
+  show_sales_count: boolean
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -62,6 +63,8 @@ export default function EditProductForm({ product }: { product: Product }) {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(product.equipment ?? [])
   const [selectedLevel, setSelectedLevel] = useState<string | null>(product.level)
   const [selectedDuration, setSelectedDuration] = useState<string | null>(product.duration)
+
+  const [showSalesCount, setShowSalesCount] = useState(product.show_sales_count ?? true)
 
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
@@ -138,6 +141,7 @@ export default function EditProductForm({ product }: { product: Product }) {
         level: selectedLevel,
         duration: selectedDuration,
         is_published: isPublished,
+        show_sales_count: showSalesCount,
       }
       if (finalThumbnailUrl !== undefined) body.thumbnail_url = finalThumbnailUrl
 
@@ -298,6 +302,33 @@ export default function EditProductForm({ product }: { product: Product }) {
             hint="Optional – max. 1.000 Zeichen"
             {...register('description')}
           />
+
+          {/* Sales count visibility toggle */}
+          <div className="flex items-start justify-between gap-4 py-1">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-700">Verkaufszahl öffentlich anzeigen</p>
+              <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                Zeigt Käufern, wie oft dieses Produkt gekauft wurde. Bei 0 Verkäufen wird nie eine Zahl angezeigt.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showSalesCount}
+              onClick={() => setShowSalesCount(v => !v)}
+              className={cn(
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
+                showSalesCount ? 'bg-green-600' : 'bg-gray-200'
+              )}
+            >
+              <span
+                className={cn(
+                  'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200',
+                  showSalesCount ? 'translate-x-5' : 'translate-x-0'
+                )}
+              />
+            </button>
+          </div>
         </section>
 
         {/* Section 3: Kategorien */}

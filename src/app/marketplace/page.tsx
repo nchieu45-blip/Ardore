@@ -20,7 +20,7 @@ export default async function MarketplacePage() {
 
   const { data: productsData } = await supabase
     .from('products')
-    .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
+    .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, show_sales_count, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
 
@@ -37,6 +37,7 @@ export default async function MarketplacePage() {
     equipment: string[] | null
     level: string | null
     duration: string | null
+    show_sales_count: boolean
     creator_profiles:
       | { display_name: string; avatar_url: string | null; slug: string; category: string | null; categories: string[] }
       | { display_name: string; avatar_url: string | null; slug: string; category: string | null; categories: string[] }[]
@@ -54,6 +55,7 @@ export default async function MarketplacePage() {
       equipment: p.equipment ?? [],
       level: p.level ?? null,
       duration: p.duration ?? null,
+      show_sales_count: p.show_sales_count,
       creator: {
         id: p.creator_id,
         display_name: cp?.display_name ?? '',

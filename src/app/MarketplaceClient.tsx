@@ -39,6 +39,7 @@ export interface MarketplaceProduct {
   equipment: string[]
   level: string | null
   duration: string | null
+  show_sales_count?: boolean
   creator: Creator
   creatorHasCoaching?: boolean
   creatorHasVideoClasses?: boolean
@@ -93,8 +94,8 @@ const TRUST_ITEMS = [
   },
   {
     icon: <BarChart2 className="h-5 w-5 text-green-600" />,
-    title: 'Transparente Verkaufszahlen',
-    desc: 'Du siehst, wie oft ein Produkt schon gekauft wurde.',
+    title: 'Ehrliche Verkaufszahlen',
+    desc: 'Wenn ein Coach Verkaufszahlen zeigt, sind sie echt. Keine Fantasie-Zahlen.',
   },
   {
     icon: <CreditCard className="h-5 w-5 text-green-600" />,

@@ -8,6 +8,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import HeartButton from '@/components/HeartButton'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
+import { showSalesCount } from '@/lib/salesCount'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -49,6 +50,7 @@ export interface ProductCardData {
   price: number
   thumbnail_url: string | null
   categories?: string[]
+  show_sales_count?: boolean
   creator: {
     id: string
     display_name: string
@@ -170,7 +172,7 @@ export function ProductCard({
             </div>
           )}
 
-          {salesCount >= 50 && (
+          {showSalesCount(product, salesCount) && salesCount >= 50 && (
             <p className="text-[10px] text-gray-400 mb-1">{salesCount}× gekauft</p>
           )}
 

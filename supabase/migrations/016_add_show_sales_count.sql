@@ -1,0 +1,2 @@
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS show_sales_count BOOLEAN NOT NULL DEFAULT true;

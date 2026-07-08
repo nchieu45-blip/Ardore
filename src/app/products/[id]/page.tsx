@@ -16,6 +16,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import BuyButtonLarge from './BuyButtonLarge'
 import ReviewSection from '@/app/creators/[slug]/ReviewSection'
+import { showSalesCount } from '@/lib/salesCount'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -189,7 +190,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   <StarRating rating={avgRating} count={reviews.length} />
                 </span>
               )}
-              {salesCount >= 10 && (
+              {showSalesCount(product, salesCount) && salesCount >= 10 && (
                 <span className="flex items-center gap-1.5 text-sm text-gray-500">
                   <ShoppingBag className="h-4 w-4 text-gray-400" />
                   {salesCount} mal gekauft
