@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video, ChevronDown, Check,
+  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video, ChevronDown, Check, ShieldCheck,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
@@ -87,10 +87,10 @@ function CoachCard({ coach }: { coach: CoachData }) {
               <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">
                 {coach.display_name}
               </h3>
-              {coach.qualifications.length > 0 && (
+              {coach.is_verified && (
                 <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  <GraduationCap className="h-3 w-3" />
-                  Qualifiziert
+                  <ShieldCheck className="h-3 w-3" />
+                  Verifiziert
                 </span>
               )}
               {coach.hasVideoCoaching && (

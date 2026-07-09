@@ -8,7 +8,7 @@ import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star,
-  GraduationCap, Users, Clock, CalendarDays,
+  GraduationCap, Users, Clock, CalendarDays, ShieldCheck,
 } from 'lucide-react'
 import type { VideoClass } from '@/types'
 import { showSalesCount } from '@/lib/salesCount'
@@ -422,13 +422,13 @@ export default async function CreatorProfilePage({
 
         {/* Profile info */}
         <div className="mb-8 animate-slide-up">
-          {/* Name + qualifications badge */}
+          {/* Name + verification badge */}
           <div className="flex items-center gap-3 flex-wrap mb-2 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight break-words min-w-0">{creator.display_name}</h1>
-            {qualifications.length > 0 && (
+            {creator.is_verified && (
               <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
-                <GraduationCap className="h-3.5 w-3.5" />
-                Qualifiziert
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Verifiziert
               </span>
             )}
             {sessionReviewCount > 0 && (
@@ -542,10 +542,6 @@ export default async function CreatorProfilePage({
               <div className="animate-slide-up animate-delay-100">
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Qualifikationen</h2>
-                  <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    <GraduationCap className="h-3 w-3" />
-                    Qualifiziert
-                  </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {qualifications.map((q, i) => (

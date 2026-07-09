@@ -3,9 +3,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, ShieldCheck } from 'lucide-react'
 import DeleteAccountSection from './DeleteAccountSection'
 import NotificationPreferencesSection, { type NotifPrefs } from '@/components/NotificationPreferencesSection'
+import VerificationSection from './VerificationSection'
 
 export default async function CreatorSettingsPage() {
   const supabase = await createClient()
@@ -14,13 +15,13 @@ export default async function CreatorSettingsPage() {
 
   const { data: creator } = await supabase
     .from('creator_profiles')
-    .select('id, stripe_account_active')
+    .select('id, stripe_account_active, is_verified, verified_at')
     .eq('user_id', user.id)
     .single()
 
   if (!creator) redirect('/creator/onboarding')
 
-  const [activeSubsRes, upcomingBookingsRes, notifPrefsRes] = await Promise.all([
+  const [activeSubsRes, upcomingBookingsRes, notifPrefsRes, vreqRes] = await Promise.all([
     supabase
       .from('subscriptions')
       .select('id', { count: 'exact', head: true })
@@ -37,10 +38,18 @@ export default async function CreatorSettingsPage() {
       .select('email_new_booking,email_session_reminder,email_new_message,email_new_video_class_booking,inapp_new_booking,inapp_session_reminder,inapp_new_message,inapp_new_video_class_booking')
       .eq('user_id', user.id)
       .maybeSingle(),
+    supabase
+      .from('verification_requests')
+      .select('id, status, rejection_reason, created_at')
+      .eq('creator_id', creator.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const activeSubscribersCount = activeSubsRes.count ?? 0
   const upcomingBookingsCount  = upcomingBookingsRes.count ?? 0
+  const latestVreq = vreqRes.data as { id: string; status: 'pending' | 'approved' | 'rejected'; rejection_reason: string | null; created_at: string } | null
   const defaultPrefs: NotifPrefs = {
     email_new_booking: true, email_session_reminder: true, email_new_message: true, email_new_video_class_booking: true,
     inapp_new_booking: true, inapp_session_reminder: true, inapp_new_message: true, inapp_new_video_class_booking: true,
@@ -76,6 +85,23 @@ export default async function CreatorSettingsPage() {
                   : 'Stripe Connect noch nicht eingerichtet'}
               </span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Verifizierung */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-gray-500" />
+              <h2 className="font-semibold text-gray-900">Verifizierung</h2>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <VerificationSection
+              isVerified={creator.is_verified ?? false}
+              verifiedAt={(creator as { verified_at?: string | null }).verified_at ?? null}
+              latestRequest={latestVreq}
+            />
           </CardContent>
         </Card>
 

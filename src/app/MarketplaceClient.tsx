@@ -85,7 +85,7 @@ const TRUST_ITEMS = [
   {
     icon: <ShieldCheck className="h-5 w-5 text-green-600" />,
     title: 'Qualifizierte Coaches',
-    desc: 'Coaches können ihre Ausbildung und Zertifikate hinterlegen — transparent einsehbar in jedem Profil.',
+    desc: 'Coaches mit geprüftem Zertifikat erkennst du am Verifiziert-Siegel.',
   },
   {
     icon: <Star className="h-5 w-5 text-amber-500" />,
