@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { TrendingUp, Users, ShoppingBag, Plus, AlertCircle, ArrowRight } from 'lucide-react'
+import { TrendingUp, Users, ShoppingBag, Plus, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react'
 import { RevenueChart } from '@/components/creator/RevenueChart'
 import type { DayRevenue } from '@/components/creator/RevenueChart'
 
@@ -81,12 +81,20 @@ export default async function CreatorDashboardPage() {
             <p className="text-sm text-gray-400 mb-0.5">{dateLabel}</p>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
           </div>
-          <Link href="/creator/products/new" className="flex-shrink-0">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Produkt hinzufügen
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link href={`/creators/${creator.slug}`} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline">
+                <ExternalLink className="h-4 w-4" />
+                Profil aus Kundensicht ansehen
+              </Button>
+            </Link>
+            <Link href="/creator/products/new">
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                Produkt hinzufügen
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Stripe Connect banner — slim, low-weight */}

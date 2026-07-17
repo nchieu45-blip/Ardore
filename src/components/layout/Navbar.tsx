@@ -345,6 +345,18 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                                   </div>
                                 )
                               })}
+                              {group.label === 'Coach-Bereich' && creatorSlug && (
+                                <a
+                                  href={`/creators/${creatorSlug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => setMenuOpen(false)}
+                                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                                >
+                                  Mein öffentliches Profil
+                                  <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
+                                </a>
+                              )}
                             </div>
                           )}
                         </div>
