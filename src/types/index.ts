@@ -24,6 +24,12 @@ export interface CreatorProfile {
   banner_url: string | null
   stripe_account_id: string | null
   stripe_account_active: boolean
+  social_links: {
+    instagram?: string
+    tiktok?: string
+    youtube?: string
+    website?: string
+  } | null
   created_at: string
   profile?: Profile
 }

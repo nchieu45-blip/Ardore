@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Avatar } from '@/components/ui/Avatar'
@@ -8,10 +9,12 @@ import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star,
-  GraduationCap, Users, Clock, CalendarDays, ShieldCheck,
+  GraduationCap, Users, Clock, CalendarDays, ShieldCheck, Globe, Music2,
 } from 'lucide-react'
+import { InstagramIcon, YoutubeIcon } from '@/components/ui/SocialIcons'
 import type { VideoClass } from '@/types'
 import { showSalesCount } from '@/lib/salesCount'
+import { instagramHref, tiktokHref, youtubeHref, websiteHref } from '@/lib/socialLinks'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -375,6 +378,18 @@ export default async function CreatorProfilePage({
 
   const isOwner = user?.id === creator.user_id
 
+  const socialLinksRaw = (creator.social_links as Record<string, string> | null) ?? {}
+  type SocialIconLink = { key: string; href: string; label: string; Icon: ComponentType<{ className?: string }> }
+  const socialIconLinkCandidates: (Omit<SocialIconLink, 'href'> & { href: string | null })[] = [
+    { key: 'instagram', href: socialLinksRaw.instagram ? instagramHref(socialLinksRaw.instagram) : null, label: 'Instagram', Icon: InstagramIcon },
+    { key: 'tiktok', href: socialLinksRaw.tiktok ? tiktokHref(socialLinksRaw.tiktok) : null, label: 'TikTok', Icon: Music2 },
+    { key: 'youtube', href: socialLinksRaw.youtube ? youtubeHref(socialLinksRaw.youtube) : null, label: 'YouTube', Icon: YoutubeIcon },
+    { key: 'website', href: socialLinksRaw.website ? websiteHref(socialLinksRaw.website) : null, label: 'Website', Icon: Globe },
+  ]
+  const socialIconLinks: SocialIconLink[] = socialIconLinkCandidates.filter(
+    (s): s is SocialIconLink => s.href !== null
+  )
+
   return (
     <div className="min-h-screen bg-gray-50/40 overflow-x-hidden">
       {/* Full-width banner */}
@@ -439,6 +454,25 @@ export default async function CreatorProfilePage({
               </div>
             )}
           </div>
+
+          {/* Social links */}
+          {socialIconLinks.length > 0 && (
+            <div className="flex items-center gap-2 mb-3">
+              {socialIconLinks.map(({ key, href, label, Icon }) => (
+                <a
+                  key={key}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  title={label}
+                  className="h-8 w-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
+              ))}
+            </div>
+          )}
 
           {/* Category pills — moved from banner to here */}
           {allCategories.length > 0 && (

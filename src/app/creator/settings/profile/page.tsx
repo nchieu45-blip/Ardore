@@ -11,9 +11,14 @@ import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { CategoryPicker, ServicePicker } from '@/components/ui/CategoryPicker'
 import { getInitials } from '@/lib/utils'
-import { ArrowLeft, Camera, GraduationCap, Plus, X } from 'lucide-react'
+import { ArrowLeft, Camera, GraduationCap, Globe, Music2, Plus, X } from 'lucide-react'
+import { InstagramIcon, YoutubeIcon } from '@/components/ui/SocialIcons'
 import Link from 'next/link'
 import { toast } from '@/lib/toast'
+import {
+  normalizeInstagram, normalizeTiktok, normalizeYoutube, normalizeWebsite,
+  isValidHandle, isValidYoutube, isValidWebsite,
+} from '@/lib/socialLinks'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyResolver = any
@@ -41,6 +46,12 @@ export default function ProfileSettingsPage() {
   const [qualifications, setQualifications] = useState<string[]>([])
   const [qualInput, setQualInput] = useState('')
 
+  const [instagram, setInstagram] = useState('')
+  const [tiktok, setTiktok] = useState('')
+  const [youtube, setYoutube] = useState('')
+  const [website, setWebsite] = useState('')
+  const [socialErrors, setSocialErrors] = useState<{ instagram?: string; tiktok?: string; youtube?: string; website?: string }>({})
+
   // Images: current URLs + selected files + local previews
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [bannerUrl, setBannerUrl] = useState<string | null>(null)
@@ -67,7 +78,7 @@ export default function ProfileSettingsPage() {
 
         const { data: creator } = await supabase
           .from('creator_profiles')
-          .select('id, display_name, bio, category, categories, services, qualifications, avatar_url, banner_url')
+          .select('id, display_name, bio, category, categories, services, qualifications, avatar_url, banner_url, social_links')
           .eq('user_id', user.id)
           .single()
 
@@ -84,6 +95,12 @@ export default function ProfileSettingsPage() {
         )
         setSelectedServices((creator.services as string[] | null) ?? [])
         setQualifications((creator.qualifications as string[] | null) ?? [])
+
+        const social = (creator.social_links as Record<string, string> | null) ?? {}
+        setInstagram(social.instagram ?? '')
+        setTiktok(social.tiktok ?? '')
+        setYoutube(social.youtube ?? '')
+        setWebsite(social.website ?? '')
 
         reset({
           display_name: creator.display_name,
@@ -148,6 +165,27 @@ export default function ProfileSettingsPage() {
     }
     setCategoryError('')
 
+    const normInstagram = normalizeInstagram(instagram)
+    const normTiktok = normalizeTiktok(tiktok)
+    const normYoutube = normalizeYoutube(youtube)
+    const normWebsite = normalizeWebsite(website)
+
+    const nextSocialErrors: typeof socialErrors = {}
+    if (normInstagram && !isValidHandle(normInstagram)) {
+      nextSocialErrors.instagram = 'Ungültiger Instagram-Handle (max. 30 Zeichen, Buchstaben/Zahlen/./_).'
+    }
+    if (normTiktok && !isValidHandle(normTiktok)) {
+      nextSocialErrors.tiktok = 'Ungültiger TikTok-Handle (max. 30 Zeichen, Buchstaben/Zahlen/./_).'
+    }
+    if (normYoutube && !isValidYoutube(normYoutube)) {
+      nextSocialErrors.youtube = 'Ungültiger YouTube-Kanal oder -Link.'
+    }
+    if (normWebsite && !isValidWebsite(normWebsite)) {
+      nextSocialErrors.website = 'Ungültige Website-URL.'
+    }
+    setSocialErrors(nextSocialErrors)
+    if (Object.keys(nextSocialErrors).length > 0) return
+
     let newAvatarUrl = avatarUrl
     let newBannerUrl = bannerUrl
 
@@ -174,6 +212,12 @@ export default function ProfileSettingsPage() {
         qualifications: qualifications.filter(q => q.trim().length > 0),
         avatar_url: newAvatarUrl,
         banner_url: newBannerUrl,
+        social_links: {
+          ...(normInstagram && { instagram: normInstagram }),
+          ...(normTiktok && { tiktok: normTiktok }),
+          ...(normYoutube && { youtube: normYoutube }),
+          ...(normWebsite && { website: normWebsite }),
+        },
       })
       .eq('id', creatorId)
 
@@ -187,6 +231,10 @@ export default function ProfileSettingsPage() {
     setBannerUrl(newBannerUrl)
     setAvatarFile(null)
     setBannerFile(null)
+    setInstagram(normInstagram)
+    setTiktok(normTiktok)
+    setYoutube(normYoutube)
+    setWebsite(normWebsite)
     toast.success('Profil gespeichert')
   }
 
@@ -375,6 +423,76 @@ export default function ProfileSettingsPage() {
               <p className={`text-xs self-end ${bioValue.length > 480 ? 'text-amber-600' : 'text-gray-400'}`}>
                 {bioValue.length} / 500
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Social media */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold text-gray-900 text-sm">Social Media</h2>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-0">
+            <p className="text-xs text-gray-400 -mt-1">
+              Bringst du deine eigene Community mit? Verlinke deine Kanäle — das schafft Vertrauen bei neuen Kund:innen.
+            </p>
+
+            <div className="flex gap-3 items-start">
+              <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 mt-6">
+                <InstagramIcon className="h-4 w-4 text-gray-500" />
+              </div>
+              <Input
+                label="Instagram"
+                placeholder="dein.handle"
+                hint="Ohne @"
+                value={instagram}
+                onChange={e => setInstagram(e.target.value)}
+                error={socialErrors.instagram}
+                className="flex-1"
+              />
+            </div>
+
+            <div className="flex gap-3 items-start">
+              <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 mt-6">
+                <Music2 className="h-4 w-4 text-gray-500" />
+              </div>
+              <Input
+                label="TikTok"
+                placeholder="dein.handle"
+                hint="Ohne @"
+                value={tiktok}
+                onChange={e => setTiktok(e.target.value)}
+                error={socialErrors.tiktok}
+                className="flex-1"
+              />
+            </div>
+
+            <div className="flex gap-3 items-start">
+              <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 mt-6">
+                <YoutubeIcon className="h-4 w-4 text-gray-500" />
+              </div>
+              <Input
+                label="YouTube"
+                placeholder="Kanal-Handle oder -Link"
+                value={youtube}
+                onChange={e => setYoutube(e.target.value)}
+                error={socialErrors.youtube}
+                className="flex-1"
+              />
+            </div>
+
+            <div className="flex gap-3 items-start">
+              <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 mt-6">
+                <Globe className="h-4 w-4 text-gray-500" />
+              </div>
+              <Input
+                label="Website"
+                placeholder="https://deine-website.de"
+                value={website}
+                onChange={e => setWebsite(e.target.value)}
+                error={socialErrors.website}
+                className="flex-1"
+              />
             </div>
           </CardContent>
         </Card>
