@@ -20,6 +20,7 @@ export interface CoachData {
   category: string | null
   categories: string[]
   qualifications: string[]
+  languages: string[]
   is_verified: boolean
   avatar_url: string | null
   createdAt: string
@@ -34,7 +35,7 @@ export default async function CoachesPage() {
 
   const { data: creatorsData } = await supabase
     .from('creator_profiles')
-    .select('id, slug, display_name, bio, category, categories, qualifications, is_verified, avatar_url, created_at')
+    .select('id, slug, display_name, bio, category, categories, qualifications, languages, is_verified, avatar_url, created_at')
     .order('created_at', { ascending: false })
 
   const creators = (creatorsData ?? []) as {
@@ -45,6 +46,7 @@ export default async function CoachesPage() {
     category: string | null
     categories: string[] | null
     qualifications: string[] | null
+    languages: string[] | null
     is_verified: boolean
     avatar_url: string | null
     created_at: string
@@ -118,6 +120,7 @@ export default async function CoachesPage() {
     category: c.category,
     categories: c.categories ?? [],
     qualifications: c.qualifications ?? [],
+    languages: c.languages ?? [],
     is_verified: c.is_verified ?? false,
     avatar_url: c.avatar_url,
     createdAt: c.created_at,

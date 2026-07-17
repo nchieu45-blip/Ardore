@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { CategoryPicker, ServicePicker } from '@/components/ui/CategoryPicker'
+import { CategoryPicker, ServicePicker, LanguagePicker } from '@/components/ui/CategoryPicker'
 import { getInitials } from '@/lib/utils'
 import { ArrowLeft, Camera, GraduationCap, Globe, Music2, Plus, X } from 'lucide-react'
 import { InstagramIcon, YoutubeIcon } from '@/components/ui/SocialIcons'
@@ -43,6 +43,7 @@ export default function ProfileSettingsPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [categoryError, setCategoryError] = useState('')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
   const [qualifications, setQualifications] = useState<string[]>([])
   const [qualInput, setQualInput] = useState('')
 
@@ -78,7 +79,7 @@ export default function ProfileSettingsPage() {
 
         const { data: creator } = await supabase
           .from('creator_profiles')
-          .select('id, display_name, bio, category, categories, services, qualifications, avatar_url, banner_url, social_links')
+          .select('id, display_name, bio, category, categories, services, languages, qualifications, avatar_url, banner_url, social_links')
           .eq('user_id', user.id)
           .single()
 
@@ -94,6 +95,7 @@ export default function ProfileSettingsPage() {
             : creator.category ? [creator.category] : []
         )
         setSelectedServices((creator.services as string[] | null) ?? [])
+        setSelectedLanguages((creator.languages as string[] | null) ?? [])
         setQualifications((creator.qualifications as string[] | null) ?? [])
 
         const social = (creator.social_links as Record<string, string> | null) ?? {}
@@ -210,6 +212,7 @@ export default function ProfileSettingsPage() {
         categories: selectedCategories,
         services: selectedServices,
         qualifications: qualifications.filter(q => q.trim().length > 0),
+        languages: selectedLanguages,
         avatar_url: newAvatarUrl,
         banner_url: newBannerUrl,
         social_links: {
@@ -352,6 +355,11 @@ export default function ProfileSettingsPage() {
             <ServicePicker
               selected={selectedServices}
               onChange={setSelectedServices}
+            />
+
+            <LanguagePicker
+              selected={selectedLanguages}
+              onChange={setSelectedLanguages}
             />
 
             {/* Qualifications */}

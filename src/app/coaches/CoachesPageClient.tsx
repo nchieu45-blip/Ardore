@@ -4,13 +4,14 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video, ChevronDown, Check, ShieldCheck,
+  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video, ChevronDown, Check, ShieldCheck, Languages,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 import HeartButton from '@/components/HeartButton'
 import type { CoachData } from './page'
 import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
+import { LANGUAGE_LABEL_MAP } from '@/lib/languages'
 
 const CATEGORY_LABELS = CATEGORY_LABEL_MAP
 
@@ -167,13 +168,16 @@ export default function CoachesPageClient({ coaches }: Props) {
   const searchParams = useSearchParams()
 
   const category      = searchParams.get('category') ?? 'all'
+  const language       = searchParams.get('language') ?? 'all'
   const sort          = (searchParams.get('sort') as SortKey) ?? 'newest'
   const videocoaching = searchParams.get('videocoaching') === 'true'
   const groupclasses  = searchParams.get('groupclasses') === 'true'
-  const [search,     setSearch]     = useState('')
-  const [moreOpen,   setMoreOpen]   = useState(false)
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
-  const moreRef = useRef<HTMLDivElement>(null)
+  const [search,       setSearch]       = useState('')
+  const [moreOpen,     setMoreOpen]     = useState(false)
+  const [languageOpen, setLanguageOpen] = useState(false)
+  const [openGroups,   setOpenGroups]   = useState<Set<string>>(new Set())
+  const moreRef     = useRef<HTMLDivElement>(null)
+  const languageRef = useRef<HTMLDivElement>(null)
 
   function toggleGroup(label: string) {
     setOpenGroups(prev => {
@@ -188,12 +192,16 @@ export default function CoachesPageClient({ coaches }: Props) {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false)
       }
+      if (languageRef.current && !languageRef.current.contains(e.target as Node)) {
+        setLanguageOpen(false)
+      }
     }
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [])
 
-  // Build available category list from actual coach data
+  // Build available category / language lists from actual coach data —
+  // avoids showing filter options nobody on the platform actually has.
   const availableCategories = [
     ...new Set(
       coaches.flatMap(c =>
@@ -202,13 +210,18 @@ export default function CoachesPageClient({ coaches }: Props) {
     ),
   ].filter(cat => cat in CATEGORY_LABELS)
 
-  function buildUrl(overrides: { category?: string; sort?: string; videocoaching?: boolean; groupclasses?: boolean } = {}): string {
-    const cat = overrides.category    ?? category
-    const s   = overrides.sort        ?? sort
-    const vc  = overrides.videocoaching !== undefined ? overrides.videocoaching : videocoaching
-    const gc  = overrides.groupclasses  !== undefined ? overrides.groupclasses  : groupclasses
+  const availableLanguages = [...new Set(coaches.flatMap(c => c.languages))]
+    .filter(code => code in LANGUAGE_LABEL_MAP)
+
+  function buildUrl(overrides: { category?: string; language?: string; sort?: string; videocoaching?: boolean; groupclasses?: boolean } = {}): string {
+    const cat  = overrides.category    ?? category
+    const lang = overrides.language    ?? language
+    const s    = overrides.sort        ?? sort
+    const vc   = overrides.videocoaching !== undefined ? overrides.videocoaching : videocoaching
+    const gc   = overrides.groupclasses  !== undefined ? overrides.groupclasses  : groupclasses
     const params = new URLSearchParams()
     if (cat !== 'all') params.set('category', cat)
+    if (lang !== 'all') params.set('language', lang)
     if (s !== 'newest') params.set('sort', s)
     if (vc) params.set('videocoaching', 'true')
     if (gc) params.set('groupclasses', 'true')
@@ -224,12 +237,13 @@ export default function CoachesPageClient({ coaches }: Props) {
     .filter(c => {
       const cats = c.categories.length ? c.categories : c.category ? [c.category] : []
       const matchesCat    = category === 'all' || cats.includes(category)
+      const matchesLang   = language === 'all' || c.languages.includes(language)
       const matchesSearch = !search
         || c.display_name.toLowerCase().includes(search.toLowerCase())
         || (c.bio ?? '').toLowerCase().includes(search.toLowerCase())
       const matchesVC     = !videocoaching || c.hasVideoCoaching
       const matchesGC     = !groupclasses  || c.hasGroupClasses
-      return matchesCat && matchesSearch && matchesVC && matchesGC
+      return matchesCat && matchesLang && matchesSearch && matchesVC && matchesGC
     })
     .sort((a, b) => {
       switch (sort) {
@@ -370,6 +384,40 @@ export default function CoachesPageClient({ coaches }: Props) {
               )}
             </div>
 
+            {/* "Sprache" dropdown — only lists languages at least one coach actually has */}
+            {availableLanguages.length > 0 && (
+              <div ref={languageRef} className="relative flex-shrink-0">
+                <button
+                  onClick={() => setLanguageOpen(o => !o)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
+                    language !== 'all'
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                  )}
+                >
+                  <Languages className="h-3 w-3" />
+                  {language !== 'all' ? (LANGUAGE_LABEL_MAP[language] ?? 'Sprache') : 'Sprache'}
+                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', languageOpen && 'rotate-180')} />
+                </button>
+
+                {languageOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto animate-scale-in">
+                    {availableLanguages.map(code => (
+                      <button
+                        key={code}
+                        onClick={() => { setLanguageOpen(false); go({ language: language === code ? 'all' : code }) }}
+                        className="w-full flex items-center justify-between px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <span>{LANGUAGE_LABEL_MAP[code] ?? code}</span>
+                        {language === code && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Sort options */}
             <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
               {SORT_OPTIONS.map(({ key, label }) => (
@@ -409,7 +457,7 @@ export default function CoachesPageClient({ coaches }: Props) {
               Versuche andere Filter oder einen anderen Suchbegriff.
             </p>
             <button
-              onClick={() => { setSearch(''); go({ category: 'all', sort: 'newest', videocoaching: false, groupclasses: false }) }}
+              onClick={() => { setSearch(''); go({ category: 'all', language: 'all', sort: 'newest', videocoaching: false, groupclasses: false }) }}
               className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
             >
               Filter zurücksetzen

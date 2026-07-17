@@ -9,12 +9,13 @@ import { formatCurrency, cn } from '@/lib/utils'
 import {
   MessageCircle, Lock, FileText, Video, BookOpen, Image as ImageIcon,
   Check, ShoppingBag, Sparkles, Pencil, TrendingUp, Star,
-  GraduationCap, Users, Clock, CalendarDays, ShieldCheck, Globe, Music2,
+  GraduationCap, Users, Clock, CalendarDays, ShieldCheck, Globe, Music2, Languages,
 } from 'lucide-react'
 import { InstagramIcon, YoutubeIcon } from '@/components/ui/SocialIcons'
 import type { VideoClass } from '@/types'
 import { showSalesCount } from '@/lib/salesCount'
 import { instagramHref, tiktokHref, youtubeHref, websiteHref } from '@/lib/socialLinks'
+import { LANGUAGE_LABEL_MAP } from '@/lib/languages'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -372,6 +373,7 @@ export default async function CreatorProfilePage({
     : creator.category ? [creator.category] : []
   const services: string[] = (creator.services as string[] | null) ?? []
   const qualifications: string[] = (creator.qualifications as string[] | null) ?? []
+  const languages: string[] = (creator.languages as string[] | null) ?? []
   const bannerGradient = primaryCategory
     ? (CATEGORY_GRADIENTS[primaryCategory] ?? DEFAULT_GRADIENT)
     : DEFAULT_GRADIENT
@@ -482,6 +484,16 @@ export default async function CreatorProfilePage({
                   {CATEGORY_LABELS[cat] ?? cat}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Languages */}
+          {languages.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              <span className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 text-gray-500 text-xs font-medium px-3 py-1 rounded-full">
+                <Languages className="h-3.5 w-3.5" />
+                Spricht: {languages.map(l => LANGUAGE_LABEL_MAP[l] ?? l).join(', ')}
+              </span>
             </div>
           )}
 
