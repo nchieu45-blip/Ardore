@@ -33,6 +33,11 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ]
 
 const PAGE_SIZE = 20
+const SEARCH_DEBOUNCE_MS = 300
+
+function normalizeSearch(value: string): string {
+  return value.trim().replace(/\s+/g, ' ')
+}
 
 interface Props {
   products: MarketplaceProduct[]
@@ -54,9 +59,17 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const page      = Number(searchParams.get('page') ?? 1)
   const coaching  = searchParams.get('coaching') === 'true'
   const group     = searchParams.get('group') === 'true'
+  const urlSearch = normalizeSearch(searchParams.get('q') ?? '')
 
-  // Search is local only (instant, not persisted to URL)
-  const [search, setSearch] = useState('')
+  const [searchState, setSearchState] = useState({ value: urlSearch, syncedUrl: urlSearch })
+  if (searchState.syncedUrl !== urlSearch) {
+    setSearchState({ value: urlSearch, syncedUrl: urlSearch })
+  }
+  const search = searchState.value
+  const setSearch = (value: string) => {
+    setSearchState(current => ({ ...current, value }))
+  }
+  const normalizedSearch = normalizeSearch(search)
 
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
@@ -140,6 +153,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     page?: number
     coaching?: boolean
     group?: boolean
+    search?: string
   } = {}): string {
     const cat = overrides.category ?? category
     const t   = overrides.type     ?? type
@@ -150,6 +164,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     const pg  = overrides.page ?? page
     const co  = overrides.coaching !== undefined ? overrides.coaching : coaching
     const gr  = overrides.group    !== undefined ? overrides.group    : group
+    const q   = 'search' in overrides ? normalizeSearch(overrides.search ?? '') : urlSearch
 
     const params = new URLSearchParams()
     if (cat !== 'all') params.set('category', cat)
@@ -161,6 +176,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     if (pg > 1)        params.set('page', String(pg))
     if (co)            params.set('coaching', 'true')
     if (gr)            params.set('group', 'true')
+    if (q)             params.set('q', q)
 
     const qs = params.toString()
     return `/marketplace${qs ? '?' + qs : ''}`
@@ -170,14 +186,41 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     router.push(buildUrl(overrides), { scroll: false })
   }
 
+  useEffect(() => {
+    if (normalizedSearch === urlSearch) return
+
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (normalizedSearch) {
+        params.set('q', normalizedSearch)
+      } else {
+        params.delete('q')
+      }
+      params.delete('page')
+
+      const query = params.toString()
+      router.replace(`/marketplace${query ? `?${query}` : ''}`, { scroll: false })
+    }, SEARCH_DEBOUNCE_MS)
+
+    return () => window.clearTimeout(timeout)
+  }, [normalizedSearch, router, searchParams, urlSearch])
+
   // Filtering + sorting (client-side against the full product list)
   const filtered = products
     .filter(p => {
       const matchesCat      = category === 'all' || (p.categories ?? []).includes(category) || (p.creator.categories ?? []).includes(category) || p.creator.category === category
       const matchesType     = type === 'all' || p.type === type
-      const matchesSearch   = !search
-        || p.title.toLowerCase().includes(search.toLowerCase())
-        || p.creator.display_name.toLowerCase().includes(search.toLowerCase())
+      const searchNeedle = normalizedSearch.toLocaleLowerCase('de-DE')
+      const searchableCategories = [
+        ...(p.categories ?? []),
+        ...(p.creator.categories ?? []),
+        p.creator.category ?? '',
+      ].flatMap(categoryKey => [categoryKey, CATEGORY_LABEL_MAP[categoryKey] ?? ''])
+      const matchesSearch   = !searchNeedle
+        || p.title.toLocaleLowerCase('de-DE').includes(searchNeedle)
+        || p.creator.display_name.toLocaleLowerCase('de-DE').includes(searchNeedle)
+        || (p.description ?? '').toLocaleLowerCase('de-DE').includes(searchNeedle)
+        || searchableCategories.some(categoryValue => categoryValue.toLocaleLowerCase('de-DE').includes(searchNeedle))
       const matchesEquip    = equipment.length === 0 || equipment.some(e => p.equipment.includes(e))
       const matchesLevel    = !level    || p.level === level
       const matchesDuration = !duration || p.duration === duration
@@ -251,12 +294,14 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             <input
               value={search}
               onChange={e => { setSearch(e.target.value) }}
+              onBlur={() => setSearch(normalizedSearch)}
               placeholder="Produkte oder Coaches suchen..."
               className="w-full pl-12 pr-10 py-3.5 rounded-2xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-lg"
             />
-            {search && (
+            {normalizedSearch && (
               <button
                 onClick={() => setSearch('')}
+                aria-label="Suche löschen"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -442,7 +487,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
               </div>
 
-              {(activeFilterCount > 0 || search) && (
+              {(activeFilterCount > 0 || normalizedSearch) && (
                 <button
                   onClick={resetAll}
                   className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors whitespace-nowrap"
@@ -721,7 +766,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
           <p className="text-sm text-gray-500">
             <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
             {filtered.length === 1 ? 'Produkt' : 'Produkte'} gefunden
-            {search && <span className="text-gray-400"> für {'„'}{search}{'"'}</span>}
+            {normalizedSearch && <span className="text-gray-400"> für {'„'}{normalizedSearch}{'"'}</span>}
           </p>
           {activeFilterCount > 0 && (
             <span className="inline-flex items-center gap-1.5 text-xs bg-green-50 text-green-700 px-2.5 py-1 rounded-full border border-green-100 font-medium">
