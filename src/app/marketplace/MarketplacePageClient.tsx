@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Search, X, ChevronDown, Check, SlidersHorizontal, Filter, Video, Users,
+  Search, X, ChevronDown, Check, SlidersHorizontal, Filter, Video, Users, Sparkles,
 } from 'lucide-react'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
@@ -387,14 +387,20 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   }
 
   return (
-    <div>
+    <div className="hp-home min-h-screen bg-gray-50/60">
       {/* ── Hero ──────────────────────────────────────────────────── */}
-      <section className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 py-12 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+      <section className="relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-green-800 px-4 py-8 sm:py-10 lg:py-12">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-green-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
+        <div className="relative max-w-3xl mx-auto text-center">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-green-100">
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            Ardore Marktplatz
+          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-1.5 sm:mb-2">
             Alle Produkte entdecken
           </h1>
-          <p className="text-gray-400 text-sm mb-7">
+          <p className="text-green-100/70 text-xs sm:text-sm mb-5 sm:mb-7">
             {products.length} Produkte von qualifizierten Coaches
           </p>
           <div className="relative max-w-xl mx-auto">
@@ -404,7 +410,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
               onChange={e => { setSearch(e.target.value) }}
               onBlur={() => setSearch(normalizedSearch)}
               placeholder="Produkte oder Coaches suchen..."
-              className="w-full pl-12 pr-10 py-3.5 rounded-2xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-lg"
+              className="w-full pl-12 pr-10 py-3 sm:py-3.5 rounded-2xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-lg shadow-green-950/15"
             />
             {normalizedSearch && (
               <button
@@ -868,9 +874,9 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       )}
 
       {/* ── Results ───────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8">
         {/* Count + active-filter badge */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
           <p ref={resultsSummaryRef} tabIndex={-1} className="text-sm text-gray-500 focus:outline-none scroll-mt-24">
             <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
             {filtered.length === 1 ? 'Produkt' : 'Produkte'} gefunden
@@ -886,7 +892,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
 
         {/* Active filters */}
         {activeFilterChips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-6" aria-label="Aktive Filter">
+          <div className="flex flex-wrap items-center gap-2 mb-4 sm:mb-6" aria-label="Aktive Filter">
             {activeFilterChips.map(chip => (
               <span
                 key={chip.key}
@@ -933,13 +939,14 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             </button>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
             {pageItems.map(product => (
               <ProductCard
                 key={product.id}
                 product={product}
                 salesCount={salesCounts[product.id]}
                 rating={ratings[product.id]}
+                variant="marketplace"
               />
             ))}
           </div>

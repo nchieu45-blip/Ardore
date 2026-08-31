@@ -68,6 +68,8 @@ interface ProductCardProps {
   /** true → compact row card (w-48 fixed), false → full-width grid card */
   compact?: boolean
   scrollSnap?: boolean
+  /** Denser responsive treatment used by the marketplace catalog grid. */
+  variant?: 'default' | 'marketplace'
 }
 
 function getGradient(creator: ProductCardData['creator']): string {
@@ -85,15 +87,18 @@ export function ProductCard({
   rating,
   compact = false,
   scrollSnap = false,
+  variant = 'default',
 }: ProductCardProps) {
   const gradient = getGradient(product.creator)
   const hasThumb = !!product.thumbnail_url
+  const isMarketplace = variant === 'marketplace'
 
   return (
     <Link
       href={`/products/${product.id}`}
       className={[
         'block',
+        isMarketplace ? 'rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2' : '',
         compact ? 'flex-shrink-0 w-48' : 'w-full',
         scrollSnap ? '[scroll-snap-align:start]' : '',
       ].filter(Boolean).join(' ')}
@@ -103,7 +108,7 @@ export function ProductCard({
         {/* ── Thumbnail ─────────────────────────────────── */}
         <div className={[
           'relative flex-shrink-0 overflow-hidden',
-          compact ? 'h-32' : 'h-44',
+          compact ? 'h-32' : isMarketplace ? 'h-32 sm:h-40 lg:h-44' : 'h-44',
           hasThumb ? 'bg-gray-100' : `bg-gradient-to-br ${gradient}`,
         ].join(' ')}>
           {hasThumb ? (
@@ -128,31 +133,35 @@ export function ProductCard({
           <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full">
             {TYPE_LABELS[product.type]}
           </span>
-          <HeartButton type="product" itemId={product.id} className="absolute top-2 left-2" />
+          <HeartButton
+            type="product"
+            itemId={product.id}
+            className={isMarketplace ? 'absolute top-2 left-2 h-9 w-9 sm:h-7 sm:w-7' : 'absolute top-2 left-2'}
+          />
         </div>
 
         {/* ── Content ───────────────────────────────────── */}
-        <div className={compact ? 'p-3 flex flex-col flex-1' : 'p-4 flex flex-col flex-1'}>
+        <div className={compact ? 'p-3 flex flex-col flex-1' : isMarketplace ? 'p-3 sm:p-4 flex flex-col flex-1' : 'p-4 flex flex-col flex-1'}>
           {compact ? (
             <p className="text-[11px] text-gray-400 truncate mb-0.5">{product.creator.display_name}</p>
           ) : (
-            <div className="flex items-center gap-2 mb-2">
+            <div className={isMarketplace ? 'flex items-center gap-1.5 mb-1.5 sm:gap-2 sm:mb-2' : 'flex items-center gap-2 mb-2'}>
               <Avatar
                 src={product.creator.avatar_url}
                 name={product.creator.display_name}
                 size="sm"
-                className="h-5 w-5 text-[10px] flex-shrink-0"
+                className={isMarketplace ? 'hidden sm:flex h-5 w-5 text-[10px] flex-shrink-0' : 'h-5 w-5 text-[10px] flex-shrink-0'}
               />
-              <span className="text-xs text-gray-500 truncate">{product.creator.display_name}</span>
+              <span className={isMarketplace ? 'text-[11px] sm:text-xs text-gray-500 truncate' : 'text-xs text-gray-500 truncate'}>{product.creator.display_name}</span>
             </div>
           )}
 
-          <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug flex-1 mb-2">
+          <p className={isMarketplace ? 'text-[13px] sm:text-sm font-semibold text-gray-900 line-clamp-2 leading-snug flex-1 mb-1.5 sm:mb-2' : 'text-sm font-semibold text-gray-900 line-clamp-2 leading-snug flex-1 mb-2'}>
             {product.title}
           </p>
 
           {!compact && product.categories && product.categories.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
+            <div className={isMarketplace ? 'hidden sm:flex flex-wrap gap-1 mb-2' : 'flex flex-wrap gap-1 mb-2'}>
               {product.categories.slice(0, 2).map(cat => (
                 <span key={cat} className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-100">
                   {CATEGORY_LABEL_MAP[cat] ?? cat}
