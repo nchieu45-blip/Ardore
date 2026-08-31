@@ -215,7 +215,7 @@ export default async function CreatorProfilePage({
       : Promise.resolve({ data: [] }),
     user ? supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single() : Promise.resolve({ data: null }),
     productIds.length > 0
-      ? supabase.from('purchases').select('product_id').in('product_id', productIds)
+      ? supabase.rpc('get_public_product_sales_counts', { requested_product_ids: productIds })
       : Promise.resolve({ data: [] }),
     supabase
       .from('session_reviews')
@@ -288,8 +288,8 @@ export default async function CreatorProfilePage({
   }
 
   const productSalesCounts: Record<string, number> = {}
-  for (const { product_id } of (totalSalesRes.data ?? []) as { product_id: string }[]) {
-    productSalesCounts[product_id] = (productSalesCounts[product_id] ?? 0) + 1
+  for (const { product_id, sales_count } of (totalSalesRes.data ?? []) as { product_id: string; sales_count: number }[]) {
+    productSalesCounts[product_id] = Number(sales_count)
   }
   const showSalesIds = new Set(
     products

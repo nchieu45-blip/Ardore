@@ -117,7 +117,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     user
       ? supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
       : Promise.resolve({ data: null }),
-    supabase.from('purchases').select('id').eq('product_id', id),
+    supabase.rpc('get_public_product_sales_counts', { requested_product_ids: [id] }),
   ])
 
   const reviews = (reviewsRes.data ?? []).map((r: ReviewRow) => ({
@@ -126,7 +126,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const hasPurchased = !!purchaseRes.data
   const related = (relatedRes.data ?? []) as { id: string; title: string; type: ProductType; price: number; thumbnail_url: string | null }[]
   const currentProfile = profileRes.data
-  const salesCount = (salesRes.data ?? []).length
+  const salesCount = Number((salesRes.data?.[0] as { sales_count: number } | undefined)?.sales_count ?? 0)
 
   const avgRating = reviews.length > 0
     ? reviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviews.length

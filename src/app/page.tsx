@@ -127,7 +127,7 @@ export default async function MarketplacePage() {
 
   const [salesRes, reviewsRes, favoritesRes] = await Promise.all([
     productIds.length > 0
-      ? supabase.from('purchases').select('product_id').in('product_id', productIds)
+      ? supabase.rpc('get_public_product_sales_counts', { requested_product_ids: productIds })
       : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('reviews').select('product_id, rating').in('product_id', productIds)
@@ -138,8 +138,8 @@ export default async function MarketplacePage() {
   ])
 
   const salesCounts: Record<string, number> = {}
-  for (const { product_id } of (salesRes.data ?? []) as { product_id: string }[]) {
-    salesCounts[product_id] = (salesCounts[product_id] ?? 0) + 1
+  for (const { product_id, sales_count } of (salesRes.data ?? []) as { product_id: string; sales_count: number }[]) {
+    salesCounts[product_id] = Number(sales_count)
   }
 
   const ratingSums: Record<string, { sum: number; count: number }> = {}
