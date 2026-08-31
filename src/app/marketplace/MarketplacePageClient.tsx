@@ -78,6 +78,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const categoryRef = useRef<HTMLDivElement>(null)
   const mobileFilterButtonRef = useRef<HTMLButtonElement>(null)
   const mobileDrawerRef = useRef<HTMLDivElement>(null)
+  const resultsSummaryRef = useRef<HTMLParagraphElement>(null)
   const mobileDrawerTitleId = useId()
 
   function toggleGroup(label: string) {
@@ -243,22 +244,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const safePage   = Math.min(page, totalPages)
   const pageItems  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  const activeFilterCount = [
-    category !== 'all',
-    type !== 'all',
-    !!level,
-    equipment.length > 0,
-    !!duration,
-    coaching,
-    group,
-  ].filter(Boolean).length
-
   function resetAll() {
     setSearch('')
-    router.push('/marketplace', { scroll: false })
-  }
-
-  function resetMobileFilters() {
     go({
       category: 'all',
       type: 'all',
@@ -267,8 +254,97 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       duration: null,
       coaching: false,
       group: false,
+      search: '',
       page: 1,
     })
+  }
+
+  type ActiveFilterChip = {
+    key: string
+    label: string
+    remove: () => void
+  }
+
+  const activeFilterChips: ActiveFilterChip[] = []
+
+  if (category !== 'all') {
+    activeFilterChips.push({
+      key: 'category',
+      label: `Kategorie: ${CATEGORY_LABEL_MAP[category] ?? category}`,
+      remove: () => go({ category: 'all', page: 1 }),
+    })
+  }
+
+  if (type !== 'all') {
+    activeFilterChips.push({
+      key: 'type',
+      label: `Typ: ${TYPE_OPTIONS.find(option => option.key === type)?.label ?? type}`,
+      remove: () => go({ type: 'all', page: 1 }),
+    })
+  }
+
+  if (level) {
+    activeFilterChips.push({
+      key: 'level',
+      label: `Level: ${LEVEL_OPTIONS.find(option => option.value === level)?.label ?? level}`,
+      remove: () => go({ level: null, page: 1 }),
+    })
+  }
+
+  for (const equipmentValue of equipment) {
+    const equipmentLabel = EQUIPMENT_OPTIONS.find(option => option.value === equipmentValue)?.label ?? equipmentValue
+    activeFilterChips.push({
+      key: `equipment-${equipmentValue}`,
+      label: `Equipment: ${equipmentLabel}`,
+      remove: () => go({ equipment: equipment.filter(value => value !== equipmentValue), page: 1 }),
+    })
+  }
+
+  if (duration) {
+    activeFilterChips.push({
+      key: 'duration',
+      label: `Dauer: ${DURATION_OPTIONS.find(option => option.value === duration)?.label ?? duration}`,
+      remove: () => go({ duration: null, page: 1 }),
+    })
+  }
+
+  if (coaching) {
+    activeFilterChips.push({
+      key: 'coaching',
+      label: '1:1 Coaching',
+      remove: () => go({ coaching: false, page: 1 }),
+    })
+  }
+
+  if (group) {
+    activeFilterChips.push({
+      key: 'group',
+      label: 'Gruppen-Session',
+      remove: () => go({ group: false, page: 1 }),
+    })
+  }
+
+  if (normalizedSearch) {
+    activeFilterChips.push({
+      key: 'search',
+      label: `Suche: „${normalizedSearch}“`,
+      remove: () => {
+        setSearch('')
+        go({ search: '', page: 1 })
+      },
+    })
+  }
+
+  const activeFilterCount = activeFilterChips.length
+
+  function removeFilterChip(remove: () => void) {
+    remove()
+    window.setTimeout(() => resultsSummaryRef.current?.focus(), 0)
+  }
+
+  function resetAllAndFocusResults() {
+    resetAll()
+    window.setTimeout(() => resultsSummaryRef.current?.focus(), 0)
   }
 
 
@@ -371,7 +447,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto animate-scale-in">
                   {/* "Alle Kategorien" reset row */}
                   <button
-                    onClick={() => { setCategoryOpen(false); setSearch(''); router.push('/marketplace', { scroll: false }) }}
+                    onClick={() => { setCategoryOpen(false); go({ category: 'all', page: 1 }) }}
                     className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Alle Kategorien
@@ -487,9 +563,9 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
               </div>
 
-              {(activeFilterCount > 0 || normalizedSearch) && (
+              {activeFilterCount > 0 && (
                 <button
-                  onClick={resetAll}
+                  onClick={resetAllAndFocusResults}
                   className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors whitespace-nowrap"
                 >
                   <X className="h-3 w-3" />
@@ -741,7 +817,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             <div className="grid grid-cols-2 gap-3 px-5 py-4 border-t border-gray-100 bg-white flex-shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
-                onClick={resetMobileFilters}
+                onClick={resetAll}
                 disabled={activeFilterCount === 0}
                 className="px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-40"
               >
@@ -763,7 +839,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Count + active-filter badge */}
         <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-gray-500">
+          <p ref={resultsSummaryRef} tabIndex={-1} className="text-sm text-gray-500 focus:outline-none">
             <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
             {filtered.length === 1 ? 'Produkt' : 'Produkte'} gefunden
             {normalizedSearch && <span className="text-gray-400"> für {'„'}{normalizedSearch}{'"'}</span>}
@@ -776,6 +852,37 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
           )}
         </div>
 
+        {/* Active filters */}
+        {activeFilterChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-6" aria-label="Aktive Filter">
+            {activeFilterChips.map(chip => (
+              <span
+                key={chip.key}
+                className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-green-50 text-green-800 border border-green-100 text-xs font-medium"
+              >
+                {chip.label}
+                <button
+                  type="button"
+                  onClick={() => removeFilterChip(chip.remove)}
+                  aria-label={`${chip.label} entfernen`}
+                  className="h-5 w-5 rounded-full inline-flex items-center justify-center text-green-700 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </span>
+            ))}
+            {activeFilterChips.length > 1 && (
+              <button
+                type="button"
+                onClick={resetAllAndFocusResults}
+                className="text-xs font-semibold text-gray-500 hover:text-red-600 underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-green-500 rounded"
+              >
+                Alle Filter zurücksetzen
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Grid */}
         {pageItems.length === 0 ? (
           <div className="text-center py-20">
@@ -787,7 +894,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
               Versuche andere Filter oder einen anderen Suchbegriff.
             </p>
             <button
-              onClick={resetAll}
+              onClick={resetAllAndFocusResults}
               className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
             >
               Alle Filter zurücksetzen
