@@ -39,6 +39,13 @@ function normalizeSearch(value: string): string {
   return value.trim().replace(/\s+/g, ' ')
 }
 
+function parsePageParam(value: string | null): number {
+  if (!value || !/^[1-9]\d*$/.test(value)) return 1
+
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) ? parsed : 1
+}
+
 interface Props {
   products: MarketplaceProduct[]
   salesCounts: Record<string, number>
@@ -56,7 +63,8 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const level     = searchParams.get('level')
   const equipment = searchParams.get('equipment')?.split(',').filter(Boolean) ?? []
   const duration  = searchParams.get('duration')
-  const page      = Number(searchParams.get('page') ?? 1)
+  const rawPage   = searchParams.get('page')
+  const page      = parsePageParam(rawPage)
   const coaching  = searchParams.get('coaching') === 'true'
   const group     = searchParams.get('group') === 'true'
   const urlSearch = normalizeSearch(searchParams.get('q') ?? '')
@@ -244,6 +252,21 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const safePage   = Math.min(page, totalPages)
   const pageItems  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
+  useEffect(() => {
+    const normalizedPageParam = safePage > 1 ? String(safePage) : null
+    if (rawPage === normalizedPageParam) return
+
+    const params = new URLSearchParams(searchParams.toString())
+    if (normalizedPageParam) {
+      params.set('page', normalizedPageParam)
+    } else {
+      params.delete('page')
+    }
+
+    const query = params.toString()
+    router.replace(`/marketplace${query ? `?${query}` : ''}`, { scroll: false })
+  }, [rawPage, router, safePage, searchParams])
+
   function resetAll() {
     setSearch('')
     go({
@@ -350,8 +373,17 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
 
 
   function goToPage(p: number) {
-    go({ page: p })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const nextPage = Math.min(Math.max(1, p), totalPages)
+    if (nextPage === safePage) return
+
+    go({ page: nextPage })
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    window.requestAnimationFrame(() => {
+      resultsSummaryRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    })
   }
 
   return (
@@ -839,7 +871,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Count + active-filter badge */}
         <div className="flex items-center justify-between mb-6">
-          <p ref={resultsSummaryRef} tabIndex={-1} className="text-sm text-gray-500 focus:outline-none">
+          <p ref={resultsSummaryRef} tabIndex={-1} className="text-sm text-gray-500 focus:outline-none scroll-mt-24">
             <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
             {filtered.length === 1 ? 'Produkt' : 'Produkte'} gefunden
             {normalizedSearch && <span className="text-gray-400"> für {'„'}{normalizedSearch}{'"'}</span>}
@@ -915,10 +947,12 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-10 flex-wrap">
+          <nav aria-label="Seitennavigation der Marktplatz-Ergebnisse" className="flex items-center justify-center gap-2 mt-10 flex-wrap">
             <button
+              type="button"
               onClick={() => goToPage(safePage - 1)}
               disabled={safePage === 1}
+              aria-label="Vorherige Ergebnisseite"
               className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               ← Zurück
@@ -936,12 +970,15 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
               let prev = 0
               for (const p of pages) {
                 if (p - prev > 1) {
-                  nodes.push(<span key={`gap-${p}`} className="px-1 text-gray-400 text-sm select-none">…</span>)
+                  nodes.push(<span key={`gap-${p}`} aria-hidden="true" className="px-1 text-gray-400 text-sm select-none">…</span>)
                 }
                 nodes.push(
                   <button
                     key={p}
+                    type="button"
                     onClick={() => goToPage(p)}
+                    aria-label={`Seite ${p}`}
+                    aria-current={safePage === p ? 'page' : undefined}
                     className={cn(
                       'w-9 h-9 rounded-xl text-sm font-medium transition-colors',
                       safePage === p
@@ -958,13 +995,15 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             })()}
 
             <button
+              type="button"
               onClick={() => goToPage(safePage + 1)}
               disabled={safePage === totalPages}
+              aria-label="Nächste Ergebnisseite"
               className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Weiter →
             </button>
-          </div>
+          </nav>
         )}
       </div>
     </div>
