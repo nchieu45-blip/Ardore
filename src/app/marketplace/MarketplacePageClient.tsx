@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, X, ChevronDown, Check, SlidersHorizontal, Filter, Video, Users,
@@ -9,7 +9,7 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/productOptions'
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import { cn } from '@/lib/utils'
-import { CATEGORY_GROUPS, ALL_CATEGORIES, CATEGORY_LABEL_MAP } from '@/lib/categories'
+import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
@@ -61,7 +61,11 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const categoryRef = useRef<HTMLDivElement>(null)
+  const mobileFilterButtonRef = useRef<HTMLButtonElement>(null)
+  const mobileDrawerRef = useRef<HTMLDivElement>(null)
+  const mobileDrawerTitleId = useId()
 
   function toggleGroup(label: string) {
     setOpenGroups(prev => {
@@ -80,6 +84,50 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [])
+
+  useEffect(() => {
+    if (!mobileFiltersOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    const trigger = mobileFilterButtonRef.current
+    document.body.style.overflow = 'hidden'
+
+    const drawer = mobileDrawerRef.current
+    const focusableSelector =
+      'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+    const firstFocusable = drawer?.querySelector<HTMLElement>('[data-autofocus]')
+      ?? drawer?.querySelector<HTMLElement>(focusableSelector)
+    firstFocusable?.focus()
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMobileFiltersOpen(false)
+        return
+      }
+
+      if (event.key !== 'Tab' || !drawer) return
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector))
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', onKeyDown)
+      trigger?.focus()
+    }
+  }, [mobileFiltersOpen])
 
   // Build a /marketplace URL from current params + overrides
   function buildUrl(overrides: {
@@ -155,7 +203,6 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   const activeFilterCount = [
     category !== 'all',
     type !== 'all',
-    sort !== 'popular',
     !!level,
     equipment.length > 0,
     !!duration,
@@ -166,6 +213,19 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
   function resetAll() {
     setSearch('')
     router.push('/marketplace', { scroll: false })
+  }
+
+  function resetMobileFilters() {
+    go({
+      category: 'all',
+      type: 'all',
+      level: null,
+      equipment: [],
+      duration: null,
+      coaching: false,
+      group: false,
+      page: 1,
+    })
   }
 
 
@@ -206,18 +266,52 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
         </div>
       </section>
 
-      {/* ── Sticky filter bar ─────────────────────────────────────── */}
-      <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
+      {/* ── Mobile filter toolbar ─────────────────────────────────── */}
+      <div className="md:hidden sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-3">
+          <button
+            ref={mobileFilterButtonRef}
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={mobileFiltersOpen}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm active:scale-[0.98] transition-all"
+          >
+            <SlidersHorizontal className="h-4 w-4 text-green-600" />
+            Filter
+            {activeFilterCount > 0 && (
+              <span className="h-5 min-w-5 px-1 rounded-full bg-green-600 text-white text-[11px] font-bold inline-flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          <label className="relative flex-1">
+            <span className="sr-only">Produkte sortieren</span>
+            <select
+              value={sort}
+              onChange={e => go({ sort: e.target.value, page: 1 })}
+              aria-label="Produkte sortieren"
+              className="appearance-none w-full pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer shadow-sm"
+            >
+              {SORT_OPTIONS.map(({ key, label }) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Desktop sticky filter bar ─────────────────────────────── */}
+      <div className="hidden md:block sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-2.5">
           <div className="flex items-center gap-2">
 
             {/* Category dropdown — outside the overflow-x-auto so the menu isn't clipped */}
             <div ref={categoryRef} className="relative flex-shrink-0">
               <button
-                onClick={() => {
-                  console.log('[Marketplace] categoryOpen toggled, was:', categoryOpen, 'ALL_CATEGORIES.length:', ALL_CATEGORIES.length)
-                  setCategoryOpen(o => !o)
-                }}
+                onClick={() => setCategoryOpen(o => !o)}
                 className={cn(
                   'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
                   category !== 'all'
@@ -434,6 +528,191 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
           )}
         </div>
       </div>
+
+      {/* ── Mobile filter drawer ──────────────────────────────────── */}
+      {mobileFiltersOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-[70] bg-gray-950/45 backdrop-blur-[2px]"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) setMobileFiltersOpen(false)
+          }}
+        >
+          <div
+            ref={mobileDrawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={mobileDrawerTitleId}
+            className="absolute inset-x-0 bottom-0 max-h-[88svh] bg-white rounded-t-3xl shadow-2xl flex flex-col animate-slide-up-sm"
+          >
+            <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h2 id={mobileDrawerTitleId} className="text-lg font-bold text-gray-900">Filter</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{filtered.length} {filtered.length === 1 ? 'Produkt' : 'Produkte'} gefunden</p>
+              </div>
+              <button
+                type="button"
+                data-autofocus
+                onClick={() => setMobileFiltersOpen(false)}
+                aria-label="Filter schließen"
+                className="h-10 w-10 rounded-xl bg-gray-100 text-gray-500 inline-flex items-center justify-center hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto overscroll-contain px-5 py-5 space-y-6">
+              <label className="block">
+                <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Kategorie</span>
+                <select
+                  value={category}
+                  onChange={event => go({ category: event.target.value, page: 1 })}
+                  className="w-full px-3.5 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="all">Alle Kategorien</option>
+                  {CATEGORY_GROUPS.map(categoryGroup => (
+                    <optgroup key={categoryGroup.label} label={categoryGroup.label}>
+                      {categoryGroup.items.map(item => (
+                        <option key={item.key} value={item.key}>{item.label}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+
+              <fieldset>
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Produkttyp</legend>
+                <div className="flex flex-wrap gap-2">
+                  {TYPE_OPTIONS.map(option => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-pressed={type === option.key}
+                      onClick={() => go({ type: option.key, page: 1 })}
+                      className={cn(
+                        'px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors',
+                        type === option.key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Verfügbarkeit</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={coaching}
+                    onClick={() => go({ coaching: !coaching, page: 1 })}
+                    className={cn(
+                      'inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+                      coaching ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'
+                    )}
+                  >
+                    <Video className="h-4 w-4" /> 1:1 Coaching
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={group}
+                    onClick={() => go({ group: !group, page: 1 })}
+                    className={cn(
+                      'inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+                      group ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-gray-600 border-gray-200'
+                    )}
+                  >
+                    <Users className="h-4 w-4" /> Gruppe
+                  </button>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Level</legend>
+                <div className="flex flex-wrap gap-2">
+                  {LEVEL_OPTIONS.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={level === option.value}
+                      onClick={() => go({ level: level === option.value ? null : option.value, page: 1 })}
+                      className={cn(
+                        'px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors',
+                        level === option.value ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Equipment</legend>
+                <div className="flex flex-wrap gap-2">
+                  {EQUIPMENT_OPTIONS.map(option => {
+                    const active = equipment.includes(option.value)
+                    const nextEquipment = active ? equipment.filter(value => value !== option.value) : [...equipment, option.value]
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => go({ equipment: nextEquipment, page: 1 })}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors',
+                          active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                        )}
+                      >
+                        {active && <Check className="h-3.5 w-3.5" />}
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dauer</legend>
+                <div className="flex flex-wrap gap-2">
+                  {DURATION_OPTIONS.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={duration === option.value}
+                      onClick={() => go({ duration: duration === option.value ? null : option.value, page: 1 })}
+                      className={cn(
+                        'px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors',
+                        duration === option.value ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 px-5 py-4 border-t border-gray-100 bg-white flex-shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={resetMobileFilters}
+                disabled={activeFilterCount === 0}
+                className="px-4 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-40"
+              >
+                Zurücksetzen
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(false)}
+                className="px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
+                {filtered.length} anzeigen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Results ───────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 py-8">
