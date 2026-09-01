@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
   const newScheduledAt = new Date(`${newDate}T${newTime}:00`)
   const oldScheduledAt = new Date(booking.scheduled_at)
 
-  const { error: updateError } = await supabase
+  const service = await createServiceClient()
+  const { error: updateError } = await service
     .from('bookings')
     .update({ scheduled_at: newScheduledAt.toISOString() })
     .eq('id', bookingId)
@@ -116,7 +117,6 @@ export async function POST(req: NextRequest) {
 
   ;(async () => {
     try {
-      const service = await createServiceClient()
       const { sendRescheduleConfirmation } = await import('@/lib/email/send')
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
       const sessionUrl = `${appUrl}/session/${bookingId}`

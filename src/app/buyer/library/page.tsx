@@ -83,7 +83,7 @@ export default async function BuyerLibraryPage() {
                     )}
                   </div>
                   {product.file_url && (
-                    <a href={product.file_url} target="_blank" rel="noopener noreferrer">
+                    <a href={`/api/products/${product.id}/download`} target="_blank" rel="noopener noreferrer">
                       <Button variant="outline" size="sm">
                         <Download className="h-4 w-4" />
                         Herunterladen

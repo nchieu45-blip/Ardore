@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { error } = await supabase
+  const service = await createServiceClient()
+  const { error } = await service
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('id', bookingId)
@@ -67,7 +68,6 @@ export async function POST(req: NextRequest) {
   // Notify and email the other party
   ;(async () => {
     try {
-      const service = await createServiceClient()
       const { sendSessionCancellation } = await import('@/lib/email/send')
 
       if (isBuyer && cp?.user_id) {

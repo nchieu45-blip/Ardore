@@ -47,7 +47,7 @@ export default async function CreatorChatOverviewPage() {
 
   // Fetch buyer profiles, last-read timestamps, and unread counts in parallel
   const [profilesRes, lastReadRes, messagesRes] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, avatar_url').in('id', buyerIds),
+    supabase.from('public_profiles').select('id, full_name, avatar_url').in('id', buyerIds),
     supabase
       .from('chat_last_read')
       .select('buyer_id, last_read_at')

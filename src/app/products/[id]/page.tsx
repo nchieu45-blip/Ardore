@@ -44,15 +44,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   muskelaufbau: 'Muskelaufbau',
 }
 
-interface ReviewProfile { full_name: string | null; avatar_url: string | null }
 interface ReviewRow {
-  id: string; product_id: string; buyer_id: string; rating: number
+  id: string; product_id: string; rating: number
   content: string | null; created_at: string
-  profiles: ReviewProfile | ReviewProfile[] | null
-}
-function normalizeProfile(raw: ReviewProfile | ReviewProfile[] | null): ReviewProfile | null {
-  if (!raw) return null
-  return Array.isArray(raw) ? raw[0] ?? null : raw
+  is_own: boolean
+  reviewer_name: string | null; reviewer_avatar_url: string | null
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -101,8 +97,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
 
   const [reviewsRes, purchaseRes, relatedRes, profileRes, salesRes] = await Promise.all([
-    supabase.from('reviews')
-      .select('*, profiles(full_name, avatar_url)')
+    supabase.from('public_product_reviews')
+      .select('*')
       .eq('product_id', id)
       .order('created_at', { ascending: false }),
     user
@@ -121,7 +117,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ])
 
   const reviews = (reviewsRes.data ?? []).map((r: ReviewRow) => ({
-    ...r, profiles: normalizeProfile(r.profiles),
+    ...r, profiles: { full_name: r.reviewer_name, avatar_url: r.reviewer_avatar_url },
   }))
   const hasPurchased = !!purchaseRes.data
   const related = (relatedRes.data ?? []) as { id: string; title: string; type: ProductType; price: number; thumbnail_url: string | null }[]

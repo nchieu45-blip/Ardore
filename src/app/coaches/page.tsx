@@ -64,7 +64,7 @@ export default async function CoachesPage() {
       : Promise.resolve({ data: [] }),
     creatorIds.length > 0
       ? supabase
-          .from('reviews')
+          .from('public_product_reviews')
           .select('product_id, rating')
       : Promise.resolve({ data: [] }),
     creatorIds.length > 0

@@ -120,11 +120,12 @@ interface ReviewProfile {
 interface ReviewRow {
   id: string
   product_id: string
-  buyer_id: string
   rating: number
   content: string | null
   created_at: string
-  profiles: ReviewProfile | ReviewProfile[] | null
+  is_own: boolean
+  reviewer_name: string | null
+  reviewer_avatar_url: string | null
 }
 
 interface SessionReviewRow {
@@ -132,12 +133,8 @@ interface SessionReviewRow {
   rating: number
   content: string | null
   created_at: string
-  profiles: ReviewProfile | ReviewProfile[] | null
-}
-
-function normalizeProfile(raw: ReviewProfile | ReviewProfile[] | null): ReviewProfile | null {
-  if (!raw) return null
-  return Array.isArray(raw) ? raw[0] ?? null : raw
+  reviewer_name: string | null
+  reviewer_avatar_url: string | null
 }
 
 function formatReviewerName(fullName: string | null | undefined): string {
@@ -211,15 +208,15 @@ export default async function CreatorProfilePage({
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
     user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
     productIds.length > 0
-      ? supabase.from('reviews').select('*, profiles(full_name, avatar_url)').in('product_id', productIds).order('created_at', { ascending: false })
+      ? supabase.from('public_product_reviews').select('*').in('product_id', productIds).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
     user ? supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single() : Promise.resolve({ data: null }),
     productIds.length > 0
       ? supabase.rpc('get_public_product_sales_counts', { requested_product_ids: productIds })
       : Promise.resolve({ data: [] }),
     supabase
-      .from('session_reviews')
-      .select('id, rating, content, created_at, profiles(full_name, avatar_url)')
+      .from('public_session_reviews')
+      .select('id, rating, content, created_at, reviewer_name, reviewer_avatar_url')
       .eq('creator_id', creator.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -301,13 +298,21 @@ export default async function CreatorProfilePage({
     .reduce((sum, [, n]) => sum + n, 0)
 
   const reviewsByProduct: Record<string, {
-    id: string; product_id: string; buyer_id: string; rating: number; content: string | null; created_at: string
+    id: string; product_id: string; rating: number; content: string | null; created_at: string; is_own: boolean
     profiles: ReviewProfile | null
   }[]> = {}
 
   for (const r of (reviewsRes.data ?? []) as ReviewRow[]) {
     if (!reviewsByProduct[r.product_id]) reviewsByProduct[r.product_id] = []
-    reviewsByProduct[r.product_id].push({ ...r, profiles: normalizeProfile(r.profiles) })
+    reviewsByProduct[r.product_id].push({
+      id: r.id,
+      product_id: r.product_id,
+      rating: r.rating,
+      content: r.content,
+      created_at: r.created_at,
+      is_own: r.is_own,
+      profiles: { full_name: r.reviewer_name, avatar_url: r.reviewer_avatar_url },
+    })
   }
 
   const ratingStats: Record<string, { avg: number; count: number }> = {}
@@ -906,7 +911,7 @@ export default async function CreatorProfilePage({
                 <>
                   <div className="grid sm:grid-cols-2 gap-4">
                     {sessionReviews.slice(0, 6).map(review => {
-                      const profile = normalizeProfile(review.profiles)
+                      const profile = { full_name: review.reviewer_name, avatar_url: review.reviewer_avatar_url }
                       return (
                         <div key={review.id} className="rounded-2xl border border-gray-100 bg-white p-5">
                           <div className="flex items-start gap-3 mb-3">

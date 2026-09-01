@@ -48,7 +48,7 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
               if (newMsg.sender_id === currentUser?.id) return
 
               const { data: sender } = await supabase
-                .from('profiles')
+                .from('public_profiles')
                 .select('id, full_name, avatar_url')
                 .eq('id', newMsg.sender_id)
                 .single()

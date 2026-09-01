@@ -38,18 +38,25 @@ export default async function ChatPage({
   }
 
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('public_profiles')
     .select('*')
     .eq('id', user.id)
     .single()
 
   const { data: messages } = await supabase
     .from('messages')
-    .select('*, sender:profiles(id, full_name, avatar_url)')
+    .select('*')
     .eq('creator_id', creatorId)
     .or(`sender_id.eq.${user.id},sender_id.eq.${creatorProfile.user_id}`)
     .order('created_at', { ascending: true })
     .limit(100)
+
+  const initialMessages = (messages ?? []).map((message) => ({
+    ...message,
+    sender: message.sender_id === creatorProfile.user_id
+      ? { id: creatorProfile.user_id, full_name: creatorProfile.display_name, avatar_url: creatorProfile.avatar_url }
+      : profile,
+  }))
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -57,7 +64,7 @@ export default async function ChatPage({
         creatorId={creatorId}
         creator={creatorProfile}
         currentUser={profile}
-        initialMessages={messages ?? []}
+        initialMessages={initialMessages}
       />
     </div>
   )

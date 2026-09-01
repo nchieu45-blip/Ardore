@@ -33,10 +33,10 @@ export default async function CreatorChatThreadPage({
   if (!subscription) redirect('/creator/chat')
 
   const [profileRes, messagesRes] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, avatar_url').eq('id', buyerUserId).single(),
+    supabase.from('public_profiles').select('id, full_name, avatar_url').eq('id', buyerUserId).single(),
     supabase
       .from('messages')
-      .select('*, sender:profiles(id, full_name, avatar_url)')
+      .select('*')
       .eq('creator_id', creator.id)
       .or(`sender_id.eq.${buyerUserId},sender_id.eq.${user.id}`)
       .order('created_at', { ascending: true })
@@ -45,6 +45,15 @@ export default async function CreatorChatThreadPage({
 
   const buyer = profileRes.data ?? { id: buyerUserId, full_name: null, avatar_url: null }
   const currentProfile = await supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single()
+  const creatorIdentity = {
+    id: user.id,
+    full_name: currentProfile.data?.full_name ?? null,
+    avatar_url: currentProfile.data?.avatar_url ?? null,
+  }
+  const initialMessages = (messagesRes.data ?? []).map((message) => ({
+    ...message,
+    sender: message.sender_id === buyerUserId ? buyer : creatorIdentity,
+  }))
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -55,7 +64,7 @@ export default async function CreatorChatThreadPage({
         currentUserId={user.id}
         currentUserName={currentProfile.data?.full_name ?? null}
         currentUserAvatar={currentProfile.data?.avatar_url ?? null}
-        initialMessages={messagesRes.data ?? []}
+        initialMessages={initialMessages}
       />
     </div>
   )

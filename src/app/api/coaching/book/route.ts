@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
 
 export async function POST(req: NextRequest) {
@@ -140,7 +140,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: booking, error } = await supabase
+  const service = await createServiceClient()
+  const { data: booking, error } = await service
     .from('bookings')
     .insert({
       creator_id:       creatorId,
@@ -187,7 +188,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (creator) {
-      const { data: creatorUser } = await supabase.auth.admin.getUserById(creator.user_id)
+      const { data: creatorUser } = await service.auth.admin.getUserById(creator.user_id)
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
       const sessionUrl = `${appUrl}/session/${booking.id}`
 

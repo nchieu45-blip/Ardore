@@ -14,7 +14,7 @@ interface ReviewProfile {
 interface ReviewData {
   id: string
   product_id: string
-  buyer_id: string
+  is_own: boolean
   rating: number
   content: string | null
   created_at: string
@@ -45,7 +45,7 @@ export default function ReviewSection({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const myReview = reviews.find(r => r.buyer_id === currentUserId) ?? null
+  const myReview = currentUserId ? reviews.find(r => r.is_own) ?? null : null
 
   const [rating, setRating] = useState(myReview?.rating ?? 0)
   const [content, setContent] = useState(myReview?.content ?? '')
@@ -79,10 +79,11 @@ export default function ReviewSection({
       }
       const { review } = await res.json()
       setReviews(prev => {
-        const without = prev.filter(r => r.buyer_id !== currentUserId)
+        const without = prev.filter(r => !r.is_own)
         return [
           {
             ...review,
+            is_own: true,
             profiles: { full_name: currentUserName, avatar_url: currentUserAvatar },
           },
           ...without,

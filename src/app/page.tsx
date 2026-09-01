@@ -130,7 +130,7 @@ export default async function MarketplacePage() {
       ? supabase.rpc('get_public_product_sales_counts', { requested_product_ids: productIds })
       : Promise.resolve({ data: [] }),
     productIds.length > 0
-      ? supabase.from('reviews').select('product_id, rating').in('product_id', productIds)
+      ? supabase.from('public_product_reviews').select('product_id, rating').in('product_id', productIds)
       : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('favorites').select('item_id').eq('item_type', 'product').in('item_id', productIds)
