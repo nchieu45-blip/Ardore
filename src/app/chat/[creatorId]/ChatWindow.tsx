@@ -12,18 +12,19 @@ interface Message {
   id: string
   content: string
   sender_id: string
+  conversation_id: string
   created_at: string
   sender: { id: string; full_name: string | null; avatar_url: string | null } | null
 }
 
 interface ChatWindowProps {
-  creatorId: string
+  conversationId: string
   creator: { id: string; display_name: string; slug: string; avatar_url: string | null }
   currentUser: { id: string; full_name: string | null; avatar_url: string | null } | null
   initialMessages: Message[]
 }
 
-export default function ChatWindow({ creatorId, creator, currentUser, initialMessages }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, creator, currentUser, initialMessages }: ChatWindowProps) {
   const supabase = createClient()
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [text, setText] = useState('')
@@ -38,10 +39,10 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
     let channel: ReturnType<typeof supabase.channel> | null = null
     try {
       channel = supabase
-        .channel(`chat-${creatorId}`)
+        .channel(`chat-${conversationId}`)
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `creator_id=eq.${creatorId}` },
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
           async (payload) => {
             try {
               const newMsg = payload.new as Message & { sender_id: string }
@@ -65,7 +66,7 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
     }
 
     return () => { if (channel) supabase.removeChannel(channel) }
-  }, [creatorId, currentUser?.id, supabase])
+  }, [conversationId, currentUser?.id, supabase])
 
   async function sendMessage() {
     if (!text.trim() || !currentUser) return
@@ -75,6 +76,7 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
       id: crypto.randomUUID(),
       content: text.trim(),
       sender_id: currentUser.id,
+      conversation_id: conversationId,
       created_at: new Date().toISOString(),
       sender: { id: currentUser.id, full_name: currentUser.full_name, avatar_url: currentUser.avatar_url },
     }
@@ -84,7 +86,7 @@ export default function ChatWindow({ creatorId, creator, currentUser, initialMes
     await fetch('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ creatorId, content: optimistic.content }),
+      body: JSON.stringify({ conversationId, content: optimistic.content }),
     })
 
     setSending(false)

@@ -12,13 +12,13 @@ interface Message {
   id: string
   content: string
   sender_id: string
+  conversation_id: string
   created_at: string
   sender: { id: string; full_name: string | null; avatar_url: string | null } | null
 }
 
 interface Props {
-  creatorId: string
-  creatorUserId: string
+  conversationId: string
   buyer: { id: string; full_name: string | null; avatar_url: string | null }
   currentUserId: string
   currentUserName: string | null
@@ -27,7 +27,7 @@ interface Props {
 }
 
 export default function CreatorChatWindow({
-  creatorId,
+  conversationId,
   buyer,
   currentUserId,
   currentUserName,
@@ -49,7 +49,7 @@ export default function CreatorChatWindow({
     fetch('/api/chat-last-read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buyerUserId: buyer.id }),
+      body: JSON.stringify({ conversationId }),
     }).catch((err) => console.log('[creator-chat] mark-read failed:', err))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -58,10 +58,10 @@ export default function CreatorChatWindow({
     let channel: ReturnType<typeof supabase.channel> | null = null
     try {
       channel = supabase
-        .channel(`creator-chat-${creatorId}-${buyer.id}`)
+        .channel(`creator-chat-${conversationId}`)
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `creator_id=eq.${creatorId}` },
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
           async (payload) => {
             try {
               const newMsg = payload.new as Message & { sender_id: string }
@@ -86,7 +86,7 @@ export default function CreatorChatWindow({
     }
 
     return () => { if (channel) supabase.removeChannel(channel) }
-  }, [creatorId, buyer.id, currentUserId, supabase])
+  }, [conversationId, buyer.id, currentUserId, supabase])
 
   async function sendMessage() {
     if (!text.trim()) return
@@ -96,6 +96,7 @@ export default function CreatorChatWindow({
       id: crypto.randomUUID(),
       content: text.trim(),
       sender_id: currentUserId,
+      conversation_id: conversationId,
       created_at: new Date().toISOString(),
       sender: { id: currentUserId, full_name: currentUserName, avatar_url: currentUserAvatar },
     }
@@ -105,7 +106,7 @@ export default function CreatorChatWindow({
     await fetch('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ creatorId, content: optimistic.content }),
+      body: JSON.stringify({ conversationId, content: optimistic.content }),
     })
 
     setSending(false)

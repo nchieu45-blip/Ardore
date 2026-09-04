@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { ensureDirectConversation } from '@/lib/chat'
 import ChatWindow from './ChatWindow'
 
 export default async function ChatPage({
@@ -33,9 +34,18 @@ export default async function ChatPage({
 
   const isCreatorOwner = creatorProfile.user_id === user.id
 
-  if (!subscription && !isCreatorOwner) {
+  if (isCreatorOwner) redirect('/creator/chat')
+
+  if (!subscription) {
     redirect(`/creators/${creatorProfile.slug}`)
   }
+
+  const service = await createServiceClient()
+  const conversationId = await ensureDirectConversation({
+    service,
+    creatorId,
+    buyerId: user.id,
+  })
 
   const { data: profile } = await supabase
     .from('public_profiles')
@@ -46,8 +56,7 @@ export default async function ChatPage({
   const { data: messages } = await supabase
     .from('messages')
     .select('*')
-    .eq('creator_id', creatorId)
-    .or(`sender_id.eq.${user.id},sender_id.eq.${creatorProfile.user_id}`)
+    .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(100)
 
@@ -61,7 +70,7 @@ export default async function ChatPage({
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <ChatWindow
-        creatorId={creatorId}
+        conversationId={conversationId}
         creator={creatorProfile}
         currentUser={profile}
         initialMessages={initialMessages}

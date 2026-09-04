@@ -45,31 +45,42 @@ export default async function CreatorChatOverviewPage() {
     )
   }
 
-  // Fetch buyer profiles, last-read timestamps, and unread counts in parallel
-  const [profilesRes, lastReadRes, messagesRes] = await Promise.all([
+  const [profilesRes, conversationsRes] = await Promise.all([
     supabase.from('public_profiles').select('id, full_name, avatar_url').in('id', buyerIds),
     supabase
-      .from('chat_last_read')
-      .select('buyer_id, last_read_at')
+      .from('chat_conversations')
+      .select('id, buyer_id')
       .eq('creator_id', creator.id)
+      .eq('kind', 'direct')
       .in('buyer_id', buyerIds),
-    supabase
-      .from('messages')
-      .select('sender_id, created_at')
-      .eq('creator_id', creator.id)
-      .in('sender_id', buyerIds),
   ])
+
+  const conversations = conversationsRes.data ?? []
+  const conversationIds = conversations.map((conversation) => conversation.id)
+  const [lastReadRes, messagesRes] = conversationIds.length > 0
+    ? await Promise.all([
+        supabase
+          .from('chat_last_read')
+          .select('conversation_id, last_read_at')
+          .in('conversation_id', conversationIds),
+        supabase
+          .from('messages')
+          .select('conversation_id, sender_id, created_at')
+          .in('conversation_id', conversationIds)
+          .in('sender_id', buyerIds),
+      ])
+    : [{ data: [] }, { data: [] }]
 
   const profiles: Record<string, { id: string; full_name: string | null; avatar_url: string | null }> = {}
   for (const p of profilesRes.data ?? []) profiles[p.id] = p
 
   const lastRead: Record<string, string> = {}
-  for (const r of lastReadRes.data ?? []) lastRead[r.buyer_id] = r.last_read_at
+  for (const r of lastReadRes.data ?? []) lastRead[r.conversation_id] = r.last_read_at
 
   // Count messages from each buyer that arrived after creator last read
   const unread: Record<string, number> = {}
   for (const msg of messagesRes.data ?? []) {
-    const readAt = lastRead[msg.sender_id]
+    const readAt = lastRead[msg.conversation_id]
     if (!readAt || msg.created_at > readAt) {
       unread[msg.sender_id] = (unread[msg.sender_id] ?? 0) + 1
     }

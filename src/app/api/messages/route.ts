@@ -13,38 +13,51 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { creatorId, content } = await req.json()
-  if (!content?.trim() || !creatorId) {
+  const { conversationId, content } = await req.json()
+  if (!content?.trim() || !conversationId) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
 
-  // Verify sender has access (buyer with active subscription OR the creator themselves)
-  const { data: creator } = await supabase
-    .from('creator_profiles')
-    .select('id, user_id, display_name')
-    .eq('id', creatorId)
+  // RLS exposes the conversation only to its explicitly registered participants.
+  const { data: conversation } = await supabase
+    .from('chat_conversations')
+    .select('id, creator_id, buyer_id, kind, creator:creator_profiles!inner(user_id, display_name)')
+    .eq('id', conversationId)
     .single()
 
+  if (!conversation) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+
+  const creator = Array.isArray(conversation.creator) ? conversation.creator[0] : conversation.creator
   if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
-  const isCreator = creator.user_id === user.id
-
-  if (!isCreator) {
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('id')
-      .eq('creator_id', creatorId)
-      .eq('buyer_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (!sub) return NextResponse.json({ error: 'No active subscription' }, { status: 403 })
+  if (conversation.kind !== 'direct' || !conversation.buyer_id) {
+    return NextResponse.json({ error: 'Conversation is not writable' }, { status: 403 })
   }
 
-  // Insert the message
-  const { data: message, error } = await supabase
+  const isCreator = creator.user_id === user.id
+  const isBuyer = conversation.buyer_id === user.id
+  if (!isCreator && !isBuyer) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('creator_id', conversation.creator_id)
+    .eq('buyer_id', conversation.buyer_id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!sub) return NextResponse.json({ error: 'No active subscription' }, { status: 403 })
+
+  // Browser roles cannot mutate messages; the validated API performs the write.
+  const admin = await createServiceClient()
+  const { data: message, error } = await admin
     .from('messages')
-    .insert({ sender_id: user.id, creator_id: creatorId, content: content.trim() })
+    .insert({
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      creator_id: conversation.creator_id,
+      content: content.trim(),
+    })
     .select()
     .single()
 
@@ -55,10 +68,10 @@ export async function POST(req: NextRequest) {
   // last NOTIFY_COOLDOWN_MINUTES. If > 1 (counting the one just inserted),
   // they've already triggered a notification recently — skip.
   const cooldownStart = new Date(Date.now() - NOTIFY_COOLDOWN_MINUTES * 60 * 1000).toISOString()
-  const { count } = await supabase
+  const { count } = await admin
     .from('messages')
     .select('id', { count: 'exact', head: true })
-    .eq('creator_id', creatorId)
+    .eq('conversation_id', conversation.id)
     .eq('sender_id', user.id)
     .gte('created_at', cooldownStart)
 
@@ -67,7 +80,8 @@ export async function POST(req: NextRequest) {
     sendNotification({
       isCreator,
       senderId: user.id,
-      creatorId,
+      creatorId: conversation.creator_id,
+      buyerId: conversation.buyer_id,
       creatorUserId: creator.user_id,
       creatorName: creator.display_name,
       messageContent: content.trim(),
@@ -81,6 +95,7 @@ async function sendNotification({
   isCreator,
   senderId,
   creatorId,
+  buyerId,
   creatorUserId,
   creatorName,
   messageContent,
@@ -88,6 +103,7 @@ async function sendNotification({
   isCreator: boolean
   senderId: string
   creatorId: string
+  buyerId: string | null
   creatorUserId: string
   creatorName: string
   messageContent: string
@@ -95,31 +111,20 @@ async function sendNotification({
   const admin = await createServiceClient()
 
   if (isCreator) {
-    // Creator sent a message → find the most recent buyer in this conversation
-    const { data: lastBuyerMsg } = await admin
-      .from('messages')
-      .select('sender_id')
-      .eq('creator_id', creatorId)
-      .neq('sender_id', creatorUserId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (!lastBuyerMsg) return
-
-    const buyerRes = await admin.auth.admin.getUserById(lastBuyerMsg.sender_id)
+    if (!buyerId) return
+    const buyerRes = await admin.auth.admin.getUserById(buyerId)
     const buyerEmail = buyerRes.data.user?.email
     const buyerName = buyerRes.data.user?.user_metadata?.full_name ?? 'Abonnent'
     if (!buyerEmail) return
 
     const [inapp, email] = await Promise.all([
-      checkNotificationPreference(lastBuyerMsg.sender_id, 'new_message', 'inapp'),
-      checkNotificationPreference(lastBuyerMsg.sender_id, 'new_message', 'email'),
+      checkNotificationPreference(buyerId, 'new_message', 'inapp'),
+      checkNotificationPreference(buyerId, 'new_message', 'email'),
     ])
     const notifJobs: Promise<unknown>[] = []
     if (inapp) {
       notifJobs.push(createNotification({
-        userId: lastBuyerMsg.sender_id,
+        userId: buyerId,
         type: 'new_message',
         title: `Neue Nachricht von ${creatorName}`,
         message: messageContent.slice(0, 120),
