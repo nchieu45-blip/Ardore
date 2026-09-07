@@ -14,14 +14,15 @@ export default async function ChatPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Check if user has active subscription to this creator
+  // Active entitlement allows sending and may create the first conversation.
+  // Existing participants retain read-only access to their own history.
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('id')
     .eq('buyer_id', user.id)
     .eq('creator_id', creatorId)
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
 
   // Also allow the creator themselves
   const { data: creatorProfile } = await supabase
@@ -36,16 +37,21 @@ export default async function ChatPage({
 
   if (isCreatorOwner) redirect('/creator/chat')
 
-  if (!subscription) {
-    redirect(`/creators/${creatorProfile.slug}`)
+  const { data: existingConversation } = await supabase
+    .from('chat_conversations')
+    .select('id')
+    .eq('creator_id', creatorId)
+    .eq('buyer_id', user.id)
+    .eq('kind', 'direct')
+    .maybeSingle()
+
+  let conversationId = existingConversation?.id
+  if (!conversationId && subscription) {
+    const service = await createServiceClient()
+    conversationId = await ensureDirectConversation({ service, creatorId, buyerId: user.id })
   }
 
-  const service = await createServiceClient()
-  const conversationId = await ensureDirectConversation({
-    service,
-    creatorId,
-    buyerId: user.id,
-  })
+  if (!conversationId) redirect(`/creators/${creatorProfile.slug}`)
 
   const { data: profile } = await supabase
     .from('public_profiles')
@@ -74,6 +80,7 @@ export default async function ChatPage({
         creator={creatorProfile}
         currentUser={profile}
         initialMessages={initialMessages}
+        canSend={Boolean(subscription)}
       />
     </div>
   )

@@ -22,9 +22,10 @@ interface ChatWindowProps {
   creator: { id: string; display_name: string; slug: string; avatar_url: string | null }
   currentUser: { id: string; full_name: string | null; avatar_url: string | null } | null
   initialMessages: Message[]
+  canSend: boolean
 }
 
-export default function ChatWindow({ conversationId, creator, currentUser, initialMessages }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, creator, currentUser, initialMessages, canSend }: ChatWindowProps) {
   const supabase = createClient()
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [text, setText] = useState('')
@@ -69,7 +70,7 @@ export default function ChatWindow({ conversationId, creator, currentUser, initi
   }, [conversationId, currentUser?.id, supabase])
 
   async function sendMessage() {
-    if (!text.trim() || !currentUser) return
+    if (!canSend || !text.trim() || !currentUser) return
     setSending(true)
 
     const optimistic: Message = {
@@ -108,7 +109,9 @@ export default function ChatWindow({ conversationId, creator, currentUser, initi
           <Link href={`/creators/${creator.slug}`} className="font-semibold text-gray-900 hover:text-green-600">
             {creator.display_name}
           </Link>
-          <p className="text-xs text-green-600">Abonnenten-Chat</p>
+          <p className={`text-xs ${canSend ? 'text-green-600' : 'text-gray-500'}`}>
+            {canSend ? 'Abonnenten-Chat' : 'Abo beendet · Nur Lesezugriff'}
+          </p>
         </div>
       </div>
 
@@ -142,7 +145,8 @@ export default function ChatWindow({ conversationId, creator, currentUser, initi
 
       {/* Input */}
       <div className="px-4 py-3 border-t border-gray-100">
-        <div className="flex items-center gap-2">
+        {canSend ? (
+          <div className="flex items-center gap-2">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -158,7 +162,12 @@ export default function ChatWindow({ conversationId, creator, currentUser, initi
           >
             <Send className="h-4 w-4" />
           </Button>
-        </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-1">
+            Diese Unterhaltung ist nur noch lesbar. Ein aktives Abo ist zum Schreiben erforderlich.
+          </p>
+        )}
       </div>
     </div>
   )

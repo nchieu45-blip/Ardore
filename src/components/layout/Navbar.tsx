@@ -209,6 +209,10 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                             <Video className="h-4 w-4 text-gray-400" />
                             Meine Buchungen
                           </Link>
+                          <Link href="/buyer/chat" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <MessageCircle className="h-4 w-4 text-gray-400" />
+                            Nachrichten
+                          </Link>
                           <Link href="/buyer/favorites" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Heart className="h-4 w-4 text-gray-400" />
                             Favoriten
@@ -280,6 +284,10 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                     <Link href="/buyer/sessions" className={mobileNavCls('/buyer/sessions')} onClick={() => setMenuOpen(false)}>
                       <Video className="h-4 w-4 mr-2" />
                       Meine Buchungen
+                    </Link>
+                    <Link href="/buyer/chat" className={mobileNavCls('/buyer/chat')} onClick={() => setMenuOpen(false)}>
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Nachrichten
                     </Link>
                     <Link href="/buyer/favorites" className={mobileNavCls('/buyer/favorites')} onClick={() => setMenuOpen(false)}>
                       <Heart className="h-4 w-4 mr-2" />

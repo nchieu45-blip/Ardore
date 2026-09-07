@@ -128,7 +128,7 @@ export default async function BuyerDashboardPage() {
           {[
             { icon: <ShoppingBag className="h-5 w-5 text-green-600" />,  bg: 'bg-green-50',  label: 'Käufe',        value: purchases.length,      sub: 'gesamt',    href: '/buyer/library' },
             { icon: <Users        className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50', label: 'Abonnements', value: subscriptions.length,  sub: 'aktiv',     href: '/buyer/subscriptions' },
-            { icon: <MessageCircle className="h-5 w-5 text-blue-600" />, bg: 'bg-blue-50',   label: 'Chats',       value: subscriptions.length,  sub: 'verfügbar', href: '#subscriptions' },
+            { icon: <MessageCircle className="h-5 w-5 text-blue-600" />, bg: 'bg-blue-50',   label: 'Chats',       value: subscriptions.length,  sub: 'verfügbar', href: '/buyer/chat' },
           ].map((stat, i) => (
             <Link key={stat.label} href={stat.href}>
               <Card className={`animate-slide-up cursor-pointer hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md animate-delay-${(i + 1) * 100}`}>
