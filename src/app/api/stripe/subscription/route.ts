@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
+import { ARDORE_PLATFORM_FEE_PERCENT } from '@/lib/stripe/platformFee'
 import { notifyNewSubscriber } from '@/app/api/webhooks/stripe/route'
 
 export async function POST(req: NextRequest) {
@@ -134,7 +135,7 @@ export async function POST(req: NextRequest) {
     ...(tier.creator?.stripe_account_id && tier.creator?.stripe_account_active
       ? {
           subscription_data: {
-            application_fee_percent: 5,
+            application_fee_percent: ARDORE_PLATFORM_FEE_PERCENT,
             transfer_data: { destination: tier.creator.stripe_account_id },
           },
         }

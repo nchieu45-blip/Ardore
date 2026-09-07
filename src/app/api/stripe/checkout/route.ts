@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
+import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
         },
       }))
     : lineItems
+  const finalTotalCents = finalLineItems.reduce((sum, item) => sum + item.price_data.unit_amount, 0)
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
@@ -160,7 +162,7 @@ export async function POST(req: NextRequest) {
     ...(useConnect
       ? {
           payment_intent_data: {
-            application_fee_amount: Math.round(totalCents * 0.05),
+            application_fee_amount: calculateArdorePlatformFee(finalTotalCents),
             transfer_data: { destination: creatorInfo!.stripe_account_id! },
           },
         }

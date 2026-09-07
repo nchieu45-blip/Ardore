@@ -96,7 +96,7 @@ export default function PayoutPage() {
           </div>
 
           <p className="text-xs text-gray-400">
-            Ardore berechnet 5% Plattformgebühr auf alle Transaktionen. Stripe erhebt zusätzliche Zahlungsgebühren.
+            Ardore berechnet 10% Plattformgebühr auf alle Transaktionen. Stripe erhebt zusätzliche Zahlungsgebühren.
           </p>
         </CardContent>
       </Card>
