@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
@@ -47,6 +48,8 @@ export default async function BuyerDashboardPage() {
       .from('purchases')
       .select('*, product:products(title, type, creator:creator_profiles(display_name, slug))')
       .eq('buyer_id', user.id)
+      .eq('payment_status', VALID_PURCHASE_STATUS)
+      .eq('stripe_livemode', true)
       .order('created_at', { ascending: false })
       .limit(5),
     supabase

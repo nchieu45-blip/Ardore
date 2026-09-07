@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -206,7 +207,7 @@ export default async function CreatorProfilePage({
   const [tiersRes, subscriptionRes, purchasesRes, reviewsRes, currentProfileRes, totalSalesRes, sessionReviewsRes, autoDiscountsRes, videoClassesRes] = await Promise.all([
     supabase.from('subscription_tiers').select('*').eq('creator_id', creator.id).eq('is_active', true).order('price_monthly'),
     user ? supabase.from('subscriptions').select('*').eq('creator_id', creator.id).eq('buyer_id', user.id).eq('status', 'active').single() : Promise.resolve({ data: null }),
-    user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id) : Promise.resolve({ data: [] }),
+    user ? supabase.from('purchases').select('product_id').eq('buyer_id', user.id).eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', true) : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('public_product_reviews').select('*').in('product_id', productIds).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),

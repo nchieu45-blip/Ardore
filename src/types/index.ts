@@ -74,6 +74,11 @@ export interface Purchase {
   product_id: string
   amount_paid: number
   stripe_payment_intent_id: string | null
+  stripe_checkout_session_id: string | null
+  stripe_livemode: boolean | null
+  payment_status: 'paid' | 'partially_refunded' | 'refunded' | 'disputed' | 'chargeback' | 'reversed'
+  amount_refunded: number
+  updated_at: string
   created_at: string
   product?: Product
 }
@@ -84,6 +89,7 @@ export interface Subscription {
   creator_id: string
   tier_id: string
   stripe_subscription_id: string
+  stripe_livemode: boolean | null
   status: 'active' | 'canceled' | 'past_due' | 'trialing'
   current_period_end: string
   created_at: string

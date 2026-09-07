@@ -17,6 +17,7 @@ import type { Metadata } from 'next'
 import BuyButtonLarge from './BuyButtonLarge'
 import ReviewSection from '@/app/creators/[slug]/ReviewSection'
 import { showSalesCount } from '@/lib/salesCount'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -102,7 +103,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       .eq('product_id', id)
       .order('created_at', { ascending: false }),
     user
-      ? supabase.from('purchases').select('id').eq('product_id', id).eq('buyer_id', user.id).single()
+      ? supabase.from('purchases').select('id').eq('product_id', id).eq('buyer_id', user.id).eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', true).single()
       : Promise.resolve({ data: null }),
     supabase.from('products')
       .select('id, title, type, price, thumbnail_url')

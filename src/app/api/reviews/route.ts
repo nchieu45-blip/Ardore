@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
     .select('id')
     .eq('buyer_id', user.id)
     .eq('product_id', productId)
+    .eq('payment_status', VALID_PURCHASE_STATUS)
+    .eq('stripe_livemode', true)
     .single()
 
   if (!purchase) {

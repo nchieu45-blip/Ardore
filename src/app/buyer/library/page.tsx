@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -24,6 +25,8 @@ export default async function BuyerLibraryPage() {
     .from('purchases')
     .select('*, product:products(id, title, type, description, file_url, creator:creator_profiles(display_name, slug))')
     .eq('buyer_id', user.id)
+    .eq('payment_status', VALID_PURCHASE_STATUS)
+    .eq('stripe_livemode', true)
     .order('created_at', { ascending: false })
 
   const purchaseList = purchases ?? []

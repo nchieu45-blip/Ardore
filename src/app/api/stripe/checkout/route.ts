@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Keine Produkte' }, { status: 400 })
   }
 
-  const productIds = rawItems.map(i => i.productId)
+  const productIds = [...new Set(rawItems.map(i => i.productId))]
 
   const { data: products } = await supabase
     .from('products')

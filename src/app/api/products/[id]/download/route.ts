@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 
 const PRODUCT_OBJECT_MARKERS = [
   '/storage/v1/object/public/products/',
@@ -29,6 +30,8 @@ export async function GET(
     .select('id')
     .eq('buyer_id', user.id)
     .eq('product_id', productId)
+    .eq('payment_status', VALID_PURCHASE_STATUS)
+    .eq('stripe_livemode', true)
     .maybeSingle()
 
   if (!purchase) {

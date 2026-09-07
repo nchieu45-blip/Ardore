@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -29,7 +30,7 @@ export default async function CreatorDashboardPage() {
   const [productsRes, subscriptionsRes, purchasesRes] = await Promise.all([
     supabase.from('products').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('*, tier:subscription_tiers(price_monthly)').eq('creator_id', creator.id).eq('status', 'active'),
-    supabase.from('purchases').select('amount_paid, created_at').eq('products.creator_id', creator.id),
+    supabase.from('purchases').select('amount_paid, created_at').eq('products.creator_id', creator.id).eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', true),
   ])
 
   const products = productsRes.data ?? []

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Card, CardContent } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
 import { TrendingUp, Users, ShoppingBag } from 'lucide-react'
@@ -28,7 +29,9 @@ export default async function EarningsPage() {
     supabase
       .from('purchases')
       .select('amount_paid')
-      .eq('products.creator_id', creator.id),
+      .eq('products.creator_id', creator.id)
+      .eq('payment_status', VALID_PURCHASE_STATUS)
+      .eq('stripe_livemode', true),
   ])
 
   const subscriptions = subscriptionsRes.data ?? []
