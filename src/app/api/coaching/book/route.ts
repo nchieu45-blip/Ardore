@@ -82,6 +82,34 @@ export async function POST(req: NextRequest) {
 
   const service = await createServiceClient()
   const requiresPayment = !isSubscriptionSession && discountedPriceCents > 0
+  const stripeLivemode = requiresPayment
+    ? process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
+    : null
+  let paymentCreator: {
+    display_name: string
+    stripe_account_id: string | null
+    stripe_account_active: boolean | null
+  } | null = null
+
+  if (requiresPayment) {
+    const { data: creator, error: creatorError } = await service.from('creator_profiles')
+      .select('display_name, stripe_account_id, stripe_account_active')
+      .eq('id', creatorId)
+      .single()
+    if (creatorError || !creator) {
+      return NextResponse.json({ error: 'Coach nicht gefunden.' }, { status: 404 })
+    }
+
+    paymentCreator = creator
+
+    // Live customer funds must always use a fully enabled Connect account.
+    // Test-mode lifecycle checks stay on the platform test balance and cannot
+    // accidentally route funds to a live connected account stored here.
+    if (stripeLivemode && (!creator.stripe_account_id || !creator.stripe_account_active)) {
+      return NextResponse.json({ error: 'Dieser Coach kann derzeit keine Zahlungen empfangen.' }, { status: 409 })
+    }
+  }
+
   const reservationExpiresAt = requiresPayment ? new Date(Date.now() + RESERVATION_MINUTES * 60_000) : null
   const { data: booking, error } = await service.from('bookings').insert({
     creator_id: creatorId, buyer_id: user.id, scheduled_at: slotValidation.scheduledAt,
@@ -91,7 +119,7 @@ export async function POST(req: NextRequest) {
     is_subscription_session: isSubscriptionSession, price_cents: isSubscriptionSession ? 0 : discountedPriceCents,
     buffer_minutes: slotValidation.bufferMinutes, reservation_expires_at: reservationExpiresAt?.toISOString() ?? null,
     discount_id: discountRowId,
-    stripe_livemode: requiresPayment ? process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true : null,
+    stripe_livemode: stripeLivemode,
   }).select('id').single()
   if (error?.code === '23P01') return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
   if (error || !booking) return NextResponse.json({ error: 'Buchung konnte nicht erstellt werden.' }, { status: 500 })
@@ -102,18 +130,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { data: creator } = await service.from('creator_profiles')
-      .select('display_name, stripe_account_id, stripe_account_status').eq('id', creatorId).single()
-    if (!creator) throw new Error('Coach not found')
+    if (!paymentCreator) throw new Error('Coach not found')
     const metadata = { checkout_type: 'coaching_session', booking_id: booking.id, buyer_id: user.id, creator_id: creatorId, scheduled_at: slotValidation.scheduledAt }
     const session = await stripe.checkout.sessions.create({
       mode: 'payment', customer_email: user.email,
       line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: discountedPriceCents,
-        product_data: { name: `1:1 Coaching mit ${creator.display_name}`, metadata: { booking_id: booking.id } } } }],
+        product_data: { name: `1:1 Coaching mit ${paymentCreator.display_name}`, metadata: { booking_id: booking.id } } } }],
       metadata,
       payment_intent_data: { metadata,
-        ...(creator.stripe_account_id && creator.stripe_account_status === 'active'
-          ? { application_fee_amount: calculateArdorePlatformFee(discountedPriceCents), transfer_data: { destination: creator.stripe_account_id } } : {}) },
+        ...(stripeLivemode && paymentCreator.stripe_account_id && paymentCreator.stripe_account_active
+          ? { application_fee_amount: calculateArdorePlatformFee(discountedPriceCents), transfer_data: { destination: paymentCreator.stripe_account_id } } : {}) },
       expires_at: Math.floor(reservationExpiresAt!.getTime() / 1000),
       success_url: `${appUrl()}/buyer/sessions?checkout=success&booking=${booking.id}`,
       cancel_url: `${appUrl()}/buyer/sessions?checkout=cancelled&booking=${booking.id}`,
