@@ -32,7 +32,7 @@ const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','Aug
 const DAY_SHORT   = ['So','Mo','Di','Mi','Do','Fr','Sa']
 
 function formatDate(d: Date) {
-  return d.toISOString().slice(0, 10)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function buildCalendarDays(year: number, month: number) {

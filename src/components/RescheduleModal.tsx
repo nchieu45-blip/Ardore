@@ -26,7 +26,7 @@ export default function RescheduleModal({ bookingId, creatorId, onClose, onSucce
   const today = new Date()
   const [year,      setYear]      = useState(today.getFullYear())
   const [month,     setMonth]     = useState(today.getMonth())
-  const [availDays, setAvailDays] = useState<string[]>([])
+  const [availDays, setAvailDays] = useState<number[]>([])
   const [daysLoading, setDaysLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [slots,       setSlots]       = useState<string[]>([])
@@ -42,24 +42,24 @@ export default function RescheduleModal({ bookingId, creatorId, onClose, onSucce
     setSelectedDate(null)
     setSlots([])
     setSelectedSlot(null)
-    fetch(`/api/coaching/available-days?creatorId=${creatorId}&year=${year}&month=${month + 1}`)
+    fetch(`/api/coaching/available-days?creatorId=${creatorId}&year=${year}&month=${month}&excludeBookingId=${bookingId}`)
       .then(r => r.json())
-      .then((d: { days?: string[] }) => setAvailDays(d.days ?? []))
+      .then((d: { days?: number[] }) => setAvailDays(d.days ?? []))
       .catch(() => {})
       .finally(() => setDaysLoading(false))
-  }, [creatorId, year, month])
+  }, [bookingId, creatorId, year, month])
 
   useEffect(() => {
     if (!selectedDate) { setSlots([]); return }
     setSlotsLoading(true)
     setSlots([])
     setSelectedSlot(null)
-    fetch(`/api/coaching/slots?creatorId=${creatorId}&date=${selectedDate}`)
+    fetch(`/api/coaching/slots?creatorId=${creatorId}&date=${selectedDate}&excludeBookingId=${bookingId}`)
       .then(r => r.json())
       .then((d: { slots?: string[] }) => setSlots(d.slots ?? []))
       .catch(() => {})
       .finally(() => setSlotsLoading(false))
-  }, [creatorId, selectedDate])
+  }, [bookingId, creatorId, selectedDate])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleSubmit() {
@@ -144,7 +144,7 @@ export default function RescheduleModal({ bookingId, creatorId, onClose, onSucce
                   if (!day) return <div key={idx} />
                   const dateStr  = toYMD(new Date(year, month, day))
                   const isPast   = new Date(year, month, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate())
-                  const hasSlots = availDays.includes(dateStr)
+                  const hasSlots = availDays.includes(day)
                   const isSel    = dateStr === selectedDate
                   return (
                     <button

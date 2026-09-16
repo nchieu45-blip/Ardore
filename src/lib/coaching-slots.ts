@@ -1,21 +1,81 @@
 // Shared slot-generation logic for coaching availability.
 // All times are Europe/Berlin unless noted as UTC.
 
-export function berlinToUtcMs(dateStr: string, berlinHHMM: string): number {
-  // "Naive-then-correct" method: treats the time as UTC first, reads what Berlin
-  // clock shows for that UTC moment, then subtracts the difference. Handles DST.
-  const naive = new Date(`${dateStr}T${berlinHHMM}:00Z`)
-  const fmt = new Intl.DateTimeFormat('en', {
-    timeZone: 'Europe/Berlin',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: false,
-  })
-  const parts = fmt.formatToParts(naive)
-  const bh = Number(parts.find(p => p.type === 'hour')?.value ?? 0)
-  const bm = Number(parts.find(p => p.type === 'minute')?.value ?? 0)
-  const diffMs = ((bh * 60 + bm) - timeToMin(berlinHHMM)) * 60_000
-  return naive.getTime() - diffMs
+export const BOOKING_TIME_ZONE = 'Europe/Berlin'
+
+const BERLIN_PARTS = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BOOKING_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+function berlinParts(timestampMs: number) {
+  const parts = BERLIN_PARTS.formatToParts(new Date(timestampMs))
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? ''
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${part('hour')}:${part('minute')}`,
+  }
+}
+
+export function utcToBerlinDateString(value: string | number | Date): string {
+  return berlinParts(new Date(value).getTime()).date
+}
+
+export function currentBerlinDateString(): string {
+  return utcToBerlinDateString(Date.now())
+}
+
+export function isValidDateString(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+export function isValidTimeString(time: string): boolean {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return false
+  return true
+}
+
+// Converts an unambiguous Europe/Berlin wall time to UTC. Spring-forward gaps and
+// fall-back times that occur twice are rejected instead of silently shifting.
+export function berlinToUtcMs(dateStr: string, berlinHHMM: string): number | null {
+  if (!isValidDateString(dateStr) || !isValidTimeString(berlinHHMM)) return null
+
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const [hour, minute] = berlinHHMM.split(':').map(Number)
+  const naiveUtc = Date.UTC(year, month - 1, day, hour, minute)
+  const matches: number[] = []
+
+  // Berlin is UTC+1/+2, but scanning a wider offset range makes the conversion
+  // independent of the server runtime timezone and resilient to rule changes.
+  for (let offsetMinutes = -180; offsetMinutes <= 180; offsetMinutes += 15) {
+    const candidate = naiveUtc - offsetMinutes * 60_000
+    const local = berlinParts(candidate)
+    if (local.date === dateStr && local.time === berlinHHMM) matches.push(candidate)
+  }
+
+  return matches.length === 1 ? matches[0] : null
+}
+
+export function berlinDateTimeToIso(dateStr: string, berlinHHMM: string): string | null {
+  const timestamp = berlinToUtcMs(dateStr, berlinHHMM)
+  return timestamp === null ? null : new Date(timestamp).toISOString()
+}
+
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return date.toISOString().slice(0, 10)
+}
+
+export function isWithinBookingHorizon(date: string, today: string, horizonDays: number): boolean {
+  return isValidDateString(date) && date >= today && date <= addDaysToDateString(today, horizonDays)
 }
 
 // Returns day-of-week (0=Sun … 6=Sat) in Berlin local time for a YYYY-MM-DD string.
@@ -106,6 +166,10 @@ export function generateSlots(
     while (cur + durationMin <= end) {
       const slotHHMM    = minToTime(cur)
       const slotStartMs = berlinToUtcMs(dateStr, slotHHMM)
+      if (slotStartMs === null) {
+        cur += durationMin + bufferMin
+        continue
+      }
       const slotEndMs   = slotStartMs + durationMin * 60_000
 
       if (slotStartMs >= earliestUtcMs) {

@@ -88,11 +88,11 @@ export default async function SessionPage({
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
-                {scheduledAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {scheduledAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' })}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
-                {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} – {endAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+                {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} – {endAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr
               </span>
             </div>
             {b.notes && isCreator && (

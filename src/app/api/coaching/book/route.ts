@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
+import { isValidCoachingDuration, validateCoachingSlot } from '@/lib/coaching-booking'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   // Validate subscription-based booking: verify allowance
   let isSubscriptionSession = false
@@ -21,11 +23,11 @@ export async function POST(req: NextRequest) {
   if (subscriptionId && user) {
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('id, buyer_id, status, subscription_tiers(included_video_sessions, video_session_period, included_session_duration_minutes)')
+      .select('id, buyer_id, creator_id, status, subscription_tiers(included_video_sessions, video_session_period, included_session_duration_minutes)')
       .eq('id', subscriptionId)
       .single()
 
-    if (sub && sub.buyer_id === user.id && sub.status === 'active') {
+    if (sub && sub.buyer_id === user.id && sub.creator_id === creatorId && sub.status === 'active') {
       const tier = Array.isArray(sub.subscription_tiers) ? sub.subscription_tiers[0] : sub.subscription_tiers
       const total: number  = (tier as { included_video_sessions: number } | null)?.included_video_sessions ?? 0
       const period: string = (tier as { video_session_period: string | null } | null)?.video_session_period ?? 'month'
@@ -72,6 +74,10 @@ export async function POST(req: NextRequest) {
     ? tierDurationMinutes
     : offer.duration_minutes
 
+  if (!isValidCoachingDuration(effectiveDuration)) {
+    return NextResponse.json({ error: 'Ungültige Sitzungsdauer' }, { status: 400 })
+  }
+
   // Validate discount for paid sessions
   // TODO: When payment is added for sessions, apply the discount via Stripe Coupon instead of reducing price_cents directly
   let discountedPriceCents = offer.price_cents
@@ -101,10 +107,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const scheduledAt = new Date(`${date}T${time}:00`)
-  if (isNaN(scheduledAt.getTime())) {
-    return NextResponse.json({ error: 'Ungültiges Datum oder Uhrzeit' }, { status: 400 })
+  const slotValidation = await validateCoachingSlot({
+    creatorId,
+    date,
+    time,
+    durationMinutes: effectiveDuration,
+  })
+  if (!slotValidation.ok) {
+    return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
   }
+  const scheduledAt = new Date(slotValidation.scheduledAt)
 
   // Create Daily.co room
   let dailyRoomName: string | null = null
@@ -151,16 +163,20 @@ export async function POST(req: NextRequest) {
       status:                  'confirmed',
       daily_room_name:         dailyRoomName,
       daily_room_url:          dailyRoomUrl,
-      buyer_email:             email,
+      buyer_email:             user.email,
       buyer_name:              name,
       notes:                   notes?.trim() || null,
       subscription_id:         resolvedSubscriptionId,
       is_subscription_session: isSubscriptionSession,
       price_cents:             isSubscriptionSession ? 0 : discountedPriceCents,
+      buffer_minutes:          slotValidation.bufferMinutes,
     })
     .select()
     .single()
 
+  if (error?.code === '23P01') {
+    return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Increment redemption count (best-effort)
@@ -193,8 +209,8 @@ export async function POST(req: NextRequest) {
       const sessionUrl = `${appUrl}/session/${booking.id}`
 
       const { sendBookingConfirmation } = await import('@/lib/email/send')
-      const scheduledDate = scheduledAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-      const scheduledTime = scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+      const scheduledDate = scheduledAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' })
+      const scheduledTime = scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })
 
       // In-app notifications (fire-and-forget)
       createNotification({

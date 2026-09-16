@@ -57,10 +57,10 @@ export async function POST(req: NextRequest) {
   // Stripe refund: not applicable — 1:1 session payment is not collected via Stripe.
 
   const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString('de-DE', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin',
   })
   const scheduledTime = new Date(booking.scheduled_at).toLocaleTimeString('de-DE', {
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin',
   })
 
   const cancelledByRole: 'buyer' | 'creator' = isBuyer ? 'buyer' : 'creator'

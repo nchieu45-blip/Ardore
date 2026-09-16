@@ -159,11 +159,11 @@ function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booki
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-wrap">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              {scheduledAt.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+              {scheduledAt.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Berlin' })}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr · {b.duration_minutes} Min
+              {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr · {b.duration_minutes} Min
             </span>
           </div>
           {b.notes && (

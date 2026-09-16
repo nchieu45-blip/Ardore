@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isValidCoachingDuration } from '@/lib/coaching-booking'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -17,6 +18,11 @@ export async function POST(req: NextRequest) {
     is_enabled, price_cents, duration_minutes, description,
     buffer_minutes, min_notice_hours, max_horizon_days, cancellation_policy_hours,
   } = await req.json()
+  const parsedDuration = Number(duration_minutes)
+  if (!isValidCoachingDuration(parsedDuration)) {
+    return NextResponse.json({ error: 'Ungültige Sitzungsdauer' }, { status: 400 })
+  }
+  const parsedCancellationHours = Number(cancellation_policy_hours)
 
   const { data, error } = await supabase
     .from('coaching_offers')
@@ -24,12 +30,14 @@ export async function POST(req: NextRequest) {
       creator_id:                 creator.id,
       is_enabled:                 !!is_enabled,
       price_cents:                Math.max(0, Number(price_cents) || 8000),
-      duration_minutes:           Number(duration_minutes) || 60,
+      duration_minutes:           parsedDuration,
       description:                description?.trim() || null,
       buffer_minutes:             [0, 15, 30].includes(Number(buffer_minutes)) ? Number(buffer_minutes) : 0,
       min_notice_hours:           Math.max(0, Number(min_notice_hours) || 24),
       max_horizon_days:           Math.max(1, Number(max_horizon_days) || 60),
-      cancellation_policy_hours:  Math.max(0, Number(cancellation_policy_hours) || 24),
+      cancellation_policy_hours:  Number.isFinite(parsedCancellationHours)
+        ? Math.min(168, Math.max(0, parsedCancellationHours))
+        : 24,
       updated_at:                 new Date().toISOString(),
     }, { onConflict: 'creator_id' })
     .select()

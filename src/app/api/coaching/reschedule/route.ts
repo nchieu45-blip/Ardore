@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
-import { getWindowsForDate, generateSlots } from '@/lib/coaching-slots'
+import { validateCoachingSlot } from '@/lib/coaching-booking'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -46,52 +46,30 @@ export async function POST(req: NextRequest) {
     }, { status: 403 })
   }
 
-  // Validate new slot server-side — exclude the current booking to avoid self-conflict
-  const [recurringRes, overridesRes, bookingsRes] = await Promise.all([
-    supabase.from('availability_slots').select('day_of_week, start_time, end_time').eq('creator_id', booking.creator_id),
-    supabase.from('date_overrides').select('date, type, start_time, end_time').eq('creator_id', booking.creator_id).eq('date', newDate),
-    supabase.from('bookings')
-      .select('scheduled_at, duration_minutes')
-      .eq('creator_id', booking.creator_id)
-      .neq('status', 'cancelled')
-      .neq('id', bookingId)
-      .gte('scheduled_at', `${newDate}T00:00:00Z`)
-      .lte('scheduled_at', `${newDate}T23:59:59Z`),
-  ])
-
-  const durationMin  = offer.duration_minutes ?? 60
-  const bufferMin    = offer.buffer_minutes ?? 0
-  const minNoticeHrs = offer.min_notice_hours ?? 24
-  const earliestUtcMs = Date.now() + minNoticeHrs * 3_600_000
-
-  const windows = getWindowsForDate(
-    newDate,
-    recurringRes.data ?? [],
-    (overridesRes.data ?? []) as { date: string; type: 'available' | 'unavailable'; start_time: string | null; end_time: string | null }[],
-  )
-
-  const availableSlots = generateSlots(
-    newDate,
-    windows,
-    durationMin,
-    bufferMin,
-    (bookingsRes.data ?? []) as { scheduled_at: string; duration_minutes: number }[],
-    earliestUtcMs,
-  )
-
-  if (!availableSlots.includes(newTime)) {
-    return NextResponse.json({ error: 'Dieser Zeitslot ist nicht mehr verfügbar.' }, { status: 409 })
+  const durationMin = booking.duration_minutes
+  const slotValidation = await validateCoachingSlot({
+    creatorId: booking.creator_id,
+    date: newDate,
+    time: newTime,
+    durationMinutes: durationMin,
+    excludeBookingId: bookingId,
+  })
+  if (!slotValidation.ok) {
+    return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
   }
 
-  const newScheduledAt = new Date(`${newDate}T${newTime}:00`)
+  const newScheduledAt = new Date(slotValidation.scheduledAt)
   const oldScheduledAt = new Date(booking.scheduled_at)
 
   const service = await createServiceClient()
   const { error: updateError } = await service
     .from('bookings')
-    .update({ scheduled_at: newScheduledAt.toISOString() })
+    .update({ scheduled_at: newScheduledAt.toISOString(), buffer_minutes: slotValidation.bufferMinutes })
     .eq('id', bookingId)
 
+  if (updateError?.code === '23P01') {
+    return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
+  }
   if (updateError) return NextResponse.json({ error: 'Fehler beim Verschieben' }, { status: 500 })
 
   // Update Daily.co room expiry to match new session time (best-effort)
@@ -107,8 +85,8 @@ export async function POST(req: NextRequest) {
     }).catch(() => {})
   }
 
-  const fmtDate = (d: Date) => d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const fmtTime = (d: Date) => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  const fmtDate = (d: Date) => d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' })
+  const fmtTime = (d: Date) => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })
 
   const oldDate = fmtDate(oldScheduledAt)
   const oldTime = fmtTime(oldScheduledAt)

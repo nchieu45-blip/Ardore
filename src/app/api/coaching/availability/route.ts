@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isValidDateString, isValidTimeString, timeToMin } from '@/lib/coaching-slots'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -16,6 +17,25 @@ export async function POST(req: NextRequest) {
   const { slots, dateOverrides } = await req.json() as {
     slots: { day_of_week: number; start_time: string; end_time: string }[]
     dateOverrides: { date: string; type: string; start_time: string | null; end_time: string | null }[]
+  }
+  if (!Array.isArray(slots) || !Array.isArray(dateOverrides)) {
+    return NextResponse.json({ error: 'Ungültige Verfügbarkeit' }, { status: 400 })
+  }
+  const invalidSlot = slots.some(slot =>
+    !Number.isInteger(Number(slot.day_of_week)) || Number(slot.day_of_week) < 0 || Number(slot.day_of_week) > 6 ||
+    !isValidTimeString(slot.start_time) || !isValidTimeString(slot.end_time) ||
+    timeToMin(slot.start_time) >= timeToMin(slot.end_time)
+  )
+  const invalidOverride = dateOverrides.some(override =>
+    !isValidDateString(override.date) || !['available', 'unavailable'].includes(override.type) ||
+    ((override.start_time !== null || override.end_time !== null) && (
+      !override.start_time || !override.end_time ||
+      !isValidTimeString(override.start_time) || !isValidTimeString(override.end_time) ||
+      timeToMin(override.start_time) >= timeToMin(override.end_time)
+    ))
+  )
+  if (invalidSlot || invalidOverride) {
+    return NextResponse.json({ error: 'Ungültige Verfügbarkeit' }, { status: 400 })
   }
 
   await Promise.all([
