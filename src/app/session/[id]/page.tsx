@@ -4,6 +4,7 @@ import { Video, Clock, Calendar, ArrowLeft, User } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import VideoRoom from './VideoRoom'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
 export const metadata: Metadata = { title: 'Video-Session' }
 
@@ -17,6 +18,8 @@ interface BookingRow {
   duration_minutes: number
   price_cents: number
   status: string
+  payment_status: string
+  stripe_livemode: boolean | null
   daily_room_url: string | null
   notes: string | null
   creator_profiles: { display_name: string; user_id: string } | null
@@ -58,6 +61,7 @@ export default async function SessionPage({
   const now         = Date.now()
   const msUntil     = scheduledAt.getTime() - now
   const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const hasValidPayment = hasValidCoachingPayment(b)
   const isOver      = now > endAt.getTime()
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
 
@@ -136,7 +140,7 @@ export default async function SessionPage({
       </div>
 
       {/* Video room */}
-      {b.status !== 'cancelled' && (
+      {['confirmed', 'completed'].includes(b.status) && hasValidPayment && (
         <VideoRoom
           roomUrl={b.daily_room_url}
           isLive={isLive}

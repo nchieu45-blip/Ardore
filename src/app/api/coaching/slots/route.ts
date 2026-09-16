@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     .from('bookings')
     .select('scheduled_at, duration_minutes')
     .eq('creator_id', creatorId)
-    .neq('status', 'cancelled')
+    .in('status', ['pending_payment', 'confirmed'])
     .gte('scheduled_at', utcStart)
     .lt('scheduled_at', utcEnd)
   if (excludeBookingId) bookingsQuery = bookingsQuery.neq('id', excludeBookingId)

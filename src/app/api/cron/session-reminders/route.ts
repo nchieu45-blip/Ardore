@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification, checkNotificationPreference } from '@/lib/notifications'
 import { sendSessionReminder } from '@/lib/email/send'
+import { COACHING_PAYMENT_ELIGIBILITY_FILTER } from '@/lib/coaching-payment'
 
 // Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
 // Finds sessions starting in the next 23–25 h and sends a one-time reminder
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
     .from('bookings')
     .select('id, buyer_id, buyer_name, scheduled_at, creator_profiles!inner(user_id, display_name)')
     .eq('status', 'confirmed')
+    .or(COACHING_PAYMENT_ELIGIBILITY_FILTER)
     .gte('scheduled_at', windowStart)
     .lte('scheduled_at', windowEnd)
 

@@ -171,8 +171,12 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
         }),
       })
       if (res.status === 401) { window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
-      const json = await res.json() as { bookingId?: string; error?: string }
+      const json = await res.json() as { bookingId?: string; checkoutUrl?: string | null; error?: string }
       if (!res.ok) throw new Error(json.error ?? 'Buchungsfehler')
+      if (json.checkoutUrl) {
+        window.location.assign(json.checkoutUrl)
+        return
+      }
       setBookingId(json.bookingId ?? null)
       setStep('success')
     } catch (e) {

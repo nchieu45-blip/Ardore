@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
 import { validateCoachingSlot } from '@/lib/coaching-booking'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -16,12 +17,15 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, status, creator_id, daily_room_name, creator_profiles!inner(user_id, display_name, slug)')
+    .select('id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, status, payment_status, stripe_livemode, creator_id, daily_room_name, creator_profiles!inner(user_id, display_name, slug)')
     .eq('id', bookingId)
     .single()
 
   if (!booking) return NextResponse.json({ error: 'Buchung nicht gefunden' }, { status: 404 })
   if (booking.status !== 'confirmed') return NextResponse.json({ error: 'Buchung kann nicht verschoben werden' }, { status: 400 })
+  if (!hasValidCoachingPayment(booking)) {
+    return NextResponse.json({ error: 'Die Zahlung für diese Buchung ist nicht gültig.' }, { status: 400 })
+  }
 
   const cp = Array.isArray(booking.creator_profiles) ? booking.creator_profiles[0] : booking.creator_profiles
   const isBuyer   = booking.buyer_id === user.id

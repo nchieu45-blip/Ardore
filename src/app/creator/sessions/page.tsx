@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import BookingActions from '@/components/BookingActions'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
 export const metadata: Metadata = { title: 'Meine Buchungen' }
 
@@ -11,12 +12,18 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Bestätigt',
   cancelled: 'Abgesagt',
   completed: 'Abgeschlossen',
+  pending_payment: 'Zahlung ausstehend',
+  payment_failed: 'Zahlung fehlgeschlagen',
+  expired: 'Reservierung abgelaufen',
+  refunded: 'Erstattet',
+  reversed: 'Zahlung rückgängig',
 }
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-50 text-green-700 border-green-200',
   cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
   completed: 'bg-blue-50 text-blue-700 border-blue-200',
+  pending_payment: 'bg-amber-50 text-amber-700 border-amber-200',
 }
 
 interface BookingRow {
@@ -29,6 +36,8 @@ interface BookingRow {
   is_subscription_session: boolean
   status: string
   notes: string | null
+  payment_status: string
+  stripe_livemode: boolean | null
 }
 
 export default async function CreatorSessionsPage() {
@@ -46,7 +55,7 @@ export default async function CreatorSessionsPage() {
   const [bookingsRes, offerRes] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, notes')
+      .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, notes, payment_status, stripe_livemode')
       .eq('creator_id', creator.id)
       .order('scheduled_at', { ascending: false }),
     supabase
@@ -64,7 +73,7 @@ export default async function CreatorSessionsPage() {
   const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
   const past     = rows.filter(b => b.status !== 'confirmed' || new Date(b.scheduled_at).getTime() <= now)
 
-  const totalRevenue    = rows.filter(b => b.status !== 'cancelled' && !b.is_subscription_session).reduce((sum, b) => sum + b.price_cents, 0)
+  const totalRevenue    = rows.filter(b => b.payment_status === 'paid' && b.stripe_livemode === true && !b.is_subscription_session).reduce((sum, b) => sum + b.price_cents, 0)
   const aboSessionCount = rows.filter(b => b.status !== 'cancelled' && b.is_subscription_session).length
 
   return (
@@ -135,7 +144,8 @@ export default async function CreatorSessionsPage() {
 function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booking: BookingRow; now: number; creatorId: string; policyHours: number }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive       = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isLive       = b.status === 'confirmed' && hasValidCoachingPayment(b)
+    && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
   const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
   const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const isAboSession = b.is_subscription_session
@@ -175,7 +185,9 @@ function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booki
               Abo-Session (inklusiv)
             </span>
           ) : (
-            <p className="text-sm font-medium text-gray-700 mt-1">{price} €</p>
+            <p className="text-sm font-medium text-gray-700 mt-1">
+              {price} € · {b.payment_status === 'paid' ? 'Bezahlt' : b.payment_status === 'pending' ? 'Zahlung ausstehend' : 'Nicht bezahlt'}
+            </p>
           )}
         </div>
         <Link

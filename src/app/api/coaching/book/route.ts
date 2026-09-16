@@ -1,261 +1,131 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { createNotification } from '@/lib/notifications'
 import { isValidCoachingDuration, validateCoachingSlot } from '@/lib/coaching-booking'
+import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
+import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
+import { stripe } from '@/lib/stripe/server'
+
+// Stripe requires expires_at to be at least 30 minutes in the future. The
+// extra minute avoids clock/network skew while keeping the hold short.
+const RESERVATION_MINUTES = 31
+
+function appUrl() {
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
+  return `${raw.startsWith('http') ? raw : `https://${raw}`}`.replace(/\/$/, '')
+}
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { creatorId, date, time, name, email, notes, subscriptionId, discountId } = body
-
-  if (!creatorId || !date || !time || !name || !email) {
-    return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
-  }
+  const { creatorId, date, time, name, email, notes, subscriptionId, discountId } = await req.json()
+  if (!creatorId || !date || !time || !name || !email) return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+  if (email.trim().toLowerCase() !== user.email.toLowerCase()) {
+    return NextResponse.json({ error: 'Die E-Mail-Adresse stimmt nicht mit deinem Konto überein.' }, { status: 400 })
+  }
 
-  // Validate subscription-based booking: verify allowance
   let isSubscriptionSession = false
   let resolvedSubscriptionId: string | null = null
   let tierDurationMinutes: number | null = null
-
-  if (subscriptionId && user) {
-    const { data: sub } = await supabase
-      .from('subscriptions')
+  if (subscriptionId) {
+    const { data: sub } = await supabase.from('subscriptions')
       .select('id, buyer_id, creator_id, status, subscription_tiers(included_video_sessions, video_session_period, included_session_duration_minutes)')
-      .eq('id', subscriptionId)
-      .single()
-
+      .eq('id', subscriptionId).single()
     if (sub && sub.buyer_id === user.id && sub.creator_id === creatorId && sub.status === 'active') {
       const tier = Array.isArray(sub.subscription_tiers) ? sub.subscription_tiers[0] : sub.subscription_tiers
-      const total: number  = (tier as { included_video_sessions: number } | null)?.included_video_sessions ?? 0
-      const period: string = (tier as { video_session_period: string | null } | null)?.video_session_period ?? 'month'
-
-      if (total > 0) {
-        const now = new Date()
-        let periodStart: Date
-        if (period === 'week') {
-          const daysToMon = (now.getDay() + 6) % 7
-          periodStart = new Date(now)
-          periodStart.setDate(now.getDate() - daysToMon)
-          periodStart.setHours(0, 0, 0, 0)
-        } else {
-          periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        }
-        const { count } = await supabase
-          .from('bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('subscription_id', subscriptionId)
-          .neq('status', 'cancelled')
-          .gte('created_at', periodStart.toISOString())
-        const used = count ?? 0
-        if (used < total) {
-          isSubscriptionSession = true
-          resolvedSubscriptionId = subscriptionId
-          tierDurationMinutes = (tier as { included_session_duration_minutes: number | null } | null)?.included_session_duration_minutes ?? null
-        }
+      const total = (tier as { included_video_sessions: number } | null)?.included_video_sessions ?? 0
+      const period = (tier as { video_session_period: string | null } | null)?.video_session_period ?? 'month'
+      const now = new Date()
+      const periodStart = period === 'week'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7))
+        : new Date(now.getFullYear(), now.getMonth(), 1)
+      periodStart.setHours(0, 0, 0, 0)
+      const { count } = await supabase.from('bookings').select('*', { count: 'exact', head: true })
+        .eq('subscription_id', subscriptionId).in('status', ['confirmed', 'completed']).gte('created_at', periodStart.toISOString())
+      if (total > 0 && (count ?? 0) < total) {
+        isSubscriptionSession = true
+        resolvedSubscriptionId = subscriptionId
+        tierDurationMinutes = (tier as { included_session_duration_minutes: number | null } | null)?.included_session_duration_minutes ?? null
       }
     }
   }
 
-  const { data: offer } = await supabase
-    .from('coaching_offers')
-    .select('is_enabled, price_cents, duration_minutes')
-    .eq('creator_id', creatorId)
-    .single()
+  const { data: offer } = await supabase.from('coaching_offers')
+    .select('is_enabled, price_cents, duration_minutes').eq('creator_id', creatorId).single()
+  if (!offer?.is_enabled) return NextResponse.json({ error: 'Videocoaching nicht verfügbar' }, { status: 400 })
+  const effectiveDuration = isSubscriptionSession && tierDurationMinutes !== null ? tierDurationMinutes : offer.duration_minutes
+  if (!isValidCoachingDuration(effectiveDuration)) return NextResponse.json({ error: 'Ungültige Sitzungsdauer' }, { status: 400 })
 
-  if (!offer?.is_enabled) {
-    return NextResponse.json({ error: 'Videocoaching nicht verfügbar' }, { status: 400 })
-  }
-
-  // Subscription sessions use the tier's configured duration when set; paid sessions always use the offer duration
-  const effectiveDuration = isSubscriptionSession && tierDurationMinutes !== null
-    ? tierDurationMinutes
-    : offer.duration_minutes
-
-  if (!isValidCoachingDuration(effectiveDuration)) {
-    return NextResponse.json({ error: 'Ungültige Sitzungsdauer' }, { status: 400 })
-  }
-
-  // Validate discount for paid sessions
-  // TODO: When payment is added for sessions, apply the discount via Stripe Coupon instead of reducing price_cents directly
   let discountedPriceCents = offer.price_cents
   let discountRowId: string | null = null
-
   if (!isSubscriptionSession && discountId) {
-    const { data: disc } = await supabase
-      .from('discounts')
+    const { data: disc } = await supabase.from('discounts')
       .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
-      .eq('id', discountId)
-      .single()
-
+      .eq('id', discountId).single()
     const now = new Date()
-    const valid = disc &&
-      disc.active &&
-      (disc.applies_to === 'all' || disc.applies_to === 'sessions') &&
-      (!disc.starts_at || new Date(disc.starts_at) <= now) &&
-      (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
-      (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
-
+    const valid = disc && disc.active && (disc.applies_to === 'all' || disc.applies_to === 'sessions')
+      && (!disc.starts_at || new Date(disc.starts_at) <= now) && (!disc.ends_at || new Date(disc.ends_at) >= now)
+      && (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
     if (valid) {
       discountRowId = disc.id
-      const savings = disc.type === 'percent'
-        ? Math.round(offer.price_cents * disc.value / 100)
-        : Math.min(disc.value, offer.price_cents)
+      const savings = disc.type === 'percent' ? Math.round(offer.price_cents * disc.value / 100) : Math.min(disc.value, offer.price_cents)
       discountedPriceCents = Math.max(0, offer.price_cents - savings)
     }
   }
-
-  const slotValidation = await validateCoachingSlot({
-    creatorId,
-    date,
-    time,
-    durationMinutes: effectiveDuration,
-  })
-  if (!slotValidation.ok) {
-    return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
+  if (!isSubscriptionSession && discountedPriceCents > 0 && discountedPriceCents < 50) {
+    return NextResponse.json({ error: 'Der Buchungsbetrag liegt unter dem Stripe-Mindestbetrag.' }, { status: 400 })
   }
-  const scheduledAt = new Date(slotValidation.scheduledAt)
 
-  // Create Daily.co room
-  let dailyRoomName: string | null = null
-  let dailyRoomUrl:  string | null = null
-
-  if (process.env.DAILY_API_KEY) {
-    try {
-      // Room expires 30 min after session ends
-      const roomExp = Math.floor(scheduledAt.getTime() / 1000) + (effectiveDuration + 30) * 60
-      const res = await fetch('https://api.daily.co/v1/rooms', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.DAILY_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          privacy: 'private',
-          properties: {
-            exp: roomExp,
-            max_participants: 2,
-            enable_chat: true,
-            enable_screenshare: false,
-          },
-        }),
-      })
-      if (res.ok) {
-        const room = await res.json() as { name: string; url: string }
-        dailyRoomName = room.name
-        dailyRoomUrl  = room.url
-      }
-    } catch {
-      // Room creation failure is non-fatal; admin can fix manually
-    }
-  }
+  const slotValidation = await validateCoachingSlot({ creatorId, date, time, durationMinutes: effectiveDuration })
+  if (!slotValidation.ok) return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
 
   const service = await createServiceClient()
-  const { data: booking, error } = await service
-    .from('bookings')
-    .insert({
-      creator_id:       creatorId,
-      buyer_id:         user?.id ?? null,
-      scheduled_at:     scheduledAt.toISOString(),
-      duration_minutes: effectiveDuration,
-      status:                  'confirmed',
-      daily_room_name:         dailyRoomName,
-      daily_room_url:          dailyRoomUrl,
-      buyer_email:             user.email,
-      buyer_name:              name,
-      notes:                   notes?.trim() || null,
-      subscription_id:         resolvedSubscriptionId,
-      is_subscription_session: isSubscriptionSession,
-      price_cents:             isSubscriptionSession ? 0 : discountedPriceCents,
-      buffer_minutes:          slotValidation.bufferMinutes,
-    })
-    .select()
-    .single()
+  const requiresPayment = !isSubscriptionSession && discountedPriceCents > 0
+  const reservationExpiresAt = requiresPayment ? new Date(Date.now() + RESERVATION_MINUTES * 60_000) : null
+  const { data: booking, error } = await service.from('bookings').insert({
+    creator_id: creatorId, buyer_id: user.id, scheduled_at: slotValidation.scheduledAt,
+    duration_minutes: effectiveDuration, status: requiresPayment ? 'pending_payment' : 'confirmed',
+    payment_status: requiresPayment ? 'pending' : 'not_required', buyer_email: user.email,
+    buyer_name: name.trim(), notes: notes?.trim() || null, subscription_id: resolvedSubscriptionId,
+    is_subscription_session: isSubscriptionSession, price_cents: isSubscriptionSession ? 0 : discountedPriceCents,
+    buffer_minutes: slotValidation.bufferMinutes, reservation_expires_at: reservationExpiresAt?.toISOString() ?? null,
+    discount_id: discountRowId,
+    stripe_livemode: requiresPayment ? process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true : null,
+  }).select('id').single()
+  if (error?.code === '23P01') return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
+  if (error || !booking) return NextResponse.json({ error: 'Buchung konnte nicht erstellt werden.' }, { status: 500 })
 
-  if (error?.code === '23P01') {
-    return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
-  }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Increment redemption count (best-effort)
-  if (discountRowId) {
-    const { data: latest } = await supabase
-      .from('discounts')
-      .select('redemption_count')
-      .eq('id', discountRowId)
-      .single()
-    if (latest) {
-      await supabase
-        .from('discounts')
-        .update({ redemption_count: latest.redemption_count + 1 })
-        .eq('id', discountRowId)
-        .eq('redemption_count', latest.redemption_count)
-    }
+  if (!requiresPayment) {
+    await provisionConfirmedCoachingBooking(booking.id)
+    return NextResponse.json({ bookingId: booking.id })
   }
 
-  // Send confirmation emails (best-effort)
   try {
-    const { data: creator } = await supabase
-      .from('creator_profiles')
-      .select('display_name, user_id')
-      .eq('id', creatorId)
-      .single()
-
-    if (creator) {
-      const { data: creatorUser } = await service.auth.admin.getUserById(creator.user_id)
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
-      const sessionUrl = `${appUrl}/session/${booking.id}`
-
-      const { sendBookingConfirmation } = await import('@/lib/email/send')
-      const scheduledDate = scheduledAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' })
-      const scheduledTime = scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })
-
-      // In-app notifications (fire-and-forget)
-      createNotification({
-        userId: creator.user_id,
-        type: 'new_booking',
-        title: 'Neue Session gebucht',
-        message: `${name} hat eine ${effectiveDuration}-Min.-Session am ${scheduledDate} um ${scheduledTime} Uhr gebucht.`,
-        link: '/creator/sessions',
-      }).catch(() => {})
-      if (user?.id) {
-        createNotification({
-          userId: user.id,
-          type: 'booking_confirmed',
-          title: 'Session bestätigt',
-          message: `Deine Session mit ${creator.display_name} am ${scheduledDate} um ${scheduledTime} Uhr ist bestätigt.`,
-          link: `/session/${booking.id}`,
-        }).catch(() => {})
-      }
-
-      await Promise.allSettled([
-        sendBookingConfirmation(email, {
-          recipientName: name,
-          coachName: creator.display_name,
-          scheduledDate,
-          scheduledTime,
-          durationMinutes: effectiveDuration,
-          sessionUrl,
-          role: 'buyer',
-        }),
-        creatorUser?.user?.email
-          ? sendBookingConfirmation(creatorUser.user.email, {
-              recipientName: creator.display_name,
-              coachName: name,
-              scheduledDate,
-              scheduledTime,
-              durationMinutes: effectiveDuration,
-              sessionUrl,
-              role: 'creator',
-            })
-          : Promise.resolve(),
-      ])
-    }
-  } catch {
-    // Email errors never fail the booking
+    const { data: creator } = await service.from('creator_profiles')
+      .select('display_name, stripe_account_id, stripe_account_status').eq('id', creatorId).single()
+    if (!creator) throw new Error('Coach not found')
+    const metadata = { checkout_type: 'coaching_session', booking_id: booking.id, buyer_id: user.id, creator_id: creatorId, scheduled_at: slotValidation.scheduledAt }
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment', customer_email: user.email,
+      line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: discountedPriceCents,
+        product_data: { name: `1:1 Coaching mit ${creator.display_name}`, metadata: { booking_id: booking.id } } } }],
+      metadata,
+      payment_intent_data: { metadata,
+        ...(creator.stripe_account_id && creator.stripe_account_status === 'active'
+          ? { application_fee_amount: calculateArdorePlatformFee(discountedPriceCents), transfer_data: { destination: creator.stripe_account_id } } : {}) },
+      expires_at: Math.floor(reservationExpiresAt!.getTime() / 1000),
+      success_url: `${appUrl()}/buyer/sessions?checkout=success&booking=${booking.id}`,
+      cancel_url: `${appUrl()}/buyer/sessions?checkout=cancelled&booking=${booking.id}`,
+    })
+    const { error: updateError } = await service.from('bookings').update({ stripe_checkout_session_id: session.id })
+      .eq('id', booking.id).eq('status', 'pending_payment')
+    if (updateError) throw updateError
+    return NextResponse.json({ bookingId: booking.id, checkoutUrl: session.url })
+  } catch (checkoutError) {
+    await service.from('bookings').update({ status: 'payment_failed', payment_status: 'failed', payment_updated_at: new Date().toISOString() })
+      .eq('id', booking.id).eq('status', 'pending_payment')
+    console.error('[coaching-checkout] creation failed', checkoutError)
+    return NextResponse.json({ error: 'Die Zahlung konnte nicht gestartet werden.' }, { status: 500 })
   }
-
-  return NextResponse.json({ bookingId: booking.id })
 }

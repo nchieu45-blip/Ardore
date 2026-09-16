@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendPurchaseReceipt, sendNewSubscriberNotification } from '@/lib/email/send'
 import { createNotification } from '@/lib/notifications'
+import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
 import Stripe from 'stripe'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
@@ -46,6 +47,11 @@ export async function POST(req: NextRequest) {
       case 'checkout.session.async_payment_succeeded': {
       const session = event.data.object as Stripe.Checkout.Session
       const meta = session.metadata ?? {}
+
+      if (session.mode === 'payment' && session.payment_status === 'paid' && meta.checkout_type === 'coaching_session') {
+        await confirmCoachingCheckout(supabase, session, event.livemode)
+        break
+      }
 
       if (session.mode === 'payment' && session.payment_status === 'paid' && meta.buyer_id) {
         // Support both legacy single product_id and new comma-separated product_ids
@@ -175,6 +181,7 @@ export async function POST(req: NextRequest) {
       if (paymentIntentId) {
         const status = charge.refunded ? 'refunded' : 'partially_refunded'
         await updatePurchaseState(supabase, paymentIntentId, event.livemode, status, charge.amount_refunded / 100)
+        await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, status, charge.amount_refunded)
       }
       break
     }
@@ -185,6 +192,7 @@ export async function POST(req: NextRequest) {
         ? dispute.payment_intent
         : dispute.payment_intent?.id ?? null
       if (paymentIntentId) await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'disputed')
+      if (paymentIntentId) await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, 'disputed')
       break
     }
 
@@ -201,8 +209,10 @@ export async function POST(req: NextRequest) {
             ? 'refunded'
             : charge && charge.amount_refunded > 0 ? 'partially_refunded' : 'paid'
           await updatePurchaseState(supabase, paymentIntentId, event.livemode, restoredStatus, charge ? charge.amount_refunded / 100 : undefined)
+          await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, restoredStatus, charge?.amount_refunded)
         } else {
           await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'chargeback')
+          await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, 'chargeback')
         }
       }
       break
@@ -211,6 +221,36 @@ export async function POST(req: NextRequest) {
     case 'payment_intent.canceled': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       await updatePurchaseState(supabase, paymentIntent.id, event.livemode, 'reversed')
+      await updateCoachingPaymentState(supabase, paymentIntent.id, event.livemode, 'reversed')
+      break
+    }
+
+    case 'checkout.session.expired':
+    case 'checkout.session.async_payment_failed': {
+      const session = event.data.object as Stripe.Checkout.Session
+      if (session.metadata?.checkout_type === 'coaching_session') {
+        const paymentStatus = event.type === 'checkout.session.expired' ? 'expired' : 'failed'
+        const bookingStatus = event.type === 'checkout.session.expired' ? 'expired' : 'payment_failed'
+        const { error } = await supabase.from('bookings').update({
+          status: bookingStatus,
+          payment_status: paymentStatus,
+          payment_updated_at: new Date().toISOString(),
+        }).eq('stripe_checkout_session_id', session.id).eq('stripe_livemode', event.livemode).eq('status', 'pending_payment')
+        if (error) throw error
+      }
+      break
+    }
+
+    case 'payment_intent.payment_failed': {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent
+      let query = supabase.from('bookings').update({
+        status: 'payment_failed', payment_status: 'failed', payment_updated_at: new Date().toISOString(),
+      }).eq('stripe_livemode', event.livemode).eq('status', 'pending_payment')
+      query = paymentIntent.metadata?.booking_id
+        ? query.eq('id', paymentIntent.metadata.booking_id)
+        : query.eq('stripe_payment_intent_id', paymentIntent.id)
+      const { error } = await query
+      if (error) throw error
       break
     }
 
@@ -248,6 +288,68 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+async function confirmCoachingCheckout(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  session: Stripe.Checkout.Session,
+  stripeLivemode: boolean,
+) {
+  const meta = session.metadata ?? {}
+  if (!meta.booking_id || !meta.buyer_id || !meta.creator_id) throw new Error('Missing coaching checkout metadata')
+  const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id
+  if (!paymentIntentId || session.currency !== 'eur') throw new Error('Invalid coaching payment')
+
+  const { data: booking, error: readError } = await supabase.from('bookings')
+    .select('id, buyer_id, creator_id, price_cents, status, payment_status, stripe_livemode, discount_id, discount_redeemed_at')
+    .eq('id', meta.booking_id).single()
+  if (readError || !booking) throw readError ?? new Error('Coaching booking not found')
+  if (booking.buyer_id !== meta.buyer_id || booking.creator_id !== meta.creator_id
+    || booking.price_cents !== session.amount_total || booking.stripe_livemode !== stripeLivemode) {
+    throw new Error('Coaching checkout does not match reserved booking')
+  }
+  if (booking.payment_status === 'paid') return
+  if (booking.status !== 'pending_payment' || booking.payment_status !== 'pending') {
+    throw new Error('Coaching reservation is no longer payable')
+  }
+
+  const now = new Date().toISOString()
+  const { data: confirmed, error: updateError } = await supabase.from('bookings').update({
+    status: 'confirmed', payment_status: 'paid', stripe_payment_intent_id: paymentIntentId,
+    paid_at: now, payment_updated_at: now,
+  }).eq('id', booking.id).eq('status', 'pending_payment').eq('payment_status', 'pending').select('id').maybeSingle()
+  if (updateError) throw updateError
+  if (!confirmed) return
+
+  if (booking.discount_id && !booking.discount_redeemed_at) {
+    const { data: discount } = await supabase.from('discounts').select('redemption_count').eq('id', booking.discount_id).single()
+    if (discount) {
+      const { error: discountError } = await supabase.from('discounts')
+        .update({ redemption_count: discount.redemption_count + 1 })
+        .eq('id', booking.discount_id).eq('redemption_count', discount.redemption_count)
+      if (!discountError) await supabase.from('bookings').update({ discount_redeemed_at: now }).eq('id', booking.id)
+    }
+  }
+  await provisionConfirmedCoachingBooking(booking.id)
+}
+
+async function updateCoachingPaymentState(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  paymentIntentId: string,
+  stripeLivemode: boolean,
+  paymentStatus: 'paid' | 'partially_refunded' | 'refunded' | 'disputed' | 'chargeback' | 'reversed',
+  amountRefundedCents?: number,
+) {
+  const bookingStatus = paymentStatus === 'refunded' ? 'refunded'
+    : paymentStatus === 'chargeback' || paymentStatus === 'reversed' ? 'reversed' : undefined
+  const update: Record<string, unknown> = { payment_status: paymentStatus, payment_updated_at: new Date().toISOString() }
+  if (bookingStatus) update.status = bookingStatus
+  if (amountRefundedCents !== undefined) update.amount_refunded_cents = amountRefundedCents
+  const { error } = await supabase.from('bookings').update(update)
+    .eq('stripe_payment_intent_id', paymentIntentId).eq('stripe_livemode', stripeLivemode)
+  if (error) throw error
 }
 
 async function updatePurchaseState(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('buyer_id, creator_id, creator_profiles!inner(user_id, display_name)')
+    .select('buyer_id, creator_id, status, payment_status, stripe_livemode, scheduled_at, duration_minutes, creator_profiles!inner(user_id, display_name)')
     .eq('id', bookingId)
     .single()
 
@@ -23,7 +24,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Buchung nicht gefunden' }, { status: 404 })
   }
 
-  // RLS enforces that the session must have ended before allowing insert
+  const sessionEndedAt = new Date(booking.scheduled_at).getTime() + booking.duration_minutes * 60_000
+  if (!['confirmed', 'completed'].includes(booking.status)
+    || !hasValidCoachingPayment(booking)
+    || sessionEndedAt > Date.now()) {
+    return NextResponse.json({ error: 'Diese Session kann noch nicht bewertet werden.' }, { status: 403 })
+  }
+
+  // RLS independently enforces the same eligibility rule at the database boundary.
   const { error } = await supabase
     .from('session_reviews')
     .upsert(

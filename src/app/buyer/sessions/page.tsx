@@ -5,6 +5,7 @@ import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import SessionReviewPrompt from '@/components/SessionReviewPrompt'
 import BookingActions from '@/components/BookingActions'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
 export const metadata: Metadata = { title: 'Meine Sessions' }
 
@@ -12,12 +13,18 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed:  'Bestätigt',
   cancelled:  'Abgesagt',
   completed:  'Abgeschlossen',
+  pending_payment: 'Zahlung ausstehend',
+  payment_failed: 'Zahlung fehlgeschlagen',
+  expired: 'Reservierung abgelaufen',
+  refunded: 'Erstattet',
+  reversed: 'Zahlung rückgängig',
 }
 
 const STATUS_STYLES: Record<string, string> = {
   confirmed: 'bg-green-50 text-green-700 border-green-200',
   cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
   completed: 'bg-blue-50 text-blue-700 border-blue-200',
+  pending_payment: 'bg-amber-50 text-amber-700 border-amber-200',
 }
 
 interface BookingRow {
@@ -29,6 +36,8 @@ interface BookingRow {
   is_subscription_session: boolean
   status: string
   daily_room_url: string | null
+  payment_status: string
+  stripe_livemode: boolean | null
   creator_profiles: { id: string; display_name: string; slug: string; avatar_url: string | null } | null
 }
 
@@ -40,18 +49,18 @@ interface ExistingReview {
 export default async function BuyerSessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ review?: string }>
+  searchParams: Promise<{ review?: string; checkout?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { review: autoReviewBookingId } = await searchParams
+  const { review: autoReviewBookingId, checkout } = await searchParams
 
   const [bookingsRes, reviewsRes] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, creator_id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
+      .select('id, creator_id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, payment_status, stripe_livemode, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
       .eq('buyer_id', user.id)
       .order('scheduled_at', { ascending: false }),
     supabase
@@ -97,6 +106,17 @@ export default async function BuyerSessionsPage({
         </div>
         <h1 className="text-2xl font-bold text-gray-900">Meine Sessions</h1>
       </div>
+
+      {checkout === 'success' && (
+        <div role="status" className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          Zahlung eingegangen. Deine Session wird nach der Stripe-Bestätigung als bestätigt angezeigt.
+        </div>
+      )}
+      {checkout === 'cancelled' && (
+        <div role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Zahlung abgebrochen. Der Termin bleibt nur bis zum Ablauf der Reservierung blockiert.
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="text-center py-20 rounded-2xl border-2 border-dashed border-gray-200">
@@ -163,8 +183,9 @@ function SessionCard({
 }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive       = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
-  const isEnded      = endAt.getTime() < now && b.status !== 'cancelled'
+  const isLive       = b.status === 'confirmed' && hasValidCoachingPayment(b)
+    && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isEnded      = endAt.getTime() < now && ['confirmed', 'completed'].includes(b.status)
   const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const creator     = b.creator_profiles
