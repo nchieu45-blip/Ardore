@@ -1,0 +1,41 @@
+name: Ardore scheduled cron jobs
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  call-cron-endpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ARDORE_BASE_URL: ${{ vars.ARDORE_BASE_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Call session cron endpoints
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 8 * * *'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="${ARDORE_BASE_URL%/}"
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${base_url}/api/cron/session-reminders"
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${base_url}/api/cron/session-review-prompts"
+
+      - name: Call verification cleanup endpoint
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 9 * * *'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="${ARDORE_BASE_URL%/}"
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${base_url}/api/cron/cleanup-verification-docs"
