@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export function calcSavingsCents(type: string, value: number, amountCents: number): number {
+function calcSavingsCents(type: string, value: number, amountCents: number): number {
   if (type === 'percent') return Math.round(amountCents * value / 100)
   return Math.min(value, amountCents)
 }
