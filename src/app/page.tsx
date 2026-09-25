@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import type { CoachingCoach, SubscriptionCoach } from './MarketplaceRows'
+import { aggregateProductRatings } from '@/lib/productRatings'
 
 export const dynamic = 'force-dynamic'
 
@@ -130,7 +131,7 @@ export default async function MarketplacePage() {
       ? supabase.rpc('get_public_product_sales_counts', { requested_product_ids: productIds })
       : Promise.resolve({ data: [] }),
     productIds.length > 0
-      ? supabase.from('public_product_reviews').select('product_id, rating').in('product_id', productIds)
+      ? supabase.from('public_product_reviews').select('id, product_id, rating').in('product_id', productIds)
       : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('favorites').select('item_id').eq('item_type', 'product').in('item_id', productIds)
@@ -142,16 +143,9 @@ export default async function MarketplacePage() {
     salesCounts[product_id] = Number(sales_count)
   }
 
-  const ratingSums: Record<string, { sum: number; count: number }> = {}
-  for (const r of (reviewsRes.data ?? []) as { product_id: string; rating: number }[]) {
-    if (!ratingSums[r.product_id]) ratingSums[r.product_id] = { sum: 0, count: 0 }
-    ratingSums[r.product_id].sum += r.rating
-    ratingSums[r.product_id].count++
-  }
-  const ratings: Record<string, { avg: number; count: number }> = {}
-  for (const [id, { sum, count }] of Object.entries(ratingSums)) {
-    ratings[id] = { avg: sum / count, count }
-  }
+  const ratings = aggregateProductRatings(
+    (reviewsRes.data ?? []) as { id: string; product_id: string; rating: number }[]
+  )
 
   const favoriteCounts: Record<string, number> = {}
   for (const { item_id } of (favoritesRes.data ?? []) as { item_id: string }[]) {

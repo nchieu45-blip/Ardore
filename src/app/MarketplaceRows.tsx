@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { ProductCard, type ProductCardData } from '@/components/ui/ProductCard'
 import HeartButton from '@/components/HeartButton'
 import Reveal from '@/components/motion/Reveal'
+import { compareProductRatings } from '@/lib/productRatings'
 
 interface Creator {
   id: string
@@ -269,7 +270,13 @@ export default function MarketplaceRows({
   // ── Rail 3: Top bewertet ───────────────────────────────────────────────
   const topRated = [...products]
     .filter(p => (ratings[p.id]?.count ?? 0) >= 1)
-    .sort((a, b) => (ratings[b.id]?.avg ?? 0) - (ratings[a.id]?.avg ?? 0))
+    .sort((a, b) => {
+      const ratingDifference = compareProductRatings(ratings[a.id], ratings[b.id])
+      if (ratingDifference !== 0) return ratingDifference
+
+      const dateDifference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      return dateDifference !== 0 ? dateDifference : a.id.localeCompare(b.id)
+    })
     .slice(0, 10)
 
   // ── Rail 5: Empfohlene Coaches ─────────────────────────────────────────

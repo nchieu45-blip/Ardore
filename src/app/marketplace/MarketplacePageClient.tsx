@@ -10,6 +10,7 @@ import { EQUIPMENT_OPTIONS, LEVEL_OPTIONS, DURATION_OPTIONS } from '@/lib/produc
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import { cn } from '@/lib/utils'
 import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
+import { compareProductRatings } from '@/lib/productRatings'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 type SortKey = 'popular' | 'newest' | 'price_asc' | 'price_desc' | 'top_rated' | 'best_selling'
@@ -24,9 +25,11 @@ const TYPE_OPTIONS: { key: 'all' | ProductType; label: string }[] = [
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'popular',      label: 'Beliebteste' },
-  // TODO: re-enable post-launch when sales/review data exists
+  { key: 'top_rated',    label: 'Best bewertet' },
+  // Keep disabled until refunds/disputes/chargebacks are reconciled with
+  // purchase validity, production/test purchase contamination is ruled out,
+  // and Best Selling has a ranking definition distinct from Popular.
   // { key: 'best_selling', label: 'Meistverkauft' },
-  // { key: 'top_rated',    label: 'Best bewertet' },
   { key: 'newest',       label: 'Neueste' },
   { key: 'price_asc',    label: 'Preis ↑' },
   { key: 'price_desc',   label: 'Preis ↓' },
@@ -44,6 +47,11 @@ function parsePageParam(value: string | null): number {
 
   const parsed = Number(value)
   return Number.isSafeInteger(parsed) ? parsed : 1
+}
+
+function compareNewestThenId(a: MarketplaceProduct, b: MarketplaceProduct): number {
+  const dateDifference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  return dateDifference !== 0 ? dateDifference : a.id.localeCompare(b.id)
 }
 
 interface Props {
@@ -239,9 +247,18 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     })
     .sort((a, b) => {
       switch (sort) {
-        case 'popular':
-        case 'best_selling': return (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0)
-        case 'top_rated':    return (ratings[b.id]?.avg ?? 0) - (ratings[a.id]?.avg ?? 0)
+        case 'popular': {
+          const salesDifference = (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0)
+          return salesDifference !== 0 ? salesDifference : compareNewestThenId(a, b)
+        }
+        case 'best_selling': {
+          const salesDifference = (salesCounts[b.id] ?? 0) - (salesCounts[a.id] ?? 0)
+          return salesDifference !== 0 ? salesDifference : compareNewestThenId(a, b)
+        }
+        case 'top_rated': {
+          const ratingDifference = compareProductRatings(ratings[a.id], ratings[b.id])
+          return ratingDifference !== 0 ? ratingDifference : compareNewestThenId(a, b)
+        }
         case 'newest':       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         case 'price_asc':    return a.price - b.price
         case 'price_desc':   return b.price - a.price
