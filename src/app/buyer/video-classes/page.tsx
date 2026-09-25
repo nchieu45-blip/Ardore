@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Users, Calendar, Clock, Video, ExternalLink } from 'lucide-react'
 import type { Metadata } from 'next'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Meine Video Classes' }
 
@@ -152,7 +153,11 @@ export default async function BuyerVideoClassesPage({
                   </div>
 
                   <div className="flex-shrink-0">
-                    {booking.daily_room_url && join ? (
+                    {!VIDEO_CALLS_ENABLED ? (
+                      <p className="max-w-48 text-right text-xs text-gray-500">
+                        Video-Call-Funktion wird bald verfügbar sein.
+                      </p>
+                    ) : booking.daily_room_url && join ? (
                       <a
                         href={booking.daily_room_url}
                         target="_blank"

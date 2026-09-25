@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import SessionReviewPrompt from '@/components/SessionReviewPrompt'
 import BookingActions from '@/components/BookingActions'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Meine Sessions' }
 
@@ -183,7 +184,7 @@ function SessionCard({
 }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive       = b.status === 'confirmed' && hasValidCoachingPayment(b)
+  const isLive       = VIDEO_CALLS_ENABLED && b.status === 'confirmed' && hasValidCoachingPayment(b)
     && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
   const isEnded      = endAt.getTime() < now && ['confirmed', 'completed'].includes(b.status)
   const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
@@ -227,6 +228,9 @@ function SessionCard({
             </span>
           ) : (
             <p className="text-sm text-gray-400 mt-1">{price} €</p>
+          )}
+          {!VIDEO_CALLS_ENABLED && b.status === 'confirmed' && (
+            <p className="text-xs text-gray-500 mt-2">Video-Call-Funktion wird bald verfügbar sein.</p>
           )}
         </div>
         <Link

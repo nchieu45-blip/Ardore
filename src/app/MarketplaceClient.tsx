@@ -15,6 +15,7 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
 import { ALL_CATEGORIES, CATEGORY_LABEL_MAP } from '@/lib/categories'
 import Reveal from '@/components/motion/Reveal'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
@@ -525,7 +526,9 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                   Persönliche Sessions —<br />direkt mit deinem Coach
                 </h2>
                 <p className="text-blue-100/80 text-sm leading-relaxed mb-6">
-                  Buche eine 1:1 Video-Session mit deinem Wunsch-Coach. Wähle Datum und Uhrzeit, und der Videoraum wird automatisch erstellt.
+                  {VIDEO_CALLS_ENABLED
+                    ? 'Buche eine 1:1 Video-Session mit deinem Wunsch-Coach. Wähle Datum und Uhrzeit, und der Videoraum wird automatisch erstellt.'
+                    : 'Buche weiterhin eine 1:1 Session mit deinem Wunsch-Coach. Die Video-Call-Funktion wird bald verfügbar sein.'}
                 </p>
                 <Link href="/coaches">
                   <button className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-colors">

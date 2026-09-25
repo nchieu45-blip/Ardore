@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
 import { validateCoachingSlot } from '@/lib/coaching-booking'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (updateError) return NextResponse.json({ error: 'Fehler beim Verschieben' }, { status: 500 })
 
   // Update Daily.co room expiry to match new session time (best-effort)
-  if (process.env.DAILY_API_KEY && booking.daily_room_name) {
+  if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY && booking.daily_room_name) {
     const newRoomExp = Math.floor(newScheduledAt.getTime() / 1000) + (durationMin + 30) * 60
     fetch(`https://api.daily.co/v1/rooms/${booking.daily_room_name}`, {
       method: 'PATCH',

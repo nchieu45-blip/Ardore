@@ -5,6 +5,7 @@ import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import BookingActions from '@/components/BookingActions'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export const metadata: Metadata = { title: 'Meine Buchungen' }
 
@@ -144,7 +145,7 @@ export default async function CreatorSessionsPage() {
 function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booking: BookingRow; now: number; creatorId: string; policyHours: number }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive       = b.status === 'confirmed' && hasValidCoachingPayment(b)
+  const isLive       = VIDEO_CALLS_ENABLED && b.status === 'confirmed' && hasValidCoachingPayment(b)
     && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
   const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
   const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
@@ -178,6 +179,9 @@ function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booki
           </div>
           {b.notes && (
             <p className="text-xs text-gray-400 mt-2 italic line-clamp-2">{'„'}{b.notes}{'"'}</p>
+          )}
+          {!VIDEO_CALLS_ENABLED && b.status === 'confirmed' && (
+            <p className="text-xs text-gray-500 mt-2">Video-Call-Funktion wird bald verfügbar sein.</p>
           )}
           {isAboSession ? (
             <span className="inline-flex items-center gap-1 mt-1 bg-purple-50 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">

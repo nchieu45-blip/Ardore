@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 import { createNotification, checkNotificationPreference } from '@/lib/notifications'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
 
@@ -65,7 +66,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   // Get or create shared Daily.co room for this class
   let dailyRoomUrl: string | null = null
-  if (process.env.DAILY_API_KEY) {
+  if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY) {
     // Reuse room URL already stored on a prior booking for the same class
     const { data: priorBooking } = await supabase
       .from('video_class_bookings')

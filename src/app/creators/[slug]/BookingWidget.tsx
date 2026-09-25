@@ -5,6 +5,7 @@ import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { cn, formatCurrency } from '@/lib/utils'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 interface SubscriberSessions {
   subscriptionId: string
@@ -243,7 +244,9 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
               Du erhältst eine Bestätigung an <strong>{email}</strong>.
             </p>
             <p className="text-sm text-gray-500">
-              Der Videoraum-Link wird kurz vor der Session per E-Mail zugesendet.
+              {VIDEO_CALLS_ENABLED
+                ? 'Der Videoraum-Link wird kurz vor der Session per E-Mail zugesendet.'
+                : 'Video-Call-Funktion wird bald verfügbar sein.'}
             </p>
             {bookingId && (
               <a

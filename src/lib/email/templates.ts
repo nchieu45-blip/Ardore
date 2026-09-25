@@ -1,3 +1,5 @@
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
+
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
 
 function layout(content: string) {
@@ -206,7 +208,9 @@ export function bookingConfirmationHtml(d: BookingConfirmationData) {
     </table>
     <p style="text-align:center;margin:0 0 16px;">${button(d.sessionUrl, 'Zur Session →')}</p>
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
-      Du erhältst den Link zum Videoraum kurz vor der Session per E-Mail.
+      ${VIDEO_CALLS_ENABLED
+        ? 'Du erhältst den Link zum Videoraum kurz vor der Session per E-Mail.'
+        : 'Die Video-Call-Funktion wird bald verfügbar sein.'}
     </p>
   `)
 }
@@ -234,16 +238,17 @@ export function sessionReminderHtml(d: SessionReminderData) {
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
       Hey ${d.recipientName}, deine Videocoaching-Session mit <strong>${d.coachName}</strong> beginnt ${timeLabel} um <strong>${d.scheduledTime} Uhr</strong>.
     </p>
-    <p style="text-align:center;margin:0 0 20px;">${button(d.sessionUrl, 'Session beitreten →')}</p>
+    <p style="text-align:center;margin:0 0 20px;">${button(d.sessionUrl, VIDEO_CALLS_ENABLED ? 'Session beitreten →' : 'Sessiondetails öffnen →')}</p>
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
-      Teste dein Mikrofon und deine Kamera vor der Session.
+      ${VIDEO_CALLS_ENABLED ? 'Teste dein Mikrofon und deine Kamera vor der Session.' : 'Die Video-Call-Funktion wird bald verfügbar sein.'}
     </p>
   `)
 }
 
 export function sessionReminderText(d: SessionReminderData) {
   const timeLabel = d.minutesUntil <= 60 ? `in ${d.minutesUntil} Minuten` : `in ${Math.round(d.minutesUntil / 60)} Stunden`
-  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel} um ${d.scheduledTime} Uhr.\n\nJetzt beitreten: ${d.sessionUrl}\n\n– Das Ardore-Team`
+  const sessionLabel = VIDEO_CALLS_ENABLED ? 'Jetzt beitreten' : 'Sessiondetails'
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel} um ${d.scheduledTime} Uhr.\n\n${sessionLabel}: ${d.sessionUrl}\n\n– Das Ardore-Team`
 }
 
 // ─── Account deletion notices ─────────────────────────────────────────────────
@@ -467,7 +472,7 @@ export function videoClassConfirmationHtml(d: VideoClassConfirmationData) {
         <td style="font-size:13px;color:#111827;text-align:right;">${d.durationMinutes} Minuten</td>
       </tr>
     </table>
-    ${d.roomUrl ? `<p style="text-align:center;margin:0 0 16px;">${button(d.roomUrl, '🎥 Videokurs beitreten')}</p>` : ''}
+    ${VIDEO_CALLS_ENABLED && d.roomUrl ? `<p style="text-align:center;margin:0 0 16px;">${button(d.roomUrl, '🎥 Videokurs beitreten')}</p>` : ''}
     <p style="text-align:center;margin:0 0 20px;">${button(d.bookingsUrl, 'Meine Video Classes →')}</p>
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
       Den Link findest du jederzeit unter „Meine Video Classes". Tritt dem Kurs 15 Minuten vor Beginn bei.
@@ -476,7 +481,7 @@ export function videoClassConfirmationHtml(d: VideoClassConfirmationData) {
 }
 
 export function videoClassConfirmationText(d: VideoClassConfirmationData) {
-  const roomLine = d.roomUrl ? `\nKurs-Link: ${d.roomUrl}\n` : ''
+  const roomLine = VIDEO_CALLS_ENABLED && d.roomUrl ? `\nKurs-Link: ${d.roomUrl}\n` : ''
   return `Du bist angemeldet: ${d.classTitle}\n\nCoach: ${d.coachName}\nTermin: ${d.scheduleLabel}\nDauer: ${d.durationMinutes} Min${roomLine}\nMeine Video Classes: ${d.bookingsUrl}\n\n– Das Ardore-Team`
 }
 

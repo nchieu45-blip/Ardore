@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Search, ChevronDown, ChevronUp, Users, Flame, ShieldCheck, Mail, HelpCircle } from 'lucide-react'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 interface FAQItem {
   q: string
@@ -32,7 +33,9 @@ const SECTIONS: FAQSection[] = [
       },
       {
         q: 'Wie buche ich ein 1:1-Videocoaching?',
-        a: 'Öffne das Profil des gewünschten Coaches und scrolle zum Bereich „1:1 Videocoaching". Wähle dort einen freien Tag und eine Uhrzeit aus dem Kalender. Fülle dann deine Angaben (Name, E-Mail, optionale Notizen) aus und bestätige die Buchung. Beide Seiten erhalten eine Bestätigungs-E-Mail mit dem Link zum Videoraum. Hast du ein Abo mit inkludierten Sessions, ist die Buchung für dich kostenlos.',
+        a: VIDEO_CALLS_ENABLED
+          ? 'Öffne das Profil des gewünschten Coaches und scrolle zum Bereich „1:1 Videocoaching". Wähle dort einen freien Tag und eine Uhrzeit aus dem Kalender. Fülle dann deine Angaben (Name, E-Mail, optionale Notizen) aus und bestätige die Buchung. Beide Seiten erhalten eine Bestätigungs-E-Mail mit dem Link zum Videoraum. Hast du ein Abo mit inkludierten Sessions, ist die Buchung für dich kostenlos.'
+          : 'Öffne das Profil des gewünschten Coaches und wähle im Bereich „1:1 Videocoaching" einen freien Termin. Buchungen und Zahlungen funktionieren weiterhin; die Video-Call-Funktion wird bald verfügbar sein.',
       },
       {
         q: 'Was passiert, wenn ein Coach eine Session absagt?',
@@ -63,7 +66,9 @@ const SECTIONS: FAQSection[] = [
       },
       {
         q: 'Wie biete ich 1:1-Coaching an?',
-        a: 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer (30–90 Min.), Pufferzeit, Buchungsvorlaufzeit und deine wöchentliche Verfügbarkeit fest. Du kannst auch einzelne Tage als Ausnahme blockieren oder freigeben. Die Sessions finden per verschlüsseltem Video über Daily.co statt – kein separates Tool nötig.',
+        a: VIDEO_CALLS_ENABLED
+          ? 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer (30–90 Min.), Pufferzeit, Buchungsvorlaufzeit und deine wöchentliche Verfügbarkeit fest. Du kannst auch einzelne Tage als Ausnahme blockieren oder freigeben. Die Sessions finden per verschlüsseltem Video über Daily.co statt – kein separates Tool nötig.'
+          : 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer, Pufferzeit, Buchungsvorlaufzeit und Verfügbarkeit fest. Buchungen bleiben möglich; die Video-Call-Funktion wird bald verfügbar sein.',
       },
       {
         q: 'Wie funktionieren Auszahlungen?',

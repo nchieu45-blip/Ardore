@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Video, Clock, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 interface Props {
   roomUrl: string | null
@@ -38,6 +39,15 @@ export default function VideoRoom({ roomUrl, isLive, isOver, scheduledAt, durati
     if (h > 0) return `${h} Std. ${m} Min.`
     if (m > 0) return `${m} Min.`
     return 'weniger als 1 Min.'
+  }
+
+  if (!VIDEO_CALLS_ENABLED) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-8 text-center">
+        <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+        <p className="font-medium text-gray-700">Video-Call-Funktion wird bald verfügbar sein.</p>
+      </div>
+    )
   }
 
   if (isOver) {

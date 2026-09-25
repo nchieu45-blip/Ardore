@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export async function provisionConfirmedCoachingBooking(bookingId: string) {
   const service = await createServiceClient()
@@ -12,7 +13,7 @@ export async function provisionConfirmedCoachingBooking(bookingId: string) {
 
   let roomName = booking.daily_room_name
   let roomUrl = booking.daily_room_url
-  if (!roomName && process.env.DAILY_API_KEY) {
+  if (VIDEO_CALLS_ENABLED && !roomName && process.env.DAILY_API_KEY) {
     try {
       const roomExp = Math.floor(new Date(booking.scheduled_at).getTime() / 1000)
         + (booking.duration_minutes + 30) * 60
