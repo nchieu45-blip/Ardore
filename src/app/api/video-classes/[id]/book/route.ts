@@ -159,7 +159,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     : vcRaw.recurring_weekday !== null
       ? `Jeden ${WEEKDAYS[vcRaw.recurring_weekday]}, ${vcRaw.recurring_time ?? ''} Uhr`
       : 'Termin folgt'
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com').replace(/\/$/, '')
 
   // Buyer confirmation email
   try {

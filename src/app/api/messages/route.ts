@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendChatNotification } from '@/lib/email/send'
 import { createNotification, checkNotificationPreference } from '@/lib/notifications'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
 // Don't send another notification if sender already sent one in this window
 const NOTIFY_COOLDOWN_MINUTES = 30
 

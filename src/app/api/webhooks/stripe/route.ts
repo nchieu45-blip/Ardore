@@ -6,7 +6,7 @@ import { createNotification } from '@/lib/notifications'
 import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
 import Stripe from 'stripe'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
 
 export async function POST(req: NextRequest) {
   const body = await req.text()

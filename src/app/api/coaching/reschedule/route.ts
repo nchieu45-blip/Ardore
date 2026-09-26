@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
   ;(async () => {
     try {
       const { sendRescheduleConfirmation } = await import('@/lib/email/send')
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health').replace(/\/$/, '')
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com').replace(/\/$/, '')
       const sessionUrl = `${appUrl}/session/${bookingId}`
 
       const sharedData = {

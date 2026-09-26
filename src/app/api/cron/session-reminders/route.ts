@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     })
     const minutesUntil = Math.round((new Date(b.scheduled_at).getTime() - now.getTime()) / 60_000)
     const sessionLink  = `/session/${b.id}`
-    const sessionUrl   = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'}${sessionLink}`
+    const sessionUrl   = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'}${sessionLink}`
     const coachName    = cp?.display_name ?? 'Coach'
     const buyerName    = b.buyer_name ?? 'Teilnehmer'
 

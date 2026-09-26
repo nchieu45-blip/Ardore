@@ -10,7 +10,7 @@ import { stripe } from '@/lib/stripe/server'
 const RESERVATION_MINUTES = 31
 
 function appUrl() {
-  const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
+  const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
   return `${raw.startsWith('http') ? raw : `https://${raw}`}`.replace(/\/$/, '')
 }
 

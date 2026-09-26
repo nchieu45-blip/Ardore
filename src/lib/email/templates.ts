@@ -1,6 +1,6 @@
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
 
 function layout(content: string) {
   return `<!DOCTYPE html>

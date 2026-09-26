@@ -49,7 +49,7 @@ export async function provisionConfirmedCoachingBooking(bookingId: string) {
   const scheduledTime = date.toLocaleTimeString('de-DE', {
     hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin',
   })
-  const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ardore.health'
+  const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
   const appUrl = `${rawAppUrl.startsWith('http') ? rawAppUrl : `https://${rawAppUrl}`}`.replace(/\/$/, '')
   const sessionUrl = `${appUrl}/session/${booking.id}`
 
