@@ -1,4 +1,4 @@
-import { getResend, FROM } from './index'
+import { sendEmail, FROM } from './index'
 import {
   purchaseReceiptHtml, purchaseReceiptText, PurchaseReceiptData,
   newSubscriberHtml, newSubscriberText, NewSubscriberData,
@@ -15,7 +15,7 @@ import {
 } from './templates'
 
 export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Kaufbestätigung: ${data.productTitle}`,
@@ -25,7 +25,7 @@ export async function sendPurchaseReceipt(to: string, data: PurchaseReceiptData)
 }
 
 export async function sendNewSubscriberNotification(to: string, data: NewSubscriberData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Neuer Abonnent: ${data.subscriberName} hat dein Abo gestartet`,
@@ -35,7 +35,7 @@ export async function sendNewSubscriberNotification(to: string, data: NewSubscri
 }
 
 export async function sendChatNotification(to: string, data: ChatNotificationData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Neue Nachricht von ${data.senderName}`,
@@ -48,7 +48,7 @@ export async function sendBookingConfirmation(to: string, data: BookingConfirmat
   const subject = data.role === 'buyer'
     ? `Buchungsbestätigung: Session mit ${data.coachName}`
     : `Neue Buchung: Session mit ${data.coachName}`
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject,
@@ -58,7 +58,7 @@ export async function sendBookingConfirmation(to: string, data: BookingConfirmat
 }
 
 export async function sendSessionReminder(to: string, data: SessionReminderData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Session-Erinnerung: ${data.minutesUntil <= 60 ? `in ${data.minutesUntil} Min.` : 'morgen'} mit ${data.coachName}`,
@@ -68,7 +68,7 @@ export async function sendSessionReminder(to: string, data: SessionReminderData)
 }
 
 export async function sendBookingCancelledNotice(to: string, data: BookingCancelledNoticeData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Deine Session mit ${data.coachName} wurde storniert`,
@@ -78,7 +78,7 @@ export async function sendBookingCancelledNotice(to: string, data: BookingCancel
 }
 
 export async function sendSubscriptionCancelledNotice(to: string, data: SubscriptionCancelledNoticeData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Dein Abonnement bei ${data.coachName} wurde beendet`,
@@ -88,7 +88,7 @@ export async function sendSubscriptionCancelledNotice(to: string, data: Subscrip
 }
 
 export async function sendSessionReviewPrompt(to: string, data: SessionReviewPromptData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Wie war deine Session mit ${data.coachName}?`,
@@ -98,7 +98,7 @@ export async function sendSessionReviewPrompt(to: string, data: SessionReviewPro
 }
 
 export async function sendRescheduleConfirmation(to: string, data: RescheduleConfirmationData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Session verschoben: neuer Termin mit ${data.coachName}`,
@@ -108,7 +108,7 @@ export async function sendRescheduleConfirmation(to: string, data: RescheduleCon
 }
 
 export async function sendSessionCancellation(to: string, data: SessionCancellationData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Session storniert – ${data.scheduledDate}`,
@@ -118,7 +118,7 @@ export async function sendSessionCancellation(to: string, data: SessionCancellat
 }
 
 export async function sendVideoClassConfirmation(to: string, data: VideoClassConfirmationData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Du bist angemeldet: ${data.classTitle}`,
@@ -128,7 +128,7 @@ export async function sendVideoClassConfirmation(to: string, data: VideoClassCon
 }
 
 export async function sendVideoClassNewParticipant(to: string, data: VideoClassNewParticipantData) {
-  await getResend().emails.send({
+  await sendEmail({
     from: FROM,
     to,
     subject: `Neue Anmeldung: ${data.participantName} für „${data.classTitle}"`,
