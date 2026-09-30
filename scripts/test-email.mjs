@@ -25,7 +25,9 @@ function fixture(env = { RESEND_API_KEY: 'test-only', SUPABASE_SERVICE_ROLE_KEY:
     }).outputText
     const mod = { exports: {} }
     const imports = (name) => name === 'resend' ? { Resend }
-      : name === '@/lib/email' ? load('src/lib/email/index.ts') : nativeRequire(name)
+      : name === '@/lib/email' ? load('src/lib/email/index.ts')
+      : name === '@/lib/app-url' ? load('src/lib/app-url.ts')
+      : name === '@/lib/features' ? load('src/lib/features.ts') : nativeRequire(name)
     new Function('module', 'exports', 'require', 'process', 'Buffer', 'console', compiled)(
       mod, mod.exports, imports, { env }, Buffer,
       { error: (value) => logged.push(value), info: (value) => logged.push(value) },

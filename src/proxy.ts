@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { appOrigin } from '@/lib/app-url'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -42,8 +43,7 @@ export async function proxy(request: NextRequest) {
   )
 
   if (isProtected && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    const url = new URL('/login', appOrigin())
     url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
   }
@@ -55,7 +55,7 @@ export async function proxy(request: NextRequest) {
 
   const authPaths = ['/login', '/register']
   if (authPaths.includes(pathname) && user) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/', appOrigin()))
   }
 
   return supabaseResponse

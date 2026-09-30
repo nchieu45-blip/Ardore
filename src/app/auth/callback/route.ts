@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { appOrigin, safeAuthDestination } from '@/lib/app-url'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl
+  const { searchParams } = request.nextUrl
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/reset-password'
+  const destination = safeAuthDestination(searchParams.get('next'))
 
   const supabase = await createClient()
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       type: type as 'recovery' | 'signup' | 'invite' | 'magiclink' | 'email_change' | 'email',
     })
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin))
+      return NextResponse.redirect(destination)
     }
     console.error('[auth/callback] verifyOtp failed:', error.message)
   }
@@ -26,12 +27,12 @@ export async function GET(request: NextRequest) {
   else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin))
+      return NextResponse.redirect(destination)
     }
     console.error('[auth/callback] exchangeCodeForSession failed:', error.message)
   }
 
-  const url = new URL('/forgot-password', origin)
+  const url = new URL('/forgot-password', appOrigin())
   url.searchParams.set('error', 'link_invalid')
   return NextResponse.redirect(url)
 }

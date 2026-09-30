@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { EmailDeliveryError, FROM, sendEmail } from '@/lib/email'
+import { appOrigin } from '@/lib/app-url'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export const runtime = 'nodejs'
 
@@ -21,7 +23,13 @@ function reply(body: Record<string, unknown>, status = 200) {
 
 export async function GET(request: Request) {
   if (!authorized(request)) return reply({ error: 'Unauthorized' }, 401)
-  return reply({ resendKeyPresent: Boolean(process.env.RESEND_API_KEY), from: FROM })
+  return reply({
+    resendKeyPresent: Boolean(process.env.RESEND_API_KEY), from: FROM,
+    stripeTestMode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') === true,
+    stripePublishableTestMode: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_test_') === true,
+    appUrlIsCanonical: appOrigin() === 'https://www.ardore-health.com',
+    dailyEnabled: VIDEO_CALLS_ENABLED,
+  })
 }
 
 export async function POST(request: Request) {
