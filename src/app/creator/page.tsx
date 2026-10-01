@@ -147,7 +147,7 @@ export default async function CreatorDashboardPage() {
         <div className="grid lg:grid-cols-2 gap-6">
 
           {/* Products */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
+          <div className="min-w-0 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">Meine Produkte</h2>
               <Link href="/creator/products" className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">
@@ -165,12 +165,12 @@ export default async function CreatorDashboardPage() {
             ) : (
               <ul className="flex-1 divide-y divide-gray-50">
                 {recentProducts.map((product: { id: string; title: string; price: number; is_published: boolean; created_at: string }) => (
-                  <li key={product.id} className="flex items-center justify-between px-6 py-3.5">
-                    <div className="min-w-0">
+                  <li key={product.id} className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between px-6 py-3.5">
+                    <div className="min-w-0 w-full sm:w-auto">
                       <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{formatDate(product.created_at)}</p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                    <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
                       <span className="text-sm font-medium text-gray-900">{formatCurrency(product.price)}</span>
                       <Badge variant={product.is_published ? 'success' : 'outline'}>
                         {product.is_published ? 'Live' : 'Entwurf'}
@@ -183,7 +183,7 @@ export default async function CreatorDashboardPage() {
           </div>
 
           {/* Subscribers */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
+          <div className="min-w-0 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">Aktive Abonnenten</h2>
               <Link href="/creator/settings/tiers" className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">
