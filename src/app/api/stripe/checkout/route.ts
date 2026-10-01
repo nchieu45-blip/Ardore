@@ -29,8 +29,11 @@ export async function POST(req: NextRequest) {
     .from('products')
     .select('id, title, price, type, creator_id, creator:creator_profiles(stripe_account_id, stripe_account_active, is_demo)')
     .in('id', productIds)
+    .eq('is_published', true)
 
-  if (!products || products.length === 0) {
+  // Every entitlement in checkout metadata must correspond to a billed,
+  // published product. RLS can otherwise silently omit inaccessible IDs.
+  if (!products || products.length !== productIds.length || productIds.some(id => !products.some(p => p.id === id))) {
     return NextResponse.json({ error: 'Produkte nicht gefunden' }, { status: 404 })
   }
 
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest) {
   if (discountId) {
     const { data: disc } = await supabase
       .from('discounts')
-      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
+      .select('id, creator_id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
       .eq('id', discountId)
       .single()
 
@@ -111,6 +114,7 @@ export async function POST(req: NextRequest) {
       (productIds.length === 1 && productIds[0] === disc.target_product_id)
     const valid = disc &&
       disc.active &&
+      creatorIds.length === 1 && disc.creator_id === creatorIds[0] &&
       (disc.target_product_id ? targetProductOk : (disc.applies_to === 'all' || disc.applies_to === 'products')) &&
       !disc.target_tier_id &&
       (!disc.starts_at || new Date(disc.starts_at) <= now) &&

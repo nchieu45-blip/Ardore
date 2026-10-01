@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 import { ARDORE_PLATFORM_FEE_PERCENT } from '@/lib/stripe/platformFee'
 import { notifyNewSubscriber } from '@/app/api/webhooks/stripe/route'
+import { appOrigin } from '@/lib/app-url'
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
+import { z } from 'zod'
+
+const subscriptionRequest = z.object({
+  tierId: z.uuid(),
+  creatorId: z.uuid(),
+  discountId: z.uuid().nullable().optional(),
+})
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -12,19 +21,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   }
 
-  const { tierId, creatorId, discountId } = await req.json()
+  const input = subscriptionRequest.safeParse(await req.json().catch(() => null))
+  if (!input.success) {
+    return NextResponse.json({ error: 'Ungültige Abo-Anfrage' }, { status: 400 })
+  }
+  const { tierId, creatorId, discountId } = input.data
 
   const { data: tier } = await supabase
     .from('subscription_tiers')
     .select('*, creator:creator_profiles(stripe_account_id, stripe_account_active)')
     .eq('id', tierId)
+    .eq('creator_id', creatorId)
+    .eq('is_active', true)
     .single()
 
   if (!tier) {
     return NextResponse.json({ error: 'Abo-Stufe nicht gefunden' }, { status: 404 })
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+  const appUrl = appOrigin()
 
   // Validate discount if provided
   let discountSavingsCents = 0
@@ -35,6 +50,7 @@ export async function POST(req: NextRequest) {
       .from('discounts')
       .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
       .eq('id', discountId)
+      .eq('creator_id', tier.creator_id)
       .single()
 
     const now = new Date()
@@ -61,33 +77,37 @@ export async function POST(req: NextRequest) {
     // Idempotent: return success if an active subscription already exists
     const { data: existing } = await supabase
       .from('subscriptions')
-      .select('id')
+      .select('id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, tier:subscription_tiers(creator_id)')
       .eq('buyer_id', user.id)
       .eq('creator_id', creatorId)
       .eq('status', 'active')
       .maybeSingle()
 
-    if (existing) {
+    if (hasActiveSubscriptionEntitlement(existing)) {
       return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
     }
 
     const farFuture = new Date()
     farFuture.setFullYear(farFuture.getFullYear() + 100)
 
-    const { error } = await supabase.from('subscriptions').insert({
+    // A free tier is a coach-controlled commercial offer. Its entitlement is
+    // still written only by this authenticated, tier-scoped server path.
+    const service = await createServiceClient()
+    const { error } = await service.from('subscriptions').insert({
       buyer_id: user.id,
-      creator_id: creatorId,
-      tier_id: tierId,
+      creator_id: tier.creator_id,
+      tier_id: tier.id,
       stripe_subscription_id: `free_${crypto.randomUUID()}`,
+      stripe_livemode: null,
       status: 'active',
       current_period_end: farFuture.toISOString(),
     })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Abo konnte nicht erstellt werden' }, { status: 500 })
     }
 
-    notifyNewSubscriber(supabase, user.id, creatorId, tierId).catch(console.error)
+    notifyNewSubscriber(service, user.id, tier.creator_id, tier.id).catch(console.error)
     return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
   }
 
@@ -99,36 +119,26 @@ export async function POST(req: NextRequest) {
   // with a Stripe Coupon object attached via `discounts: [{ coupon: couponId }]`
   // so the discount appears natively in Stripe and subscription invoices reflect it.
   // The coupon should be created once per discount row and cached on the discount record.
-  let priceId = discountSavingsCents > 0 ? null : tier.stripe_price_id
-
-  if (!priceId) {
-    const price = await stripe.prices.create({
-      currency: 'eur',
-      unit_amount: finalPriceCents,
-      recurring: { interval: 'month' },
-      product_data: { name: tier.name },
-    })
-    priceId = price.id
-
-    // Only cache the price ID when no discount was applied
-    if (discountSavingsCents === 0) {
-      await supabase
-        .from('subscription_tiers')
-        .update({ stripe_price_id: priceId })
-        .eq('id', tierId)
-    }
-  }
-
+  // Always derive a new checkout price from the coach's current offer. A
+  // client-editable or stale Stripe price ID must not determine the charge.
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     payment_method_types: ['card'],
     locale: 'de',
     customer_email: user.email,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [{
+      price_data: {
+        currency: 'eur',
+        unit_amount: finalPriceCents,
+        recurring: { interval: 'month' },
+        product_data: { name: tier.name },
+      },
+      quantity: 1,
+    }],
     metadata: {
-      tier_id: tierId,
+      tier_id: tier.id,
       buyer_id: user.id,
-      creator_id: creatorId,
+      creator_id: tier.creator_id,
     },
     success_url: `${appUrl}/buyer?subscribed=1`,
     cancel_url: `${appUrl}/creators`,
@@ -150,7 +160,8 @@ export async function POST(req: NextRequest) {
       .eq('id', discountRowId)
       .single()
     if (latest) {
-      await supabase
+      const service = await createServiceClient()
+      await service
         .from('discounts')
         .update({ redemption_count: latest.redemption_count + 1 })
         .eq('id', discountRowId)

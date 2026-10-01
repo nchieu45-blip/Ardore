@@ -1,3 +1,4 @@
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { ensureDirectConversation } from '@/lib/chat'
@@ -25,13 +26,13 @@ export default async function CreatorChatThreadPage({
   // Verify buyer has/had an active subscription
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('id')
+    .select('id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id)')
     .eq('creator_id', creator.id)
     .eq('buyer_id', buyerUserId)
     .eq('status', 'active')
     .maybeSingle()
 
-  if (!subscription) redirect('/creator/chat')
+  if (!hasActiveSubscriptionEntitlement(subscription)) redirect('/creator/chat')
 
   const service = await createServiceClient()
   const conversationId = await ensureDirectConversation({

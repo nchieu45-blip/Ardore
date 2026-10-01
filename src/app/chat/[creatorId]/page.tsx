@@ -1,3 +1,4 @@
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { ensureDirectConversation } from '@/lib/chat'
@@ -18,7 +19,7 @@ export default async function ChatPage({
   // Existing participants retain read-only access to their own history.
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('id')
+    .select('id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id)')
     .eq('buyer_id', user.id)
     .eq('creator_id', creatorId)
     .eq('status', 'active')
@@ -46,7 +47,7 @@ export default async function ChatPage({
     .maybeSingle()
 
   let conversationId = existingConversation?.id
-  if (!conversationId && subscription) {
+  if (!conversationId && hasActiveSubscriptionEntitlement(subscription)) {
     const service = await createServiceClient()
     conversationId = await ensureDirectConversation({ service, creatorId, buyerId: user.id })
   }
@@ -80,7 +81,7 @@ export default async function ChatPage({
         creator={creatorProfile}
         currentUser={profile}
         initialMessages={initialMessages}
-        canSend={Boolean(subscription)}
+        canSend={hasActiveSubscriptionEntitlement(subscription)}
       />
     </div>
   )

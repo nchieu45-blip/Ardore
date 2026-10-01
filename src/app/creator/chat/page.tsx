@@ -1,3 +1,4 @@
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
@@ -20,12 +21,12 @@ export default async function CreatorChatOverviewPage() {
 
   const { data: subscriptions } = await supabase
     .from('subscriptions')
-    .select('id, buyer_id, created_at, tier:subscription_tiers(name)')
+    .select('id, buyer_id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, created_at, tier:subscription_tiers(name, creator_id)')
     .eq('creator_id', creator.id)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
-  const subs = subscriptions ?? []
+  const subs = (subscriptions ?? []).filter((sub) => hasActiveSubscriptionEntitlement(sub))
   const buyerIds = subs.map((s) => s.buyer_id)
 
   if (buyerIds.length === 0) {

@@ -1,3 +1,4 @@
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
@@ -23,6 +24,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   const creator = Array.isArray(vcRaw.creator_profiles) ? vcRaw.creator_profiles[0] : vcRaw.creator_profiles
 
+  const service = await createServiceClient()
+
   // Duplicate check
   const { data: existingBooking } = await supabase
     .from('video_class_bookings')
@@ -36,11 +39,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   // Capacity check
   if (vcRaw.max_participants !== null) {
-    const { count } = await supabase
+    const { count, error: countError } = await service
       .from('video_class_bookings')
       .select('*', { count: 'exact', head: true })
       .eq('video_class_id', classId)
       .eq('status', 'confirmed')
+    if (countError) return NextResponse.json({ error: 'Teilnehmerzahl konnte nicht geprüft werden' }, { status: 500 })
     if ((count ?? 0) >= vcRaw.max_participants) {
       return NextResponse.json({ error: 'Dieser Kurs ist ausgebucht' }, { status: 409 })
     }
@@ -53,12 +57,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (vcRaw.included_in_subscription) {
     const { data: activeSub } = await supabase
       .from('subscriptions')
-      .select('id')
+      .select('id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id)')
       .eq('creator_id', vcRaw.creator_id)
       .eq('buyer_id', user.id)
       .eq('status', 'active')
       .maybeSingle()
-    if (activeSub) {
+    if (activeSub && hasActiveSubscriptionEntitlement(activeSub)) {
       priceCents = 0
       subscriptionId = activeSub.id
     }
@@ -68,7 +72,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   let dailyRoomUrl: string | null = null
   if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY) {
     // Reuse room URL already stored on a prior booking for the same class
-    const { data: priorBooking } = await supabase
+    const { data: priorBooking } = await service
       .from('video_class_bookings')
       .select('daily_room_url')
       .eq('video_class_id', classId)
@@ -138,7 +142,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Free booking → create directly
-  const { data: booking, error } = await supabase
+  const { data: booking, error } = await service
     .from('video_class_bookings')
     .insert({
       video_class_id:    classId,
@@ -195,7 +199,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         }))
       }
       if (sendEmail) {
-        const service = await createServiceClient()
         const coachEmailRes = await service.auth.admin.getUserById(creator.user_id)
         const coachEmail = coachEmailRes.data.user?.email
         if (coachEmail) {

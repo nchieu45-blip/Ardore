@@ -1,3 +1,4 @@
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -12,11 +13,11 @@ export async function GET(req: NextRequest) {
 
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('id, buyer_id, tier_id, subscription_tiers(included_video_sessions, video_session_period)')
+    .select('id, buyer_id, creator_id, tier_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id, included_video_sessions, video_session_period)')
     .eq('id', subscriptionId)
     .single()
 
-  if (!sub || sub.buyer_id !== user.id) {
+  if (!sub || sub.buyer_id !== user.id || !hasActiveSubscriptionEntitlement(sub)) {
     return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 })
   }
 

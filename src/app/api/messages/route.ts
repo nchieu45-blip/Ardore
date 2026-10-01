@@ -1,3 +1,4 @@
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -40,13 +41,13 @@ export async function POST(req: NextRequest) {
 
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('id')
+    .select('id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id)')
     .eq('creator_id', conversation.creator_id)
     .eq('buyer_id', conversation.buyer_id)
     .eq('status', 'active')
     .maybeSingle()
 
-  if (!sub) return NextResponse.json({ error: 'No active subscription' }, { status: 403 })
+  if (!hasActiveSubscriptionEntitlement(sub)) return NextResponse.json({ error: 'No active subscription' }, { status: 403 })
 
   // Browser roles cannot mutate messages; the validated API performs the write.
   const admin = await createServiceClient()

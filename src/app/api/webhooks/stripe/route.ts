@@ -153,8 +153,20 @@ export async function POST(req: NextRequest) {
       }
 
       if (session.mode === 'subscription' && meta.tier_id && meta.buyer_id && meta.creator_id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as any
+        const subscriptionId = typeof session.subscription === 'string'
+          ? session.subscription
+          : session.subscription?.id
+        if (!subscriptionId) throw new Error('Missing Stripe subscription')
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        const state = trustedSubscriptionState(subscription, event.livemode)
+
+        // A coach may freely change or disable a commercial offer after a
+        // checkout. Ownership still has to match before granting entitlement.
+        const { data: tier, error: tierError } = await supabase.from('subscription_tiers')
+          .select('id, creator_id').eq('id', meta.tier_id).single()
+        if (tierError || !tier || tier.creator_id !== meta.creator_id) {
+          throw tierError ?? new Error('Subscription checkout does not match its creator')
+        }
 
         const { error: subscriptionError } = await supabase.from('subscriptions').upsert({
           buyer_id: meta.buyer_id,
@@ -162,8 +174,7 @@ export async function POST(req: NextRequest) {
           tier_id: meta.tier_id,
           stripe_subscription_id: subscription.id,
           stripe_livemode: event.livemode,
-          status: subscription.status,
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          ...state,
         }, { onConflict: 'stripe_subscription_id' })
         if (subscriptionError) throw subscriptionError
 
@@ -255,27 +266,28 @@ export async function POST(req: NextRequest) {
     }
 
     case 'customer.subscription.updated': {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const subscription = event.data.object as any
+      const subscription = event.data.object as Stripe.Subscription
+      const state = trustedSubscriptionState(subscription, event.livemode)
 
-      await supabase
+      const { error } = await supabase
         .from('subscriptions')
         .update({
-          status: subscription.status,
+          ...state,
           stripe_livemode: event.livemode,
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         })
         .eq('stripe_subscription_id', subscription.id)
+      if (error) throw error
       break
     }
 
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
 
-      await supabase
+      const { error } = await supabase
         .from('subscriptions')
         .update({ status: 'canceled', stripe_livemode: event.livemode })
         .eq('stripe_subscription_id', subscription.id)
+      if (error) throw error
       break
     }
     }
@@ -288,6 +300,25 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+function trustedSubscriptionState(subscription: Stripe.Subscription, stripeLivemode: boolean) {
+  if (subscription.livemode !== stripeLivemode) throw new Error('Subscription mode mismatch')
+
+  // Current Stripe versions place billing periods on subscription items;
+  // retain support for historical event payloads with a subscription period.
+  const itemPeriods = subscription.items?.data.map(item => item.current_period_end)
+    .filter(period => Number.isFinite(period) && period > 0) ?? []
+  const legacyPeriod = (subscription as Stripe.Subscription & { current_period_end?: number }).current_period_end
+  const periodEnd = itemPeriods.length > 0 ? Math.min(...itemPeriods) : legacyPeriod
+  if (!periodEnd || !Number.isFinite(periodEnd)) throw new Error('Missing subscription billing period')
+
+  // The database's lifecycle deliberately has four states. All other Stripe
+  // states must deny active access, including paused, unpaid and incomplete.
+  const status = subscription.status === 'incomplete_expired' ? 'canceled'
+    : ['active', 'trialing', 'past_due', 'canceled'].includes(subscription.status) ? subscription.status
+    : 'past_due'
+  return { status, current_period_end: new Date(periodEnd * 1000).toISOString() }
 }
 
 async function confirmCoachingCheckout(

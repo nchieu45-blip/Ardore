@@ -8,12 +8,22 @@ const PRODUCT_OBJECT_MARKERS = [
   '/storage/v1/object/authenticated/products/',
 ]
 
-function getProductObjectPath(fileUrl: string): string | null {
+function getProductObjectPath(fileUrl: string, creatorId: string): string | null {
   const url = new URL(fileUrl)
-  const marker = PRODUCT_OBJECT_MARKERS.find((candidate) => url.pathname.includes(candidate))
+  const marker = PRODUCT_OBJECT_MARKERS.find((candidate) => url.pathname.startsWith(candidate))
   if (!marker) return null
-  const encodedPath = url.pathname.split(marker)[1]
-  return encodedPath ? decodeURIComponent(encodedPath) : null
+  const encodedPath = url.pathname.slice(marker.length)
+  if (!encodedPath) return null
+
+  const objectPath = decodeURIComponent(encodedPath)
+  const segments = objectPath.split('/')
+  // A product reference is coach-editable content, not authority to access a
+  // different coach's private files. Bind the signed object to this product's
+  // creator, and reject path syntax that the storage HTTP client can normalize.
+  if (segments.length < 2 || segments[0] !== creatorId) return null
+  if (segments.some(segment => !segment || segment === '.' || segment === '..')) return null
+  if (/[\\?#\u0000-\u001F\u007F]/.test(objectPath) || /%[\da-f]{2}/i.test(objectPath)) return null
+  return objectPath
 }
 
 export async function GET(
@@ -41,7 +51,7 @@ export async function GET(
   const service = await createServiceClient()
   const { data: product } = await service
     .from('products')
-    .select('file_url')
+    .select('file_url, creator_id')
     .eq('id', productId)
     .maybeSingle()
   if (!product?.file_url) {
@@ -50,7 +60,7 @@ export async function GET(
 
   let objectPath: string | null = null
   try {
-    objectPath = getProductObjectPath(product.file_url)
+    objectPath = getProductObjectPath(product.file_url, product.creator_id)
   } catch {
     objectPath = null
   }

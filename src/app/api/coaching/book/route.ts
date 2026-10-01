@@ -4,6 +4,7 @@ import { isValidCoachingDuration, validateCoachingSlot } from '@/lib/coaching-bo
 import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
 import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
 import { stripe } from '@/lib/stripe/server'
+import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 
 // Stripe requires expires_at to be at least 30 minutes in the future. The
 // extra minute avoids clock/network skew while keeping the hold short.
@@ -30,9 +31,9 @@ export async function POST(req: NextRequest) {
   let tierDurationMinutes: number | null = null
   if (subscriptionId) {
     const { data: sub } = await supabase.from('subscriptions')
-      .select('id, buyer_id, creator_id, status, subscription_tiers(included_video_sessions, video_session_period, included_session_duration_minutes)')
+      .select('id, buyer_id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id, included_video_sessions, video_session_period, included_session_duration_minutes)')
       .eq('id', subscriptionId).single()
-    if (sub && sub.buyer_id === user.id && sub.creator_id === creatorId && sub.status === 'active') {
+    if (sub && sub.buyer_id === user.id && sub.creator_id === creatorId && hasActiveSubscriptionEntitlement(sub)) {
       const tier = Array.isArray(sub.subscription_tiers) ? sub.subscription_tiers[0] : sub.subscription_tiers
       const total = (tier as { included_video_sessions: number } | null)?.included_video_sessions ?? 0
       const period = (tier as { video_session_period: string | null } | null)?.video_session_period ?? 'month'
@@ -61,10 +62,11 @@ export async function POST(req: NextRequest) {
   let discountRowId: string | null = null
   if (!isSubscriptionSession && discountId) {
     const { data: disc } = await supabase.from('discounts')
-      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to')
+      .select('id, creator_id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
       .eq('id', discountId).single()
     const now = new Date()
-    const valid = disc && disc.active && (disc.applies_to === 'all' || disc.applies_to === 'sessions')
+    const valid = disc && disc.creator_id === creatorId && disc.active && (disc.applies_to === 'all' || disc.applies_to === 'sessions')
+      && !disc.target_product_id && !disc.target_tier_id
       && (!disc.starts_at || new Date(disc.starts_at) <= now) && (!disc.ends_at || new Date(disc.ends_at) >= now)
       && (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
     if (valid) {
