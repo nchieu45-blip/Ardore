@@ -143,6 +143,7 @@ export default function FaqContent() {
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
         <input
           type="search"
+          aria-label="Häufige Fragen durchsuchen"
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Frage suchen…"
@@ -173,6 +174,7 @@ export default function FaqContent() {
                   <div key={item.q} className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm">
                     <button
                       onClick={() => toggle(key)}
+                      aria-expanded={isOpen}
                       className="w-full flex items-start justify-between gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
                     >
                       <span className="text-sm font-semibold text-gray-900 leading-snug">{item.q}</span>

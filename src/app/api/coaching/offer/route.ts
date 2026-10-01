@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { isValidCoachingDuration } from '@/lib/coaching-booking'
+
+const nonNegativeInteger = z.number().int().min(0).max(2_147_483_647)
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -22,6 +25,14 @@ export async function POST(req: NextRequest) {
   if (!isValidCoachingDuration(parsedDuration)) {
     return NextResponse.json({ error: 'Ungültige Sitzungsdauer' }, { status: 400 })
   }
+  const parsedPrice = nonNegativeInteger.default(8000).safeParse(price_cents)
+  if (!parsedPrice.success) {
+    return NextResponse.json({ error: 'Ungültiger Preis' }, { status: 400 })
+  }
+  const parsedNoticeHours = nonNegativeInteger.default(24).safeParse(min_notice_hours)
+  if (!parsedNoticeHours.success) {
+    return NextResponse.json({ error: 'Ungültige Mindestvorlaufzeit' }, { status: 400 })
+  }
   const parsedCancellationHours = Number(cancellation_policy_hours)
 
   const { data, error } = await supabase
@@ -29,11 +40,11 @@ export async function POST(req: NextRequest) {
     .upsert({
       creator_id:                 creator.id,
       is_enabled:                 !!is_enabled,
-      price_cents:                Math.max(0, Number(price_cents) || 8000),
+      price_cents:                parsedPrice.data,
       duration_minutes:           parsedDuration,
       description:                description?.trim() || null,
       buffer_minutes:             [0, 15, 30].includes(Number(buffer_minutes)) ? Number(buffer_minutes) : 0,
-      min_notice_hours:           Math.max(0, Number(min_notice_hours) || 24),
+      min_notice_hours:           parsedNoticeHours.data,
       max_horizon_days:           Math.max(1, Number(max_horizon_days) || 60),
       cancellation_policy_hours:  Number.isFinite(parsedCancellationHours)
         ? Math.min(168, Math.max(0, parsedCancellationHours))

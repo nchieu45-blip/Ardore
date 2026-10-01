@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { forwardRef, type InputHTMLAttributes } from 'react'
+import { forwardRef, useId, type InputHTMLAttributes } from 'react'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -10,8 +10,10 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, hint, id, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
+  ({ className, label, error, hint, id, 'aria-describedby': describedBy, 'aria-invalid': invalid, ...props }, ref) => {
+    const generatedId = useId()
+    const inputId = id ?? generatedId
+    const feedbackId = `${inputId}-feedback`
 
     return (
       <div className="flex flex-col gap-1.5">
@@ -33,9 +35,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             className
           )}
           {...props}
+          aria-invalid={error ? true : invalid}
+          aria-describedby={[describedBy, (error || hint) && feedbackId].filter(Boolean).join(' ') || undefined}
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
-        {hint && !error && <p className="text-xs text-gray-500">{hint}</p>}
+        {error && <p id={feedbackId} className="text-xs text-red-600">{error}</p>}
+        {hint && !error && <p id={feedbackId} className="text-xs text-gray-500">{hint}</p>}
       </div>
     )
   }
@@ -50,8 +54,10 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, hint, id, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
+  ({ className, label, error, hint, id, 'aria-describedby': describedBy, 'aria-invalid': invalid, ...props }, ref) => {
+    const generatedId = useId()
+    const inputId = id ?? generatedId
+    const feedbackId = `${inputId}-feedback`
 
     return (
       <div className="flex flex-col gap-1.5">
@@ -73,9 +79,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             className
           )}
           {...props}
+          aria-invalid={error ? true : invalid}
+          aria-describedby={[describedBy, (error || hint) && feedbackId].filter(Boolean).join(' ') || undefined}
         />
-        {error && <p className="text-xs text-red-600">{error}</p>}
-        {hint && !error && <p className="text-xs text-gray-500">{hint}</p>}
+        {error && <p id={feedbackId} className="text-xs text-red-600">{error}</p>}
+        {hint && !error && <p id={feedbackId} className="text-xs text-gray-500">{hint}</p>}
       </div>
     )
   }
@@ -90,8 +98,10 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, options, id, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
+  ({ className, label, error, options, id, 'aria-describedby': describedBy, 'aria-invalid': invalid, ...props }, ref) => {
+    const generatedId = useId()
+    const inputId = id ?? generatedId
+    const feedbackId = `${inputId}-feedback`
 
     return (
       <div className="flex flex-col gap-1.5">
@@ -110,6 +120,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             className
           )}
           {...props}
+          aria-invalid={error ? true : invalid}
+          aria-describedby={[describedBy, error && feedbackId].filter(Boolean).join(' ') || undefined}
         >
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -117,7 +129,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           ))}
         </select>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && <p id={feedbackId} className="text-xs text-red-600">{error}</p>}
       </div>
     )
   }

@@ -11,10 +11,14 @@ export function appOrigin() {
   return PRODUCTION_ORIGIN
 }
 
+export function isSafeRelativePath(path: string | null): path is string {
+  return path !== null && path.startsWith('/') && !path.startsWith('//') && !/[\\\u0000-\u001f]/.test(path)
+}
+
 export function safeAuthDestination(next: string | null) {
   const origin = appOrigin()
   const fallback = new URL('/reset-password', origin)
-  if (!next?.startsWith('/') || next.startsWith('//') || /[\\\u0000-\u001f]/.test(next)) return fallback
+  if (!isSafeRelativePath(next)) return fallback
   const destination = new URL(next, origin)
   return destination.origin === origin ? destination : fallback
 }

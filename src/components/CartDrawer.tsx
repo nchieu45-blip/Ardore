@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { X, Trash2, ShoppingCart, ArrowRight, Package, Tag, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
@@ -30,8 +30,11 @@ export default function CartDrawer() {
   const [codeDiscount,      setCodeDiscount]      = useState<DiscountResult | null>(null)
   const [autoDiscount,      setAutoDiscount]      = useState<DiscountResult | null>(null)
   const [discountError,     setDiscountError]     = useState('')
+  const [checkoutError,     setCheckoutError]     = useState('')
   const [voucherLoading,    setVoucherLoading]    = useState(false)
   const [withdrawalConsent, setWithdrawalConsent] = useState(false)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -39,6 +42,63 @@ export default function CartDrawer() {
     const unsubOpen = subscribeCartOpen(() => setOpen(true))
     return () => { unsubCart(); unsubOpen() }
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+
+    const drawer = drawerRef.current
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus({ preventScroll: true })
+
+    const focusableSelector =
+      'button:not([disabled]), select:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setOpen(false)
+        return
+      }
+      if (event.key !== 'Tab' || !drawer) return
+
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter(element => element.tabIndex >= 0 && element.getClientRects().length > 0)
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) {
+        event.preventDefault()
+        drawer.focus({ preventScroll: true })
+        return
+      }
+      if (!drawer.contains(document.activeElement)) {
+        event.preventDefault()
+        ;(event.shiftKey ? last : first).focus({ preventScroll: true })
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus({ preventScroll: true })
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus({ preventScroll: true })
+      }
+    }
+
+    function onFocusIn(event: FocusEvent) {
+      if (drawer && event.target instanceof Node && !drawer.contains(event.target)) {
+        closeButtonRef.current?.focus({ preventScroll: true })
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('focusin', onFocusIn)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('focusin', onFocusIn)
+      document.body.style.overflow = previousOverflow
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true })
+    }
+  }, [open])
 
   // Check for automatic discounts whenever cart items change
   const checkAutoDiscount = useCallback(async (cartItems: CartItem[]) => {
@@ -67,6 +127,7 @@ export default function CartDrawer() {
     setCodeDiscount(null)
     setVoucher('')
     setDiscountError('')
+    setCheckoutError('')
     setWithdrawalConsent(false)
   }, [items, checkAutoDiscount])
 
@@ -114,6 +175,7 @@ export default function CartDrawer() {
 
   async function handleCheckout() {
     setLoading(true)
+    setCheckoutError('')
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -124,9 +186,35 @@ export default function CartDrawer() {
           withdrawalConsent: withdrawalConsent,
         }),
       })
-      const data = await res.json()
       if (res.status === 401) { setOpen(false); router.push('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
-      if (data.url) window.location.href = data.url
+      const data: unknown = await res.json().catch(() => null)
+      const result = data && typeof data === 'object'
+        ? data as { url?: unknown; error?: unknown }
+        : null
+      if (!res.ok) {
+        setCheckoutError(typeof result?.error === 'string' && result.error.trim()
+          ? result.error
+          : 'Der Checkout konnte nicht gestartet werden. Bitte versuche es erneut.')
+        return
+      }
+      if (typeof result?.url !== 'string' || !result.url.trim()) {
+        setCheckoutError('Der Checkout hat keine gültige Weiterleitung zurückgegeben. Bitte versuche es erneut.')
+        return
+      }
+      let checkoutUrl: URL
+      try {
+        checkoutUrl = new URL(result.url)
+      } catch {
+        setCheckoutError('Der Checkout hat keine gültige Weiterleitung zurückgegeben. Bitte versuche es erneut.')
+        return
+      }
+      if (checkoutUrl.protocol !== 'https:') {
+        setCheckoutError('Der Checkout hat keine gültige Weiterleitung zurückgegeben. Bitte versuche es erneut.')
+        return
+      }
+      window.location.href = checkoutUrl.toString()
+    } catch {
+      setCheckoutError('Die Verbindung zum Checkout ist fehlgeschlagen. Bitte versuche es erneut.')
     } finally {
       setLoading(false)
     }
@@ -141,12 +229,21 @@ export default function CartDrawer() {
         />
       )}
 
-      <div className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[60] flex flex-col transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal={open ? true : undefined}
+        aria-labelledby="cart-drawer-title"
+        inert={!open}
+        aria-hidden={!open}
+        tabIndex={-1}
+        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[60] flex flex-col transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
             <ShoppingCart className="h-5 w-5 text-gray-700" />
-            <span className="font-semibold text-gray-900">Warenkorb</span>
+            <span id="cart-drawer-title" className="font-semibold text-gray-900">Warenkorb</span>
             {items.length > 0 && (
               <span className="h-5 min-w-5 px-1.5 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">
                 {items.length}
@@ -154,7 +251,9 @@ export default function CartDrawer() {
             )}
           </div>
           <button
+            ref={closeButtonRef}
             onClick={() => setOpen(false)}
+            aria-label="Warenkorb schließen"
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           >
             <X className="h-5 w-5" />
@@ -306,6 +405,13 @@ export default function CartDrawer() {
               </label>
             )}
 
+            {checkoutError && (
+              <div role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <span>{checkoutError}</span>
+              </div>
+            )}
+
             <button
               onClick={handleCheckout}
               disabled={checkoutDisabled}
@@ -314,7 +420,7 @@ export default function CartDrawer() {
               {loading ? (
                 <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <>Zur Kasse <ArrowRight className="h-4 w-4" /></>
+                <>{checkoutError ? 'Erneut versuchen' : 'Zur Kasse'} <ArrowRight className="h-4 w-4" /></>
               )}
             </button>
 

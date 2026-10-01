@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
@@ -92,6 +92,9 @@ function defaultOpenGroup(pathname: string): number {
 export function Navbar({ user, creatorSlug }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownId = useId()
+  const mobileMenuId = useId()
+  const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -162,17 +165,33 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                 </Link>
                 <NavbarCartIcon />
                 <NavbarNotificationBell userId={user.id} />
-                <div className="relative ml-1">
+                <div
+                  className="relative ml-1"
+                  onBlur={event => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) setDropdownOpen(false)
+                  }}
+                  onKeyDown={event => {
+                    if (event.key === 'Escape' && dropdownOpen) {
+                      event.preventDefault()
+                      setDropdownOpen(false)
+                      dropdownTriggerRef.current?.focus()
+                    }
+                  }}
+                >
                   <button
+                    ref={dropdownTriggerRef}
+                    type="button"
                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                    onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
-                    className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-gray-50 transition-all focus:outline-none"
+                    aria-label="Kontomenü"
+                    aria-expanded={dropdownOpen}
+                    aria-controls={dropdownId}
+                    className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-gray-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
                   >
                     <Avatar src={user.avatar_url} name={user.full_name ?? user.email} size="sm" />
                     <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {dropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 animate-scale-in">
+                    <div id={dropdownId} className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 animate-scale-in">
                       <div className="px-4 py-2.5 border-b border-gray-100 mb-1">
                         <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
@@ -251,8 +270,15 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
           <div className="md:hidden flex items-center gap-1">
             <NavbarCartIcon />
             {user && <NavbarNotificationBell userId={user.id} />}
-            <button className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors" onClick={() => setMenuOpen(!menuOpen)}>
-              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <button
+              type="button"
+              aria-label={menuOpen ? 'Menü schließen' : 'Menü öffnen'}
+              aria-expanded={menuOpen}
+              aria-controls={mobileMenuId}
+              className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              {menuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -260,7 +286,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm max-h-[calc(100svh-4rem)] overflow-y-auto">
+        <div id={mobileMenuId} className="md:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm max-h-[calc(100svh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
             <Link href="/marketplace" className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
               Marketplace

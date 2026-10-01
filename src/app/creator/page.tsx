@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -27,15 +27,17 @@ export default async function CreatorDashboardPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
+  const service = await createServiceClient()
   const [productsRes, subscriptionsRes, purchasesRes] = await Promise.all([
     supabase.from('products').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('*, tier:subscription_tiers(price_monthly)').eq('creator_id', creator.id).eq('status', 'active'),
-    supabase.from('purchases').select('amount_paid, created_at').eq('products.creator_id', creator.id).eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', true),
+    service.from('purchases').select('amount_paid, created_at, products!inner(creator_id)').eq('products.creator_id', creator.id).eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', true),
   ])
 
   const products = productsRes.data ?? []
   const subscriptions = subscriptionsRes.data ?? []
   const purchases = purchasesRes.data ?? []
+  const purchaseError = !!purchasesRes.error
 
   const monthlyRevenue = subscriptions.reduce(
     (sum: number, s: { tier: { price_monthly: number } | null }) => sum + (s.tier?.price_monthly ?? 0),
@@ -77,20 +79,20 @@ export default async function CreatorDashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
 
         {/* Header */}
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm text-gray-400 mb-0.5">{dateLabel}</p>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center flex-shrink-0">
             <Link href={`/creators/${creator.slug}`} target="_blank" rel="noopener noreferrer">
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" className="w-full sm:w-auto">
                 <ExternalLink className="h-4 w-4" />
                 Profil aus Kundensicht ansehen
               </Button>
             </Link>
             <Link href="/creator/products/new">
-              <Button size="sm">
+              <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
                 Produkt hinzufügen
               </Button>
@@ -112,9 +114,14 @@ export default async function CreatorDashboardPage() {
         )}
 
         {/* Stat tiles */}
+        {purchaseError && (
+          <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+            Kaufumsätze konnten nicht geladen werden. Bitte lade die Seite erneut.
+          </p>
+        )}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { Icon: TrendingUp,  label: 'Gesamtumsatz', value: formatCurrency(totalRevenue),                                                     sub: 'Alle Zeit' },
+            { Icon: TrendingUp,  label: 'Gesamtumsatz', value: purchaseError ? '–' : formatCurrency(totalRevenue),                              sub: 'Alle Zeit' },
             { Icon: TrendingUp,  label: 'Monatlich',    value: formatCurrency(monthlyRevenue),                                                   sub: 'Aus Abos' },
             { Icon: Users,       label: 'Abonnenten',   value: subscriptions.length.toString(),                                                  sub: 'Aktiv' },
             { Icon: ShoppingBag, label: 'Produkte',     value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
@@ -133,7 +140,7 @@ export default async function CreatorDashboardPage() {
         {/* Revenue chart */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-5">Einnahmen – letzte 7 Tage</h2>
-          <RevenueChart data={chartData} />
+          {!purchaseError && <RevenueChart data={chartData} />}
         </div>
 
         {/* Products + Subscribers */}

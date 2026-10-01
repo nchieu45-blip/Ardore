@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
+import { isSafeRelativePath } from '@/lib/app-url'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AuthShell } from '@/components/layout/AuthShell'
@@ -19,7 +20,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 function safeRedirect(raw: string | null): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || /^\/[a-z][a-z\d+\-.]*:/i.test(raw)) return '/'
+  if (!isSafeRelativePath(raw) || /^\/[a-z][a-z\d+\-.]*:/i.test(raw)) return '/'
   return raw
 }
 

@@ -11,6 +11,7 @@ export default function PayoutPage() {
   const [stripeActive, setStripeActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -35,11 +36,24 @@ export default function PayoutPage() {
 
   async function connectStripe() {
     setConnecting(true)
+    setConnectError('')
     try {
       const res = await fetch('/api/stripe/connect', { method: 'POST' })
-      const { url } = await res.json()
-      if (url) window.location.href = url
+      const data: unknown = await res.json().catch(() => null)
+      const url = data && typeof data === 'object' && 'url' in data ? data.url : null
+      if (!res.ok || typeof url !== 'string' || !url.trim()) {
+        setConnectError('Stripe Connect konnte nicht geöffnet werden. Bitte versuche es erneut.')
+        return
+      }
+      const destination = new URL(url)
+      if (destination.protocol !== 'https:') {
+        setConnectError('Stripe Connect hat keine gültige Weiterleitung zurückgegeben. Bitte versuche es erneut.')
+        return
+      }
+      window.location.href = destination.href
     } catch {
+      setConnectError('Stripe Connect ist momentan nicht erreichbar. Bitte versuche es erneut.')
+    } finally {
       setConnecting(false)
     }
   }
@@ -94,6 +108,8 @@ export default function PayoutPage() {
               {stripeActive ? 'Stripe Dashboard öffnen' : 'Mit Stripe verbinden'}
             </Button>
           </div>
+
+          {connectError && <p role="alert" className="text-sm text-red-600">{connectError}</p>}
 
           <p className="text-xs text-gray-400">
             Ardore berechnet 10% Plattformgebühr auf alle Transaktionen. Stripe erhebt zusätzliche Zahlungsgebühren.

@@ -130,7 +130,7 @@ function CoachCard({ coach }: { coach: CoachData }) {
           {coach.bio ? (
             <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed flex-1 mb-3">{coach.bio}</p>
           ) : (
-            <p className="text-sm text-gray-300 italic flex-1 mb-3">Kein Bio vorhanden</p>
+            <p className="text-sm text-gray-300 italic flex-1 mb-3">Keine Beschreibung vorhanden</p>
           )}
 
           {/* Stats row */}
@@ -277,11 +277,13 @@ export default function CoachesPageClient({ coaches }: Props) {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Coach suchen nach Name oder Bio..."
+              aria-label="Coaches nach Name oder Beschreibung suchen"
               className="w-full pl-12 pr-10 py-3.5 rounded-2xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-lg"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
+                aria-label="Coach-Suche zurücksetzen"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Card, CardContent } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
@@ -20,15 +20,16 @@ export default async function EarningsPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
+  const service = await createServiceClient()
   const [subscriptionsRes, purchasesRes] = await Promise.all([
     supabase
       .from('subscriptions')
       .select('*, tier:subscription_tiers(price_monthly)')
       .eq('creator_id', creator.id)
       .eq('status', 'active'),
-    supabase
+    service
       .from('purchases')
-      .select('amount_paid')
+      .select('amount_paid, created_at, products!inner(creator_id)')
       .eq('products.creator_id', creator.id)
       .eq('payment_status', VALID_PURCHASE_STATUS)
       .eq('stripe_livemode', true),
@@ -36,6 +37,7 @@ export default async function EarningsPage() {
 
   const subscriptions = subscriptionsRes.data ?? []
   const purchases = purchasesRes.data ?? []
+  const purchaseError = !!purchasesRes.error
 
   const monthlyRevenue = subscriptions.reduce(
     (sum: number, s: { tier: { price_monthly: number } | null }) =>
@@ -50,7 +52,7 @@ export default async function EarningsPage() {
   const stats = [
     {
       label: 'Gesamtumsatz',
-      value: formatCurrency(totalRevenue),
+      value: purchaseError ? '–' : formatCurrency(totalRevenue),
       sub: 'Alle Zeit',
       icon: TrendingUp,
       bg: 'bg-green-50',
@@ -74,7 +76,7 @@ export default async function EarningsPage() {
     },
     {
       label: 'Einzelkäufe',
-      value: purchases.length.toString(),
+      value: purchaseError ? '–' : purchases.length.toString(),
       sub: 'Gesamt',
       icon: ShoppingBag,
       bg: 'bg-orange-50',
@@ -86,6 +88,12 @@ export default async function EarningsPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Einnahmen</h1>
       <p className="text-sm text-gray-500 mb-8">Übersicht deiner Einnahmen auf Ardore</p>
+
+      {purchaseError && (
+        <p role="alert" className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Kaufumsätze konnten nicht geladen werden. Bitte lade die Seite erneut.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-4 mb-10">
         {stats.map(stat => (

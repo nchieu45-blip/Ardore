@@ -25,6 +25,7 @@ export default function BuyButtonLarge({
 }: Props) {
   const [loading,           setLoading]           = useState(false)
   const [withdrawalConsent, setWithdrawalConsent] = useState(false)
+  const [error,             setError]             = useState<string | null>(null)
 
   const isDigital = DIGITAL_TYPES.has(type)
 
@@ -36,6 +37,7 @@ export default function BuyButtonLarge({
 
   async function handleDirectBuy() {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -49,8 +51,34 @@ export default function BuyButtonLarge({
         window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname))
         return
       }
-      const { url } = await res.json()
-      if (url) window.location.assign(url)
+      const data: unknown = await res.json().catch(() => null)
+      const result = data && typeof data === 'object'
+        ? data as { url?: unknown; error?: unknown }
+        : null
+      if (!res.ok) {
+        setError(typeof result?.error === 'string' && result.error.trim()
+          ? result.error
+          : 'Der Checkout konnte nicht geöffnet werden. Bitte versuche es erneut.')
+        return
+      }
+      if (typeof result?.url !== 'string' || !result.url.trim()) {
+        setError('Der Checkout konnte nicht geöffnet werden. Bitte versuche es erneut.')
+        return
+      }
+      let checkoutUrl: URL
+      try {
+        checkoutUrl = new URL(result.url)
+      } catch {
+        setError('Der Checkout konnte nicht geöffnet werden. Bitte versuche es erneut.')
+        return
+      }
+      if (checkoutUrl.protocol !== 'https:') {
+        setError('Der Checkout konnte nicht geöffnet werden. Bitte versuche es erneut.')
+        return
+      }
+      window.location.assign(checkoutUrl.href)
+    } catch {
+      setError('Der Checkout ist momentan nicht erreichbar. Bitte versuche es erneut.')
     } finally {
       setLoading(false)
     }
@@ -77,6 +105,8 @@ export default function BuyButtonLarge({
           <button
             onClick={handleDirectBuy}
             disabled={loading || (isDigital && !withdrawalConsent)}
+            aria-busy={loading}
+            aria-label={loading ? 'Checkout wird geöffnet' : 'Direkt kaufen'}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors"
           >
             {loading ? (
@@ -88,6 +118,7 @@ export default function BuyButtonLarge({
               </>
             )}
           </button>
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         </>
       )}
     </div>

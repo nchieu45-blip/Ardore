@@ -134,15 +134,15 @@ export async function POST(req: NextRequest) {
           const buyerName = buyerRes.data.user?.user_metadata?.full_name ?? 'Kunde'
 
           if (buyerEmail) {
-            for (const pid of payableProductIds) {
-              const p = productMap.get(pid) as { title: string; creator: unknown } | undefined
+            for (const purchase of purchaseRows) {
+              const p = productMap.get(purchase.product_id) as { title: string; creator: unknown } | undefined
               if (!p) continue
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const creatorName = (p.creator as any)?.display_name ?? 'Anbieter'
               sendPurchaseReceipt(buyerEmail, {
                 buyerName,
                 productTitle: p.title,
-                amountPaid: totalPaid / productIds.length,
+                amountPaid: purchase.amount_paid,
                 creatorName,
                 libraryUrl: `${APP_URL}/buyer/library`,
                 withdrawalConsentAt: meta.withdrawal_consent_at ?? undefined,

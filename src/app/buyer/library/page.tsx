@@ -6,15 +6,16 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { formatDate } from '@/lib/utils'
-import { FileText, Video, BookOpen, Download } from 'lucide-react'
+import { FileText, Video, BookOpen, Download, Image as ImageIcon } from 'lucide-react'
 
 const TYPE_ICONS = {
   pdf: <FileText className="h-5 w-5 text-green-600" />,
   video: <Video className="h-5 w-5 text-green-600" />,
   course: <BookOpen className="h-5 w-5 text-green-600" />,
+  image: <ImageIcon className="h-5 w-5 text-green-600" />,
 }
 
-const TYPE_LABELS = { pdf: 'PDF', video: 'Video', course: 'Kurs' }
+const TYPE_LABELS = { pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild' }
 
 export default async function BuyerLibraryPage() {
   const supabase = await createClient()
@@ -36,6 +37,12 @@ export default async function BuyerLibraryPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Meine Bibliothek</h1>
       <p className="text-gray-500 mb-8">{purchaseList.length} gekaufte Produkte</p>
 
+      {process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') && (
+        <p role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Ardore läuft derzeit im Testbetrieb. Testzahlungen schalten keine Inhalte in deiner Bibliothek frei.
+        </p>
+      )}
+
       {purchaseList.length === 0 ? (
         <Card className="text-center py-16">
           <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -54,7 +61,7 @@ export default async function BuyerLibraryPage() {
             product: {
               id: string
               title: string
-              type: 'pdf' | 'video' | 'course'
+              type: 'pdf' | 'video' | 'course' | 'image'
               description: string | null
               file_url: string | null
               creator: { display_name: string; slug: string } | null

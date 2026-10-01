@@ -262,6 +262,7 @@ export default function CoachFinderWidget() {
           className="flex items-center gap-2 bg-gray-100 rounded-full px-3.5 py-2"
         >
           <input
+            aria-label="Dein Ziel für die Coach-Suche"
             value={input}
             onChange={e => setInput(e.target.value)}
             onFocus={() => setInputFocused(true)}
@@ -272,6 +273,7 @@ export default function CoachFinderWidget() {
           />
           <button
             type="submit"
+            aria-label="Ziel an Coach-Finder senden"
             disabled={!input.trim() || loading}
             className="h-6 w-6 bg-green-600 rounded-full flex items-center justify-center disabled:opacity-40 transition-opacity flex-shrink-0"
           >

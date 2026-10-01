@@ -25,6 +25,26 @@ test('external, protocol-relative and backslash auth destinations are rejected',
   }
 })
 
+test('shared login path validation rejects URL-normalization escapes and control characters', () => {
+  const { isSafeRelativePath, safeAuthDestination } = load({ NODE_ENV: 'production' })
+  const invalidPaths = [null, '', 'https://evil.example', '//evil.example', '/\\evil.example', '/buyer\\settings']
+  for (let code = 0; code < 32; code++) {
+    invalidPaths.push(`/${String.fromCharCode(code)}/evil.example`)
+  }
+  for (const path of invalidPaths) {
+    assert.equal(isSafeRelativePath(path), false, `Reject ${JSON.stringify(path)}`)
+    assert.equal(safeAuthDestination(path).pathname, '/reset-password')
+  }
+})
+
+test('shared login path validation preserves internal paths, query strings and fragments', () => {
+  const { isSafeRelativePath } = load({ NODE_ENV: 'production' })
+  for (const path of ['/', '/buyer', '/creator/settings?tab=profile#details', '/products/123?next=https://example.invalid', '/%5C%5Cexample.invalid']) {
+    assert.equal(isSafeRelativePath(path), true)
+    assert.equal(new URL(path, 'https://www.ardore-health.com').origin, 'https://www.ardore-health.com')
+  }
+})
+
 test('local development origin works while insecure production config fails closed', () => {
   assert.equal(load({ NODE_ENV: 'development', NEXT_PUBLIC_APP_URL: 'http://localhost:3000' }).appOrigin(), 'http://localhost:3000')
   assert.equal(load({ NODE_ENV: 'production', NEXT_PUBLIC_APP_URL: 'http://0.0.0.0:3000' }).appOrigin(), 'https://www.ardore-health.com')
