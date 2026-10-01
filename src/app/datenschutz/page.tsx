@@ -75,7 +75,7 @@ export default function DatenschutzPage() {
           <ul>
             <li><strong>Supabase</strong> – Datenbankhosting und Authentifizierung</li>
             <li><strong>Stripe</strong> – Zahlungsabwicklung</li>
-            <li><strong>Vercel</strong> – Hosting der Webanwendung</li>
+            <li><strong>Hostinger</strong> – Hosting der Webanwendung</li>
           </ul>
           <p>Alle Dienstleister wurden auf Basis eines Auftragsverarbeitungsvertrags (AVV) beauftragt.</p>
         </section>

@@ -4,10 +4,10 @@ import { createNotification, checkNotificationPreference } from '@/lib/notificat
 import { sendSessionReviewPrompt } from '@/lib/email/send'
 import { COACHING_PAYMENT_ELIGIBILITY_FILTER } from '@/lib/coaching-payment'
 
-// Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
+// Runs once daily at 08:00 UTC through GitHub Actions.
 // Finds sessions that ended in the past 24 h and sends a one-time review prompt
 // (in-app notification + email) if the buyer hasn't reviewed yet.
-// TODO: tighten to */15 * * * * on Vercel Pro for near-real-time prompts.
+// Schedule is managed in .github/workflows/ardore-cron.yml.
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {

@@ -4,10 +4,10 @@ import { createNotification, checkNotificationPreference } from '@/lib/notificat
 import { sendSessionReminder } from '@/lib/email/send'
 import { COACHING_PAYMENT_ELIGIBILITY_FILTER } from '@/lib/coaching-payment'
 
-// Runs once daily at 08:00 UTC (Vercel Hobby plan limit).
+// Runs once daily at 08:00 UTC through GitHub Actions.
 // Finds sessions starting in the next 23–25 h and sends a one-time reminder
 // notification to both the coach and the buyer.
-// TODO: tighten to */15 * * * * on Vercel Pro for near-real-time reminders.
+// Schedule is managed in .github/workflows/ardore-cron.yml.
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {

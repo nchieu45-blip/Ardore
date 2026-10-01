@@ -43,15 +43,27 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 npm run dev
 ```
 
-## 5. Auf Vercel deployen
+## 5. Auf Hostinger deployen
 
-```bash
-# Vercel CLI
-npm i -g vercel
-vercel --prod
-```
+Die Produktion läuft auf `https://www.ardore-health.com` als Hostinger-Node.js-Anwendung.
+Das verbundene GitHub-Repository deployt den Branch `main` automatisch.
 
-Setze alle Umgebungsvariablen in den Vercel-Projekteinstellungen.
+- Node.js: 22
+- Framework: Next.js
+- Build-Skript: `npm run build`
+- Build-Ausgabe: `.next`
+- Produktionsstart: `npm run start`
+
+Setze die benötigten Umgebungsvariablen in hPanel. `NEXT_PUBLIC_APP_URL` und
+`NEXT_PUBLIC_BASE_URL` verwenden `https://www.ardore-health.com`.
+Zusätzlich zu Supabase und Stripe benötigt die Produktion `RESEND_API_KEY`,
+`CRON_SECRET` und `ANTHROPIC_API_KEY`. Stripe bleibt im Testmodus; Daily ist deaktiviert.
+
+Die drei Cron-Aufgaben laufen über `.github/workflows/ardore-cron.yml`.
+Die GitHub-Variable `ARDORE_BASE_URL` verwendet die Produktions-URL; der GitHub-Secret
+`CRON_SECRET` muss dem Wert in Hostinger entsprechen.
+
+Nach jedem Deployment den abgeschlossenen Build in hPanel und die Produktions-URL prüfen.
 
 Für lokale Webhook-Tests verwende [Stripe CLI](https://stripe.com/docs/stripe-cli):
 ```bash
