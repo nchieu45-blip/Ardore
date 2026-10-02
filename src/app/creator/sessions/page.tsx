@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
-import BookingActions from '@/components/BookingActions'
+import BookingActions, { BookingRefundStatus, type BookingRefund } from '@/components/BookingActions'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
@@ -33,6 +33,7 @@ interface BookingRow {
   buyer_email: string
   scheduled_at: string
   duration_minutes: number
+  cancellation_policy_hours: number | null
   price_cents: number
   is_subscription_session: boolean
   status: string
@@ -53,26 +54,28 @@ export default async function CreatorSessionsPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
-  const [bookingsRes, offerRes] = await Promise.all([
-    supabase
-      .from('bookings')
-      .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, notes, payment_status, stripe_livemode')
-      .eq('creator_id', creator.id)
-      .order('scheduled_at', { ascending: false }),
-    supabase
-      .from('coaching_offers')
-      .select('cancellation_policy_hours')
-      .eq('creator_id', creator.id)
-      .single(),
-  ])
+  const bookingsRes = await supabase
+    .from('bookings')
+    .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, notes, payment_status, stripe_livemode')
+    .eq('creator_id', creator.id)
+    .order('scheduled_at', { ascending: false })
 
   const rows = (bookingsRes.data ?? []) as BookingRow[]
-  const policyHours = (offerRes.data as { cancellation_policy_hours?: number } | null)?.cancellation_policy_hours ?? 24
+  const refundMap = new Map<string, BookingRefund>()
+  let refundLoadError = false
+  if (rows.length > 0) {
+    const { data: refunds, error } = await supabase
+      .from('booking_refunds')
+      .select('booking_id, state, amount_cents')
+      .in('booking_id', rows.map(b => b.id))
+    refundLoadError = Boolean(error)
+    for (const refund of (refunds ?? []) as BookingRefund[]) refundMap.set(refund.booking_id, refund)
+  }
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
 
-  const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
-  const past     = rows.filter(b => b.status !== 'confirmed' || new Date(b.scheduled_at).getTime() <= now)
+  const current = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() + b.duration_minutes * 60_000 > now)
+  const other = rows.filter(b => !current.includes(b))
 
   const totalRevenue    = rows.filter(b => b.payment_status === 'paid' && b.stripe_livemode === true && !b.is_subscription_session).reduce((sum, b) => sum + b.price_cents, 0)
   const aboSessionCount = rows.filter(b => b.status !== 'cancelled' && b.is_subscription_session).length
@@ -91,8 +94,8 @@ export default async function CreatorSessionsPage() {
       {rows.length > 0 && (
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="rounded-xl bg-green-50 p-4 text-center">
-            <p className="text-2xl font-bold text-green-700">{upcoming.length}</p>
-            <p className="text-xs text-green-600 mt-0.5">Bevorstehend</p>
+            <p className="text-2xl font-bold text-green-700">{current.length}</p>
+            <p className="text-xs text-green-600 mt-0.5">Bevorstehend/laufend</p>
           </div>
           <div className="rounded-xl bg-blue-50 p-4 text-center">
             <p className="text-2xl font-bold text-blue-700">{rows.filter(b => b.status === 'completed').length}</p>
@@ -109,6 +112,7 @@ export default async function CreatorSessionsPage() {
         </div>
       )}
 
+      {refundLoadError && <p role="alert" className="mb-6 text-sm text-amber-800">Der Erstattungsstatus konnte nicht geladen werden. Bitte lade die Seite erneut; eine Erstattung wird deshalb nicht als abgeschlossen angezeigt.</p>}
       {rows.length === 0 ? (
         <div className="text-center py-20 rounded-2xl border-2 border-dashed border-gray-200">
           <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
@@ -120,19 +124,19 @@ export default async function CreatorSessionsPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {upcoming.length > 0 && (
+          {current.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend/laufend</h2>
               <div className="space-y-3">
-                {upcoming.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} policyHours={policyHours} />)}
+                {current.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} refund={refundMap.get(b.id) ?? null} />)}
               </div>
             </section>
           )}
-          {past.length > 0 && (
+          {other.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Vergangen</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Weitere Buchungen</h2>
               <div className="space-y-3 opacity-75">
-                {past.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} policyHours={policyHours} />)}
+                {other.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} refund={refundMap.get(b.id) ?? null} />)}
               </div>
             </section>
           )}
@@ -142,12 +146,13 @@ export default async function CreatorSessionsPage() {
   )
 }
 
-function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booking: BookingRow; now: number; creatorId: string; policyHours: number }) {
+function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: BookingRow; now: number; creatorId: string; refund: BookingRefund | null }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
   const isLive       = VIDEO_CALLS_ENABLED && b.status === 'confirmed' && hasValidCoachingPayment(b)
     && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
-  const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
+  const canCancel = b.status === 'confirmed' && endAt.getTime() > now
+  const canReschedule = scheduledAt.getTime() > now
   const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const isAboSession = b.is_subscription_session
 
@@ -190,7 +195,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booki
             </span>
           ) : (
             <p className="text-sm font-medium text-gray-700 mt-1">
-              {price} € · {b.payment_status === 'paid' ? 'Bezahlt' : b.payment_status === 'pending' ? 'Zahlung ausstehend' : 'Nicht bezahlt'}
+              {price} € · {b.payment_status === 'paid' ? 'Bezahlt' : b.payment_status === 'refunded' ? 'Erstattet' : b.payment_status === 'partially_refunded' ? 'Teilweise erstattet' : b.payment_status === 'pending' ? 'Zahlung ausstehend' : b.payment_status === 'not_required' ? 'Keine Zahlung erforderlich' : 'Nicht bezahlt'}
             </p>
           )}
         </div>
@@ -211,13 +216,18 @@ function CreatorSessionCard({ booking: b, now, creatorId, policyHours }: { booki
           )}
         </Link>
       </div>
-      {isUpcoming && !isLive && (
+      <BookingRefundStatus refund={refund} />
+      {(canCancel || (b.status === 'cancelled' && (refund?.state === 'pending' || refund?.state === 'failed'))) && (
         <BookingActions
           bookingId={b.id}
           scheduledAt={b.scheduled_at}
           creatorId={creatorId}
           coachName={b.buyer_name}
-          policyHours={policyHours}
+          policyHours={b.cancellation_policy_hours}
+          paid={b.payment_status === 'paid' || b.payment_status === 'partially_refunded'}
+          canReschedule={canReschedule}
+          refund={refund}
+          refundRetry={b.status === 'cancelled'}
           role="creator"
         />
       )}

@@ -200,6 +200,7 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     '@/lib/email/send': { sendPurchaseReceipt() { throw new Error('Unexpected receipt') }, sendNewSubscriberNotification() { throw new Error('Unexpected email') } },
     '@/lib/notifications': { createNotification() { throw new Error('Unexpected notification') } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking() { throw new Error('Unexpected coaching booking') } },
+    '@/lib/coaching-refund': { reconcileCoachingRefund() { throw new Error('Unexpected coaching refund') } },
   }, { STRIPE_SECRET_KEY: 'sk_test_synthetic' })
   return {
     saved, releasedEvents, period,

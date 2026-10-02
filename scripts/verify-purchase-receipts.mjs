@@ -49,6 +49,7 @@ function fixture(duplicate = false) {
     },
     '@/lib/notifications': { createNotification: async () => { throw new Error('Unexpected notification') } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async () => { throw new Error('Unexpected coaching confirmation') } },
+    '@/lib/coaching-refund': { reconcileCoachingRefund: async () => { throw new Error('Unexpected coaching refund') } },
   }
   const loadedModule = { exports: {} }
   new Function('require', 'exports', 'module', 'process', compiled)(

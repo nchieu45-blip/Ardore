@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendPurchaseReceipt, sendNewSubscriberNotification } from '@/lib/email/send'
 import { createNotification } from '@/lib/notifications'
 import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
+import { reconcileCoachingRefund } from '@/lib/coaching-refund'
 import Stripe from 'stripe'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
@@ -192,7 +193,30 @@ export async function POST(req: NextRequest) {
       if (paymentIntentId) {
         const status = charge.refunded ? 'refunded' : 'partially_refunded'
         await updatePurchaseState(supabase, paymentIntentId, event.livemode, status, charge.amount_refunded / 100)
-        await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, status, charge.amount_refunded)
+        // Refund webhooks can arrive before the cancellation response or out
+        // of order. The event is a notification, never permission to refund
+        // again; reconcile the current provider state instead of its payload.
+        await reconcileCoachingRefund({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
+      }
+      break
+    }
+
+    case 'refund.created':
+    case 'refund.updated':
+    case 'refund.failed': {
+      const refund = event.data.object as Stripe.Refund
+      let paymentIntentId = typeof refund.payment_intent === 'string'
+        ? refund.payment_intent
+        : refund.payment_intent?.id ?? null
+      if (!paymentIntentId) {
+        const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id
+        const charge = chargeId ? await stripe.charges.retrieve(chargeId) : null
+        paymentIntentId = typeof charge?.payment_intent === 'string'
+          ? charge.payment_intent
+          : charge?.payment_intent?.id ?? null
+      }
+      if (paymentIntentId) {
+        await reconcileCoachingRefund({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
       }
       break
     }
@@ -216,11 +240,16 @@ export async function POST(req: NextRequest) {
         if (dispute.status === 'won') {
           const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id
           const charge = chargeId ? await stripe.charges.retrieve(chargeId) : null
+          if (!charge) throw new Error('Missing disputed charge')
           const restoredStatus = charge?.refunded
             ? 'refunded'
             : charge && charge.amount_refunded > 0 ? 'partially_refunded' : 'paid'
           await updatePurchaseState(supabase, paymentIntentId, event.livemode, restoredStatus, charge ? charge.amount_refunded / 100 : undefined)
-          await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, restoredStatus, charge?.amount_refunded)
+          if (restoredStatus === 'refunded' || restoredStatus === 'partially_refunded') {
+            await reconcileCoachingRefund({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
+          } else {
+            await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, restoredStatus)
+          }
         } else {
           await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'chargeback')
           await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, 'chargeback')
@@ -348,6 +377,7 @@ async function confirmCoachingCheckout(
   const now = new Date().toISOString()
   const { data: confirmed, error: updateError } = await supabase.from('bookings').update({
     status: 'confirmed', payment_status: 'paid', stripe_payment_intent_id: paymentIntentId,
+    amount_paid_cents: session.amount_total,
     paid_at: now, payment_updated_at: now,
   }).eq('id', booking.id).eq('status', 'pending_payment').eq('payment_status', 'pending').select('id').maybeSingle()
   if (updateError) throw updateError
@@ -370,17 +400,34 @@ async function updateCoachingPaymentState(
   supabase: any,
   paymentIntentId: string,
   stripeLivemode: boolean,
-  paymentStatus: 'paid' | 'partially_refunded' | 'refunded' | 'disputed' | 'chargeback' | 'reversed',
-  amountRefundedCents?: number,
+  paymentStatus: 'paid' | 'disputed' | 'chargeback' | 'reversed',
 ) {
-  const bookingStatus = paymentStatus === 'refunded' ? 'refunded'
-    : paymentStatus === 'chargeback' || paymentStatus === 'reversed' ? 'reversed' : undefined
-  const update: Record<string, unknown> = { payment_status: paymentStatus, payment_updated_at: new Date().toISOString() }
-  if (bookingStatus) update.status = bookingStatus
-  if (amountRefundedCents !== undefined) update.amount_refunded_cents = amountRefundedCents
-  const { error } = await supabase.from('bookings').update(update)
+  const { data: bookings, error: readError } = await supabase.from('bookings')
+    .select('id, status, payment_status, refund_status')
     .eq('stripe_payment_intent_id', paymentIntentId).eq('stripe_livemode', stripeLivemode)
-  if (error) throw error
+  if (readError) throw readError
+
+  for (const booking of bookings ?? []) {
+    // A canceled intent cannot undo a successful payment. Similarly a late
+    // dispute-restoration event cannot restore entitlement over a refund.
+    if (paymentStatus === 'reversed' && !['pending', 'failed', 'expired'].includes(booking.payment_status)) continue
+    if (paymentStatus === 'paid' && (booking.payment_status !== 'disputed'
+      || booking.refund_status !== 'not_requested'
+      || ['cancelled', 'refunded', 'reversed'].includes(booking.status))) continue
+    if (paymentStatus === 'disputed' && !['paid', 'partially_refunded', 'disputed'].includes(booking.payment_status)) continue
+    if (paymentStatus === 'chargeback' && !['paid', 'partially_refunded', 'disputed', 'chargeback'].includes(booking.payment_status)) continue
+
+    const update: Record<string, unknown> = { payment_status: paymentStatus, payment_updated_at: new Date().toISOString() }
+    if ((paymentStatus === 'chargeback' || paymentStatus === 'reversed') && booking.status !== 'cancelled') {
+      update.status = 'reversed'
+    }
+    // Compare the state read above so concurrent cancellation/refund commits
+    // cannot be overwritten by this webhook's earlier view of the booking.
+    const { error } = await supabase.from('bookings').update(update)
+      .eq('id', booking.id).eq('payment_status', booking.payment_status)
+      .eq('refund_status', booking.refund_status).eq('status', booking.status)
+    if (error) throw error
+  }
 }
 
 async function updatePurchaseState(

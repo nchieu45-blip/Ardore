@@ -39,7 +39,7 @@ const SECTIONS: FAQSection[] = [
       },
       {
         q: 'Was passiert, wenn ein Coach eine Session absagt?',
-        a: 'Du wirst sofort per E-Mail und In-App-Benachrichtigung informiert. War es eine Abo-Session, wird dein Sessionkontingent automatisch wiederhergestellt, sodass du direkt eine neue Zeit buchen kannst. Bei bezahlten Sessions kontaktiere bitte den Coach oder den Ardore-Support.',
+        a: 'Du wirst sofort per E-Mail und In-App-Benachrichtigung informiert. War es eine Abo-Session, wird dein Sessionkontingent automatisch wiederhergestellt, sodass du direkt eine neue Zeit buchen kannst. Bei einer Coach-Absage vor vollständiger Durchführung wird der tatsächlich bezahlte Betrag vollständig über die ursprüngliche Zahlungsmethode erstattet. Den Status der Erstattung siehst du bei deiner Buchung; eine laufende Erstattung ist noch nicht abgeschlossen.',
       },
       {
         q: 'Wie funktioniert die Bezahlung?',
@@ -47,7 +47,7 @@ const SECTIONS: FAQSection[] = [
       },
       {
         q: 'Kann ich eine Buchung verschieben oder stornieren?',
-        a: 'Ja – in deinem Bereich „Meine Sessions" findest du bei jeder bevorstehenden Session die Schaltflächen „Verschieben" und „Stornieren". Wähle beim Verschieben einfach einen neuen Termin aus dem Kalender; beide Parteien erhalten automatisch eine Benachrichtigung. Beachte dabei die Stornierungsfrist des Coaches (üblicherweise 24 Stunden vor dem Termin). Innerhalb dieser Frist ist eine kostenlose Stornierung nicht mehr möglich.',
+        a: 'Ja – in deinem Bereich „Meine Sessions" findest du bei jeder bevorstehenden Session die Schaltflächen „Verschieben" und „Stornieren". Wähle beim Verschieben einfach einen neuen Termin aus dem Kalender; beide Parteien erhalten automatisch eine Benachrichtigung. Es gilt die bei deiner Buchung vereinbarte Stornierungsfrist (standardmäßig 24 Stunden vor dem Termin). Stornierst du rechtzeitig, wird der tatsächlich bezahlte Betrag vollständig erstattet. Nach Ablauf der Frist ist eine kostenlose Stornierung über Ardore nicht mehr möglich; es gibt keine automatische Teilerstattung. Spätere Änderungen der Coach-Frist gelten nur für neue Buchungen.',
       },
     ],
   },

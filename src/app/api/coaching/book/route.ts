@@ -16,7 +16,7 @@ function appUrl() {
 }
 
 export async function POST(req: NextRequest) {
-  const { creatorId, date, time, name, email, notes, subscriptionId, discountId } = await req.json()
+  const { creatorId, date, time, name, email, notes, subscriptionId, discountId, expectedCancellationPolicyHours } = await req.json()
   if (!creatorId || !date || !time || !name || !email) return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
 
   const supabase = await createClient()
@@ -53,8 +53,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: offer } = await supabase.from('coaching_offers')
-    .select('is_enabled, price_cents, duration_minutes').eq('creator_id', creatorId).single()
+    .select('is_enabled, price_cents, duration_minutes, cancellation_policy_hours').eq('creator_id', creatorId).single()
   if (!offer?.is_enabled) return NextResponse.json({ error: 'Videocoaching nicht verfügbar' }, { status: 400 })
+  const cancellationPolicyHours = offer.cancellation_policy_hours ?? 24
+  if (expectedCancellationPolicyHours !== undefined && expectedCancellationPolicyHours !== cancellationPolicyHours) {
+    return NextResponse.json({ error: 'Die Stornierungsfrist wurde geändert. Bitte lade die Buchung neu.', policyChanged: true }, { status: 409 })
+  }
   const effectiveDuration = isSubscriptionSession && tierDurationMinutes !== null ? tierDurationMinutes : offer.duration_minutes
   if (!isValidCoachingDuration(effectiveDuration)) return NextResponse.json({ error: 'Ungültige Sitzungsdauer' }, { status: 400 })
 
@@ -115,6 +119,7 @@ export async function POST(req: NextRequest) {
   const reservationExpiresAt = requiresPayment ? new Date(Date.now() + RESERVATION_MINUTES * 60_000) : null
   const { data: booking, error } = await service.from('bookings').insert({
     creator_id: creatorId, buyer_id: user.id, scheduled_at: slotValidation.scheduledAt,
+    cancellation_policy_hours: cancellationPolicyHours,
     duration_minutes: effectiveDuration, status: requiresPayment ? 'pending_payment' : 'confirmed',
     payment_status: requiresPayment ? 'pending' : 'not_required', buyer_email: user.email,
     buyer_name: name.trim(), notes: notes?.trim() || null, subscription_id: resolvedSubscriptionId,
@@ -122,13 +127,14 @@ export async function POST(req: NextRequest) {
     buffer_minutes: slotValidation.bufferMinutes, reservation_expires_at: reservationExpiresAt?.toISOString() ?? null,
     discount_id: discountRowId,
     stripe_livemode: stripeLivemode,
-  }).select('id').single()
+  }).select('id, cancellation_policy_hours').single()
+  if (error?.code === '40001') return NextResponse.json({ error: 'Die Stornierungsfrist wurde geändert. Bitte lade die Buchung neu.', policyChanged: true }, { status: 409 })
   if (error?.code === '23P01') return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
   if (error || !booking) return NextResponse.json({ error: 'Buchung konnte nicht erstellt werden.' }, { status: 500 })
 
   if (!requiresPayment) {
     await provisionConfirmedCoachingBooking(booking.id)
-    return NextResponse.json({ bookingId: booking.id })
+    return NextResponse.json({ bookingId: booking.id, cancellationPolicyHours: booking.cancellation_policy_hours })
   }
 
   try {
@@ -149,7 +155,7 @@ export async function POST(req: NextRequest) {
     const { error: updateError } = await service.from('bookings').update({ stripe_checkout_session_id: session.id })
       .eq('id', booking.id).eq('status', 'pending_payment')
     if (updateError) throw updateError
-    return NextResponse.json({ bookingId: booking.id, checkoutUrl: session.url })
+    return NextResponse.json({ bookingId: booking.id, checkoutUrl: session.url, cancellationPolicyHours: booking.cancellation_policy_hours })
   } catch (checkoutError) {
     await service.from('bookings').update({ status: 'payment_failed', payment_status: 'failed', payment_updated_at: new Date().toISOString() })
       .eq('id', booking.id).eq('status', 'pending_payment')

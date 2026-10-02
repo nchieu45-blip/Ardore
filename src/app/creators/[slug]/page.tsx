@@ -199,7 +199,7 @@ export default async function CreatorProfilePage({
 
   const { data: coachingOfferData } = await supabase
     .from('coaching_offers')
-    .select('is_enabled, price_cents, duration_minutes, description')
+    .select('is_enabled, price_cents, duration_minutes, description, cancellation_policy_hours')
     .eq('creator_id', creator.id)
     .single()
 

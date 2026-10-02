@@ -21,6 +21,17 @@ export async function POST() {
     const creator    = creatorRes.data
     const deletingAt = new Date().toISOString()
 
+    // Financial records must survive cancellation/refund reconciliation. Refuse
+    // before notifications, subscription cancellation or any account data deletes.
+    const protectedBookings = service.from('bookings').select('id', { count: 'exact', head: true })
+      .or(`and(or(buyer_id.eq.${user.id}${creator ? `,creator_id.eq.${creator.id}` : ''}),or(refund_status.neq.not_requested,payment_status.in.(pending,paid,partially_refunded,refunded,disputed,chargeback,reversed)))`)
+    const { count: financialBookingCount, error: financialBookingError } = await protectedBookings
+    if (financialBookingError) throw financialBookingError
+    if ((financialBookingCount ?? 0) > 0) {
+      return NextResponse.json({ error: 'Für dieses Konto bestehen Zahlungs- oder Erstattungsaufzeichnungen zu Sessions. Bitte kontaktiere den Ardore-Support, damit diese vor einer Kontolöschung sicher geklärt werden.' }, { status: 409 })
+    }
+
+
     if (creator) {
       // Upcoming bookings for creator → notify buyers
       const { data: upcomingBookings } = await service

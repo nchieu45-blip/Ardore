@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, status, payment_status, stripe_livemode, creator_id, daily_room_name, creator_profiles!inner(user_id, display_name, slug)')
+    .select('id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, cancellation_policy_hours, status, payment_status, stripe_livemode, creator_id, daily_room_name, creator_profiles!inner(user_id, display_name, slug)')
     .eq('id', bookingId)
     .single()
 
@@ -33,16 +33,27 @@ export async function POST(req: NextRequest) {
   const isCreator = cp?.user_id === user.id
   if (!isBuyer && !isCreator) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
 
-  // Policy check: both buyer and creator are blocked within the cancellation/reschedule window
+  const sessionEnd = new Date(booking.scheduled_at).getTime() + booking.duration_minutes * 60_000
+  if (!Number.isFinite(sessionEnd) || sessionEnd <= Date.now()) {
+    return NextResponse.json({ error: 'Abgeschlossene Termine können nicht verschoben werden.' }, { status: 409 })
+  }
+
+  // Both participants use the cutoff agreed at booking, never a later offer edit.
   const { data: offer } = await supabase
     .from('coaching_offers')
-    .select('is_enabled, duration_minutes, buffer_minutes, min_notice_hours, max_horizon_days, cancellation_policy_hours')
+    .select('is_enabled, duration_minutes, buffer_minutes, min_notice_hours, max_horizon_days')
     .eq('creator_id', booking.creator_id)
     .single()
 
   if (!offer?.is_enabled) return NextResponse.json({ error: 'Videocoaching nicht verfügbar' }, { status: 400 })
 
-  const policyHours = (offer as { cancellation_policy_hours?: number } | null)?.cancellation_policy_hours ?? 24
+  const policyHours = booking.cancellation_policy_hours as number | null
+  if (policyHours === null || !Number.isInteger(policyHours) || policyHours < 0) {
+    return NextResponse.json({
+      error: 'Die bei Buchung vereinbarte Stornierungsfrist ist nicht verfügbar. Bitte kontaktiere den Ardore-Support.',
+      policyUnavailable: true,
+    }, { status: 409 })
+  }
   const msUntilSession = new Date(booking.scheduled_at).getTime() - Date.now()
   if (msUntilSession < policyHours * 3_600_000) {
     return NextResponse.json({
@@ -67,15 +78,22 @@ export async function POST(req: NextRequest) {
   const oldScheduledAt = new Date(booking.scheduled_at)
 
   const service = await createServiceClient()
-  const { error: updateError } = await service
+  const { data: updatedBooking, error: updateError } = await service
     .from('bookings')
     .update({ scheduled_at: newScheduledAt.toISOString(), buffer_minutes: slotValidation.bufferMinutes })
     .eq('id', bookingId)
+    .eq('status', 'confirmed')
+    .eq('scheduled_at', booking.scheduled_at)
+    .select('id')
+    .maybeSingle()
 
   if (updateError?.code === '23P01') {
     return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
   }
   if (updateError) return NextResponse.json({ error: 'Fehler beim Verschieben' }, { status: 500 })
+  if (!updatedBooking) {
+    return NextResponse.json({ error: 'Die Buchung wurde inzwischen geändert. Bitte lade die Seite erneut.' }, { status: 409 })
+  }
 
   // Update Daily.co room expiry to match new session time (best-effort)
   if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY && booking.daily_room_name) {

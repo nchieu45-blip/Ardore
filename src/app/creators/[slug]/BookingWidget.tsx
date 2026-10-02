@@ -21,6 +21,7 @@ interface Props {
     price_cents: number
     duration_minutes: number
     description: string | null
+    cancellation_policy_hours: number
   }
   currentUserEmail?: string | null
   currentUserName?: string | null
@@ -58,6 +59,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   const [notes,   setNotes]   = useState('')
   const [booking, setBooking] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [agreedPolicyHours, setAgreedPolicyHours] = useState<number | null>(null)
 
   // Discount state (only for paid sessions)
   const [showCodeInput,  setShowCodeInput]  = useState(false)
@@ -162,6 +164,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorId,
+          expectedCancellationPolicyHours: offer.cancellation_policy_hours,
           date:           formatDate(selected),
           time:           chosenSlot,
           name:           name.trim(),
@@ -172,12 +175,13 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
         }),
       })
       if (res.status === 401) { window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
-      const json = await res.json() as { bookingId?: string; checkoutUrl?: string | null; error?: string }
+      const json = await res.json() as { bookingId?: string; checkoutUrl?: string | null; cancellationPolicyHours?: number; error?: string }
       if (!res.ok) throw new Error(json.error ?? 'Buchungsfehler')
       if (json.checkoutUrl) {
         window.location.assign(json.checkoutUrl)
         return
       }
+      setAgreedPolicyHours(json.cancellationPolicyHours ?? offer.cancellation_policy_hours)
       setBookingId(json.bookingId ?? null)
       setStep('success')
     } catch (e) {
@@ -248,6 +252,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
                 ? 'Der Videoraum-Link wird kurz vor der Session per E-Mail zugesendet.'
                 : 'Video-Call-Funktion wird bald verfügbar sein.'}
             </p>
+            <p className="mt-3 text-xs text-gray-600">Vereinbarte Stornierungsfrist: {agreedPolicyHours ?? offer.cancellation_policy_hours} Stunden vor dem Termin. Spätere Coach-Änderungen ändern diese Frist nicht.</p>
             {bookingId && (
               <a
                 href={`/session/${bookingId}`}
@@ -476,6 +481,11 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
               </div>
             )}
 
+            <p className="rounded-xl bg-gray-50 px-3 py-2.5 text-xs text-gray-700">
+              Kostenlose Stornierung bis {offer.cancellation_policy_hours} Stunden vor dem Termin.
+              {' '}Bei rechtzeitiger Stornierung wird der tatsächlich bezahlte Betrag vollständig erstattet.
+              {' '}Diese Frist wird mit deiner Buchung vereinbart; spätere Coach-Änderungen gelten nur für neue Buchungen.
+            </p>
             <Button
               onClick={book}
               disabled={booking || !name.trim() || !email.trim()}

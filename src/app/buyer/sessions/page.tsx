@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Video, Calendar, Clock, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import SessionReviewPrompt from '@/components/SessionReviewPrompt'
-import BookingActions from '@/components/BookingActions'
+import BookingActions, { BookingRefundStatus, type BookingRefund } from '@/components/BookingActions'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
@@ -33,6 +33,7 @@ interface BookingRow {
   creator_id: string
   scheduled_at: string
   duration_minutes: number
+  cancellation_policy_hours: number | null
   price_cents: number
   is_subscription_session: boolean
   status: string
@@ -61,7 +62,7 @@ export default async function BuyerSessionsPage({
   const [bookingsRes, reviewsRes] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, creator_id, scheduled_at, duration_minutes, price_cents, is_subscription_session, status, payment_status, stripe_livemode, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
+      .select('id, creator_id, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, payment_status, stripe_livemode, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
       .eq('buyer_id', user.id)
       .order('scheduled_at', { ascending: false }),
     supabase
@@ -75,29 +76,23 @@ export default async function BuyerSessionsPage({
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
 
-  // Fetch cancellation policies for creators of upcoming confirmed sessions
-  const upcomingCreatorIds = [...new Set(
-    rows
-      .filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
-      .map(b => b.creator_id)
-  )]
-  const policyMap = new Map<string, number>()
-  if (upcomingCreatorIds.length > 0) {
-    const { data: offers } = await supabase
-      .from('coaching_offers')
-      .select('creator_id, cancellation_policy_hours')
-      .in('creator_id', upcomingCreatorIds)
-    for (const o of (offers ?? []) as { creator_id: string; cancellation_policy_hours: number }[]) {
-      policyMap.set(o.creator_id, o.cancellation_policy_hours ?? 24)
-    }
+  const refundMap = new Map<string, BookingRefund>()
+  let refundLoadError = false
+  if (rows.length > 0) {
+    const { data: refunds, error } = await supabase
+      .from('booking_refunds')
+      .select('booking_id, state, amount_cents')
+      .in('booking_id', rows.map(b => b.id))
+    refundLoadError = Boolean(error)
+    for (const refund of (refunds ?? []) as BookingRefund[]) refundMap.set(refund.booking_id, refund)
   }
   const reviewMap = new Map<string, ExistingReview>()
   for (const r of (reviewsRes.data ?? []) as { booking_id: string; rating: number; content: string | null }[]) {
     reviewMap.set(r.booking_id, { rating: r.rating, content: r.content })
   }
 
-  const upcoming = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() > now)
-  const past     = rows.filter(b => b.status !== 'confirmed' || new Date(b.scheduled_at).getTime() <= now)
+  const current = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() + b.duration_minutes * 60_000 > now)
+  const other = rows.filter(b => !current.includes(b))
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -119,6 +114,7 @@ export default async function BuyerSessionsPage({
         </div>
       )}
 
+      {refundLoadError && <p role="alert" className="mb-6 text-sm text-amber-800">Der Erstattungsstatus konnte nicht geladen werden. Bitte lade die Seite erneut; eine Erstattung wird deshalb nicht als abgeschlossen angezeigt.</p>}
       {rows.length === 0 ? (
         <div className="text-center py-20 rounded-2xl border-2 border-dashed border-gray-200">
           <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
@@ -130,34 +126,35 @@ export default async function BuyerSessionsPage({
         </div>
       ) : (
         <div className="space-y-8">
-          {upcoming.length > 0 && (
+          {current.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend und laufend</h2>
               <div className="space-y-3">
-                {upcoming.map(b => (
+                {current.map(b => (
                   <SessionCard
                     key={b.id}
                     booking={b}
                     now={now}
                     existingReview={reviewMap.get(b.id) ?? null}
                     autoOpen={autoReviewBookingId === b.id}
-                    policyHours={policyMap.get(b.creator_id) ?? 24}
+                    refund={refundMap.get(b.id) ?? null}
                   />
                 ))}
               </div>
             </section>
           )}
-          {past.length > 0 && (
+          {other.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Vergangen</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Weitere Buchungen</h2>
               <div className="space-y-3 opacity-90">
-                {past.map(b => (
+                {other.map(b => (
                   <SessionCard
                     key={b.id}
                     booking={b}
                     now={now}
                     existingReview={reviewMap.get(b.id) ?? null}
                     autoOpen={autoReviewBookingId === b.id}
+                    refund={refundMap.get(b.id) ?? null}
                   />
                 ))}
               </div>
@@ -174,13 +171,13 @@ function SessionCard({
   now,
   existingReview,
   autoOpen,
-  policyHours,
+  refund,
 }: {
   booking: BookingRow
   now: number
   existingReview: ExistingReview | null
   autoOpen: boolean
-  policyHours?: number
+  refund: BookingRefund | null
 }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
@@ -259,13 +256,17 @@ function SessionCard({
           autoOpen={autoOpen}
         />
       )}
-      {isUpcoming && !isLive && creator && (
+      <BookingRefundStatus refund={refund} />
+      {creator && (isUpcoming || (b.status === 'cancelled' && (refund?.state === 'pending' || refund?.state === 'failed'))) && (
         <BookingActions
           bookingId={b.id}
           scheduledAt={b.scheduled_at}
           creatorId={b.creator_id}
           coachName={creator.display_name}
-          policyHours={policyHours ?? 24}
+          policyHours={b.cancellation_policy_hours}
+          paid={b.payment_status === 'paid' || b.payment_status === 'partially_refunded'}
+          refund={refund}
+          refundRetry={b.status === 'cancelled'}
           role="buyer"
         />
       )}
