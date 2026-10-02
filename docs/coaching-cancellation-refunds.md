@@ -65,8 +65,18 @@ and fee reversal, and provider webhook acceptance. Stripe payment/refund history
 is immutable; those test entries are marked cleaned while mutable test users,
 bookings, refund rows, checkout reservations and Connect accounts are removed.
 
-The current Stripe account has not activated Connect. Actual destination-transfer
-rehearsal therefore requires Connect setup before live launch. Current deployed
-TEST checkouts have no coach transfer; destination reversal behavior is covered
-by regression tests. The synthetic verifier reports this explicitly and continues
-with actual refund webhook acceptance/replay instead of enabling account features.
+Current deployed TEST checkouts have no coach transfer. The destination-transfer
+rehearsal uses a separate synthetic Accounts-v2 account in Stripe's TEST sandbox,
+then closes only that account. Sandbox Connect activation does not activate live
+Connect, modify credentials, or link a real Ardore coach account. The application
+refund APIs remain interoperable with the synthetic Accounts-v2 recipient.
+Stripe's official successful-verification and German test-bank fixtures are used.
+If Stripe keeps transfer capability pending despite supplied requirements, the
+verifier reports `pending_provider_verification`, continues other checks and
+exits with status 2 after cleanup. This is not a successful transfer rehearsal.
+
+Stripe's asynchronous test-card transition can be delayed beyond the bounded
+observation window. The verifier then reports `pending_provider_simulation`,
+never a passed bank-failure test. A provider-failed refund that the application
+has not reconciled remains a hard test failure. API-failure and refund.failed
+handling also have deterministic regression coverage.
