@@ -26,10 +26,12 @@ const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.S
 const run = `ardore-refund-${randomUUID().slice(0, 12)}`
 const startedAt = Math.floor(Date.now() / 1000)
 const users = [], bookings = [], intents = [], sessions = []
+const ownedChargeIds = new Set()
 const intentionallyFailedRefundIntents = new Set()
 let coach, connectedAccount, cliDirectory, coachUserIdForCleanup
 let transferVerification = 'not_run'
 let asynchronousFailureVerification = 'not_run'
+let captureResumeVerification = 'not_run'
 const results = []
 const check = async query => { const result = await query; if (result.error) throw new Error(`Database operation failed: ${result.error.code}`); return result.data }
 const pass = label => { results.push(label); console.log(`PASS ${label}`) }
@@ -78,6 +80,7 @@ async function pay(row, destination, paymentMethod = 'pm_card_visa') {
     ...(destination ? { application_fee_amount: 50, transfer_data: { destination } } : {}),
   }, { idempotencyKey: `${run}-${row.id}-payment` })
   intents.push(payment.id)
+  if (id(payment.latest_charge)) ownedChargeIds.add(id(payment.latest_charge))
   assert.equal(payment.livemode, false)
   assert.equal(payment.status, 'succeeded')
   return check(service.from('bookings').update({ stripe_payment_intent_id: payment.id,
@@ -298,7 +301,27 @@ try {
   } else {
   const destinationBooking = await pay(await booking(buyer, { hours: 90 }), connectedAccount.id)
   const destCancel = await api('/api/coaching/cancel', coachUser, { bookingId: destinationBooking.id })
-  assert.equal(destCancel.status, 200)
+  if (![200, 202].includes(destCancel.status)) {
+    const observed = await refundState(destinationBooking)
+    console.log(JSON.stringify({ syntheticDestinationFinalStatus: destCancel.status,
+      finalRefundErrorCode: observed.last_error_code }))
+  }
+  assert.ok([200, 202].includes(destCancel.status))
+  if (destCancel.status === 202) {
+    assert.equal(destCancel.data.refundStatus, 'pending')
+    let completedByWebhook = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const observed = await refundState(destinationBooking)
+      if (observed.state === 'succeeded') { completedByWebhook = true; break }
+      assert.notEqual(observed.state, 'failed', 'Capture continuation must not fail the trusted refund claim')
+      await sleep(2000)
+    }
+    assert.ok(completedByWebhook, 'Capture webhook must complete the existing refund claim without a customer retry')
+    captureResumeVerification = 'verified'
+    pass('actual automatic_async capture completes the pending refund via Stripe webhook without another cancellation request')
+  } else {
+    captureResumeVerification = 'not_observed_initially_complete'
+  }
   const destLedger = await verifyFullRefund(destinationBooking, 'coach')
   assert.equal(destLedger.transfer_status, 'succeeded')
   assert.ok(destLedger.transfer_reversal_ids.length > 0); assert.ok(destLedger.application_fee_refund_ids.length > 0)
@@ -357,6 +380,7 @@ try {
       const intent = await stripe.paymentIntents.retrieve(intentId)
       assert.equal(intent.livemode, false); assert.equal(intent.metadata.ardore_synthetic_run, run)
       const charge = await stripe.charges.retrieve(id(intent.latest_charge))
+      ownedChargeIds.add(charge.id)
       if (charge.amount_refunded < charge.amount_captured && !intentionallyFailedRefundIntents.has(intent.id)) {
         await stripe.refunds.create({ payment_intent: intent.id,
           ...(charge.transfer ? { reverse_transfer: true, refund_application_fee: Boolean(charge.application_fee) } : {}),
@@ -409,10 +433,12 @@ try {
       const object = event.data.object
       return object.metadata?.ardore_synthetic_run === run || bookings.includes(object.metadata?.booking_id)
         || intents.includes(object.id) || sessions.includes(object.id)
+        || ownedChargeIds.has(object.id) || ownedChargeIds.has(id(object.source_transaction))
+        || ownedChargeIds.has(id(object.originating_transaction))
     }).map(event => event.id)
     if (owned.length) await check(service.from('stripe_webhook_events').delete().in('event_id', owned))
   } catch (error) { cleanupErrors.push(`event_cleanup:${error.code ?? error.name}`) }
   if (cliDirectory) rmSync(cliDirectory, { recursive: true, force: true })
-  console.log(JSON.stringify({ passed: results.length, transferVerification, asynchronousFailureVerification, mutableSyntheticDataCleaned: cleanupErrors.length === 0, cleanupErrors }))
+  console.log(JSON.stringify({ passed: results.length, transferVerification, captureResumeVerification, asynchronousFailureVerification, mutableSyntheticDataCleaned: cleanupErrors.length === 0, cleanupErrors }))
   if (cleanupErrors.length) process.exitCode = 1
 }

@@ -100,7 +100,8 @@ function fixture(options = {}) {
     request: () => request,
     setFailure: value => { createFailure = value }, setStatus: value => { refundStatus = value },
     process: () => loadedModule.exports.processCoachingRefund({ service: database, booking: structuredClone(booking), request: structuredClone(request) }),
-    reconcile: () => loadedModule.exports.reconcileCoachingRefund({ service: database, paymentIntentId: intent.id, stripeLivemode: false }) }
+    reconcile: (options = {}) => loadedModule.exports.reconcileCoachingRefund({ service: database, paymentIntentId: intent.id, stripeLivemode: false,
+      resumeCapture: options.resumeCapture ?? false }) }
 }
 
 test('eligible customer receives every actually paid cent; fees never reduce refund', async () => {
@@ -298,4 +299,100 @@ test('missing stored refund ID fails closed rather than generating a replacement
   assert.equal((await f.process()).state, 'failed')
   assert.equal(f.posts.length, 0)
   assert.equal(f.request().last_error_code, 'stored_refund_not_found')
+})
+
+function asyncDestinationFixture({ missingTransfer = true, missingFee = true } = {}) {
+  const f = fixture({ destination: true })
+  f.intent.capture_method = 'automatic_async'
+  f.intent.application_fee_amount = 450
+  if (missingTransfer) f.charge.transfer = null
+  if (missingFee) f.charge.application_fee = null
+  f.charge.balance_transaction = null
+  return f
+}
+
+for (const missing of [
+  { missingTransfer: true, missingFee: true },
+  { missingTransfer: false, missingFee: true },
+  { missingTransfer: true, missingFee: false },
+]) {
+  test(`async Connect capture waits for associated transfer/fee (${JSON.stringify(missing)})`, async () => {
+    const f = asyncDestinationFixture(missing)
+    assert.equal((await f.process()).state, 'pending')
+    assert.equal(f.posts.length, 0)
+    assert.equal(f.request().last_error_code, 'payment_capture_pending')
+    assert.equal(f.request().transfer_status, 'pending')
+    assert.equal(f.booking.payment_status, 'paid')
+    assert.equal(f.booking.amount_refunded_cents, 0)
+    // A provider webhook may resume only this already authorised claim.
+    f.charge.transfer = 'tr_synthetic'
+    f.charge.application_fee = 'fee_synthetic'
+    f.charge.balance_transaction = 'txn_payment'
+    assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+    assert.equal(f.posts.length, 1)
+    assert.equal(f.posts[0].parameters.amount, 4500)
+    assert.equal(f.posts[0].parameters.reverse_transfer, true)
+    assert.equal(f.posts[0].parameters.refund_application_fee, true)
+    await f.reconcile({ resumeCapture: true })
+    await f.process()
+    assert.equal(f.posts.length, 1)
+  })
+}
+
+test('capture webhook cannot create a refund without a claim or for an uncancelled booking', async () => {
+  const unclaimed = fixture({ noRequest: true, destination: true })
+  await unclaimed.reconcile({ resumeCapture: true })
+  assert.equal(unclaimed.posts.length, 0)
+  const confirmed = fixture({ destination: true })
+  confirmed.booking.status = 'confirmed'
+  confirmed.request().last_error_code = 'payment_capture_pending'
+  await confirmed.reconcile({ resumeCapture: true })
+  assert.equal(confirmed.posts.length, 0)
+})
+
+test('capture webhook never replaces a failed provider refund or retries an unrelated failure', async () => {
+  const f = fixture({ destination: true })
+  const refund = f.addRefund(4500, 'failed', true)
+  f.request().stripe_refund_id = refund.id
+  f.request().last_error_code = 'payment_capture_pending'
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'failed')
+  assert.equal(f.posts.length, 0)
+  const other = fixture({ destination: true })
+  other.request().state = 'failed'
+  other.request().last_error_code = 'balance_insufficient'
+  await other.reconcile({ resumeCapture: true })
+  assert.equal(other.posts.length, 0)
+})
+
+test('waiting capture events preserve pending claim without a Stripe POST until both objects exist', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'pending')
+  assert.equal(f.posts.length, 0)
+  assert.equal(f.request().last_error_code, 'payment_capture_pending')
+})
+
+test('an async destination capture may have its automatic transfer group before transfer materializes', async () => {
+  const f = asyncDestinationFixture()
+  f.charge.transfer_group = 'group_pi_synthetic'
+  assert.equal((await f.process()).state, 'pending')
+  assert.equal(f.posts.length, 0)
+  f.charge.transfer = 'tr_synthetic'
+  f.charge.application_fee = 'fee_synthetic'
+  f.charge.balance_transaction = 'txn_payment'
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  assert.equal(f.posts.length, 1)
+})
+
+test('synchronous missing fee/transfer and mismatched async ownership fail closed', async () => {
+  const synchronous = fixture({ destination: true })
+  synchronous.intent.capture_method = 'automatic'
+  synchronous.intent.application_fee_amount = 450
+  synchronous.charge.application_fee = null
+  assert.equal((await synchronous.process()).state, 'failed')
+  assert.equal(synchronous.posts.length, 0)
+  const mismatched = asyncDestinationFixture()
+  mismatched.intent.transfer_data = { destination: 'acct_foreign' }
+  assert.equal((await mismatched.process()).state, 'failed')
+  assert.equal(mismatched.posts.length, 0)
 })

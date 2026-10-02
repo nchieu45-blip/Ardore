@@ -10,7 +10,8 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText
 
-function fixture({ booking: changes = {}, reconciliationFailure = false, chargeRefunded = true } = {}) {
+function fixture({ booking: changes = {}, reconciliationFailure = false, chargeRefunded = true,
+  captureMetadata = { checkout_type: 'coaching_session' }, chargeReadFailure = false } = {}) {
   const booking = {
     id: 'booking-synthetic', buyer_id: 'buyer-synthetic', creator_id: 'creator-synthetic',
     status: 'cancelled', payment_status: 'paid', refund_status: 'pending',
@@ -24,6 +25,7 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
   let confirmed = 0
   let event
   let failReconciliation = reconciliationFailure
+  let failChargeRead = chargeReadFailure
   const service = {
     from(table) {
       assert.ok(['bookings', 'stripe_webhook_events', 'purchases'].includes(table))
@@ -65,17 +67,21 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
       webhooks: { constructEvent: () => event },
       charges: { retrieve: async id => {
         retrievedCharges.push(id)
-        return { id, payment_intent: 'pi_synthetic', refunded: chargeRefunded, amount_refunded: chargeRefunded ? 4100 : 0 }
+        if (failChargeRead) { failChargeRead = false; throw new Error('Synthetic charge retrieval outage') }
+        return { id, metadata: captureMetadata, payment_intent: 'pi_synthetic', refunded: chargeRefunded, amount_refunded: chargeRefunded ? 4100 : 0 }
       } },
-      refunds: { create() { throw new Error('A webhook must never create a refund') } },
+      refunds: { create() { throw new Error('Webhook route must never directly create a refund') } },
     } },
     '@/lib/supabase/server': { createServiceClient: async () => service },
     '@/lib/coaching-refund': { reconcileCoachingRefund: async input => {
       assert.equal(input.service, service)
-      reconciliations.push({ paymentIntentId: input.paymentIntentId, stripeLivemode: input.stripeLivemode })
+      reconciliations.push({ paymentIntentId: input.paymentIntentId, stripeLivemode: input.stripeLivemode,
+        ...(input.resumeCapture !== undefined ? { resumeCapture: input.resumeCapture } : {}) })
       if (failReconciliation) { failReconciliation = false; throw new Error('Synthetic provider outage') }
       // The actual provider/RPC reconciler has its own regression tests. This
-      // boundary spy intentionally makes no booking writes from event data.
+      // boundary spy intentionally makes no booking writes from event data. The
+      // explicit resumeCapture path is permitted only by the actual reconciler's
+      // durable pending-capture cancellation checks, never by the event itself.
       return { refundStatus: 'pending' }
     } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async id => {
@@ -205,4 +211,90 @@ test('a malformed won-dispute event without a current charge cannot restore paid
   assert.equal((await state.run('charge.dispute.closed', { payment_intent: 'pi_synthetic', status: 'won' })).status, 500)
   assert.deepEqual(state.writes, [])
   assert.equal(state.booking.payment_status, 'disputed')
+})
+
+function captureEvent(type, metadata = { checkout_type: 'coaching_session', booking_id: 'booking-synthetic' }) {
+  if (type === 'charge.updated') return { id: 'ch_capture', payment_intent: 'pi_synthetic', metadata }
+  if (type === 'transfer.created') return { id: 'tr_capture', source_transaction: 'ch_capture' }
+  return { id: 'fee_capture', originating_transaction: 'ch_capture' }
+}
+
+for (const type of ['charge.updated', 'transfer.created', 'application_fee.created']) {
+  test(`${type} resumes the trusted pending-capture path without writes from event data`, async () => {
+    const state = fixture()
+    assert.equal((await state.run(type, captureEvent(type))).status, 200)
+    assert.deepEqual(state.reconciliations, [{ paymentIntentId: 'pi_synthetic', stripeLivemode: false, resumeCapture: true }])
+    assert.deepEqual(state.retrievedCharges, type === 'charge.updated' ? [] : ['ch_capture'])
+    assert.deepEqual(state.writes, [])
+    assert.equal(state.booking.status, 'cancelled')
+    assert.equal(state.booking.payment_status, 'paid')
+  })
+
+  test(`${type} repeated deliveries resume once and use the existing claim`, async () => {
+    const state = fixture()
+    const object = captureEvent(type)
+    assert.equal((await state.run(type, object, 'evt_capture_repeat')).status, 200)
+    const replay = await state.run(type, object, 'evt_capture_repeat')
+    assert.equal(replay.status, 200)
+    assert.equal((await replay.json()).duplicate, true)
+    assert.equal(state.reconciliations.length, 1)
+    assert.deepEqual(state.writes, [])
+  })
+
+  test(`${type} reconciliation failure releases the event and retries safely`, async () => {
+    const state = fixture({ reconciliationFailure: true })
+    const object = captureEvent(type)
+    assert.equal((await state.run(type, object, 'evt_capture_retry')).status, 500)
+    assert.equal(state.ledger.has('evt_capture_retry'), false)
+    assert.equal((await state.run(type, object, 'evt_capture_retry')).status, 200)
+    assert.equal(state.reconciliations.length, 2)
+    assert.equal(state.reconciliations.every(call => call.resumeCapture === true), true)
+    assert.deepEqual(state.writes, [])
+  })
+
+  test(`${type} ignores unrelated purchases and payments without coaching metadata`, async () => {
+    for (const metadata of [{}, { checkout_type: 'product_purchase' }]) {
+      const state = fixture({ captureMetadata: metadata })
+      assert.equal((await state.run(type, captureEvent(type, metadata))).status, 200)
+      assert.deepEqual(state.reconciliations, [])
+      assert.deepEqual(state.writes, [])
+    }
+  })
+}
+
+test('capture continuation resolves expanded charge and payment references safely', async () => {
+  const transfer = fixture()
+  assert.equal((await transfer.run('transfer.created', { id: 'tr_capture', source_transaction: { id: 'ch_capture' } })).status, 200)
+  assert.deepEqual(transfer.retrievedCharges, ['ch_capture'])
+  const fee = fixture()
+  assert.equal((await fee.run('application_fee.created', { id: 'fee_capture', originating_transaction: { id: 'ch_capture' } })).status, 200)
+  assert.deepEqual(fee.retrievedCharges, ['ch_capture'])
+  const charge = fixture()
+  assert.equal((await charge.run('charge.updated', { id: 'ch_capture', payment_intent: { id: 'pi_synthetic' }, metadata: { checkout_type: 'coaching_session' } })).status, 200)
+  assert.deepEqual(charge.reconciliations, [{ paymentIntentId: 'pi_synthetic', stripeLivemode: false, resumeCapture: true }])
+})
+
+test('capture events with no attributable charge or payment cannot resume cancellation', async () => {
+  for (const [type, object] of [
+    ['transfer.created', { id: 'tr_other', source_transaction: null }],
+    ['application_fee.created', { id: 'fee_other', originating_transaction: null }],
+    ['charge.updated', { id: 'ch_other', payment_intent: null, metadata: { checkout_type: 'coaching_session' } }],
+  ]) {
+    const state = fixture()
+    assert.equal((await state.run(type, object)).status, 200)
+    assert.deepEqual(state.reconciliations, [])
+    assert.deepEqual(state.writes, [])
+  }
+})
+
+test('capture source-charge retrieval errors release event claim rather than swallow failures', async () => {
+  for (const type of ['transfer.created', 'application_fee.created']) {
+    const state = fixture({ chargeReadFailure: true })
+    const object = captureEvent(type)
+    assert.equal((await state.run(type, object, 'evt_capture_read_retry')).status, 500)
+    assert.equal(state.ledger.has('evt_capture_read_retry'), false)
+    assert.deepEqual(state.reconciliations, [])
+    assert.equal((await state.run(type, object, 'evt_capture_read_retry')).status, 200)
+    assert.equal(state.reconciliations.length, 1)
+  }
 })

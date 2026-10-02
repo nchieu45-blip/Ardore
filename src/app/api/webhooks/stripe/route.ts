@@ -221,6 +221,33 @@ export async function POST(req: NextRequest) {
       break
     }
 
+    case 'charge.updated':
+    case 'transfer.created':
+    case 'application_fee.created': {
+      // automatic_async can confirm a payment before its transfer/application
+      // fee exists. These signed events resume only the durable cancellation
+      // claim; the reconciler verifies current ownership and controls eligibility.
+      let charge: Stripe.Charge | null = null
+      if (event.type === 'charge.updated') {
+        charge = event.data.object as Stripe.Charge
+      } else {
+        const sourceCharge = event.type === 'transfer.created'
+          ? (event.data.object as Stripe.Transfer).source_transaction
+          : (event.data.object as Stripe.ApplicationFee).originating_transaction
+        const chargeId = typeof sourceCharge === 'string' ? sourceCharge : sourceCharge?.id
+        if (chargeId) charge = await stripe.charges.retrieve(chargeId)
+      }
+      if (charge?.metadata?.checkout_type !== 'coaching_session') break
+      const paymentIntentId = typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent?.id ?? null
+      if (paymentIntentId) {
+        await reconcileCoachingRefund({ service: supabase, paymentIntentId,
+          stripeLivemode: event.livemode, resumeCapture: true })
+      }
+      break
+    }
+
     case 'charge.dispute.created': {
       const dispute = event.data.object as Stripe.Dispute & { payment_intent?: string | Stripe.PaymentIntent | null }
       const paymentIntentId = typeof dispute.payment_intent === 'string'

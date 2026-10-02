@@ -29,6 +29,7 @@ export interface CoachingRefundRequest {
   transfer_reversal_ids?: string[]
   application_fee_refund_ids?: string[]
   transfer_status?: CoachingTransferStatus
+  last_error_code?: string | null
 }
 
 export interface CoachingRefundResult {
@@ -48,6 +49,7 @@ interface ProviderSnapshot {
   transfer: Stripe.Transfer | null
   applicationFee: Stripe.ApplicationFee | null
   actualPaid: number
+  accountingPending: boolean
 }
 
 class RefundValidationError extends Error {
@@ -113,11 +115,24 @@ async function providerSnapshot(booking: CoachingRefundBooking): Promise<Provide
 
   const transferId = objectId(charge.transfer)
   const destination = objectId(charge.transfer_data?.destination)
-  if (Boolean(destination) !== Boolean(transferId) || objectId(intent.transfer_data?.destination) !== destination
-    || (!transferId && charge.transfer_group) || charge.source_transfer) {
+  const feeId = objectId(charge.application_fee)
+  const expectedFee = intent.application_fee_amount ?? 0
+  if (!Number.isSafeInteger(expectedFee) || expectedFee < 0 || expectedFee > actualPaid) {
+    throw new RefundValidationError('application_fee_amount_mismatch')
+  }
+  // automatic_async reports a captured payment before its Connect transfer and
+  // fee exist. Preserve the authorised cancellation claim until Stripe supplies
+  // both objects; refunding now could leave a coach transfer/fee unreconciled.
+  const accountingPending = intent.capture_method === 'automatic_async' && Boolean(destination)
+    && (!transferId || (expectedFee > 0 && !feeId))
+  if ((Boolean(destination) !== Boolean(transferId) && !accountingPending) || objectId(intent.transfer_data?.destination) !== destination
+    || (!transferId && charge.transfer_group && !accountingPending) || charge.source_transfer) {
     // Ardore currently creates platform/destination charges, never independent
     // transfer groups or direct charges. Unknown architectures fail closed.
     throw new RefundValidationError('unsupported_transfer_architecture')
+  }
+  if (expectedFee > 0 && !feeId && !accountingPending) {
+    throw new RefundValidationError('application_fee_not_available')
   }
   const transfer = transferId ? await stripe.transfers.retrieve(transferId) : null
   if (transfer && (objectId(transfer.source_transaction) !== charge.id || objectId(transfer.destination) !== destination
@@ -125,18 +140,18 @@ async function providerSnapshot(booking: CoachingRefundBooking): Promise<Provide
     || transfer.amount > actualPaid || transfer.amount_reversed < 0 || transfer.amount_reversed > transfer.amount)) {
     throw new RefundValidationError('transfer_ownership_mismatch')
   }
-  const feeId = objectId(charge.application_fee)
   const applicationFee = feeId ? await stripe.applicationFees.retrieve(feeId) : null
-  if (applicationFee && (!transfer || objectId(applicationFee.originating_transaction) !== charge.id
+  if (applicationFee && ((!transfer && !accountingPending) || objectId(applicationFee.originating_transaction) !== charge.id
     || objectId(applicationFee.account) !== destination || applicationFee.livemode !== charge.livemode
     || applicationFee.currency !== charge.currency || applicationFee.amount > actualPaid
     || applicationFee.amount_refunded > applicationFee.amount)) {
     throw new RefundValidationError('application_fee_ownership_mismatch')
   }
-  return { checkedAt, intent, charge, refunds, transfer, applicationFee, actualPaid }
+  return { checkedAt, intent, charge, refunds, transfer, applicationFee, actualPaid, accountingPending }
 }
 
 function transferStatus(snapshot: ProviderSnapshot): CoachingTransferStatus {
+  if (snapshot.accountingPending) return 'pending'
   if (!snapshot.transfer) return 'not_required'
   const { reserved } = refundTotals(snapshot)
   const requiredReversal = Math.floor(snapshot.transfer.amount * reserved / snapshot.actualPaid)
@@ -199,9 +214,11 @@ async function persistSnapshot(service: SupabaseClient, booking: CoachingRefundB
   const transfer = transferStatus(snapshot)
   const complete = totals.succeeded === snapshot.actualPaid
   const failed = refund && ['failed', 'canceled'].includes(refund.status ?? '')
-  const state: CoachingRefundState = transfer === 'failed' ? 'failed' : complete ? 'succeeded' : failed ? 'failed' : 'pending'
+  const state: CoachingRefundState = transfer === 'failed' ? 'failed'
+    : complete && !snapshot.accountingPending ? 'succeeded' : failed ? 'failed' : 'pending'
   const errorCode = transfer === 'failed' ? 'transfer_reconciliation_required'
-    : failed ? safeErrorCode({ code: refund.failure_reason ?? 'stripe_refund_failed' }) : null
+    : failed ? safeErrorCode({ code: refund.failure_reason ?? 'stripe_refund_failed' })
+      : snapshot.accountingPending ? 'payment_capture_pending' : null
   const paymentStatus = complete ? 'refunded' : totals.succeeded > 0 ? 'partially_refunded' : 'paid'
   const feeCosts = request ? await processingCosts(snapshot) : null
   const reversalIds = [...new Set(snapshot.refunds.map(item => objectId(item.transfer_reversal)).filter((id): id is string => Boolean(id)))]
@@ -243,6 +260,7 @@ export async function processCoachingRefund({ service, booking, request }: {
     snapshot = await providerSnapshot(booking)
     const existing = ownedRefund(snapshot, request)
     const totals = refundTotals(snapshot)
+    if (snapshot.accountingPending) return await persistSnapshot(service, booking, request, snapshot)
     if (existing || totals.succeeded === snapshot.actualPaid || totals.reserved !== totals.succeeded) {
       return await persistSnapshot(service, booking, request, snapshot)
     }
@@ -307,11 +325,12 @@ export async function processCoachingRefund({ service, booking, request }: {
   }
 }
 
-/** Webhooks reconcile fresh provider state; they never create a second refund. */
-export async function reconcileCoachingRefund({ service, paymentIntentId, stripeLivemode }: {
+/** Only a durable eligible claim waiting for capture may start its first refund. */
+export async function reconcileCoachingRefund({ service, paymentIntentId, stripeLivemode, resumeCapture = false }: {
   service: SupabaseClient
   paymentIntentId: string
   stripeLivemode: boolean
+  resumeCapture?: boolean
 }): Promise<CoachingRefundResult | null> {
   const { data: booking, error: bookingError } = await service.from('bookings')
     .select('id,buyer_id,creator_id,price_cents,amount_paid_cents,stripe_payment_intent_id,stripe_livemode,status,payment_status')
@@ -320,6 +339,10 @@ export async function reconcileCoachingRefund({ service, paymentIntentId, stripe
   if (!booking) return null
   const { data: request, error: requestError } = await service.from('booking_refunds').select('*').eq('booking_id', booking.id).maybeSingle()
   if (requestError) throw requestError
+  if (resumeCapture && booking.status === 'cancelled' && request?.state === 'pending'
+    && request.last_error_code === 'payment_capture_pending' && !request.stripe_refund_id) {
+    return processCoachingRefund({ service, booking: booking as CoachingRefundBooking, request: request as CoachingRefundRequest })
+  }
   return persistSnapshot(service, booking as CoachingRefundBooking, request as CoachingRefundRequest | null,
     await providerSnapshot(booking as CoachingRefundBooking))
 }

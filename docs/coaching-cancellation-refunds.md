@@ -42,7 +42,13 @@ explicitly pending and does not reduce customer refunds.
 Booking status remains `cancelled`; payment status becomes `refunded` only after
 Stripe confirms success. Pending and failed refunds remain visible separately.
 Fresh `charge.refunded`, `refund.created`, `refund.updated` and `refund.failed`
-events reconcile provider state without creating refunds. Provider observation
+events reconcile provider state without creating refunds. For `automatic_async`
+Connect captures, missing transfer or expected application fee keeps an already
+authorised cancellation `pending` (`payment_capture_pending`), with no refund
+POST until both associated objects exist. Signed `charge.updated`,
+`transfer.created` and `application_fee.created` events can resume only that
+durable cancelled-booking claim and reuse its idempotency key. They cannot create
+a cancellation claim or replace a failed provider refund. Provider observation
 timestamps protect against stale concurrent responses; an API outage cannot
 replace a confirmed refund with an old paid state. Stripe webhook event IDs also
 protect duplicate deliveries.
