@@ -469,9 +469,43 @@ test('capture-resume permanent refund rejection still records failed without aut
   assert.equal(f.request().last_error_code, 'balance_insufficient')
   assert.equal(f.posts.length, 1)
   assert.equal(f.refunds.length, 0)
-  await f.reconcile({ resumeCapture: true })
+  for (let event = 0; event < 2; event++) {
+    assert.equal((await f.reconcile({ resumeCapture: true })).state, 'failed')
+    assert.equal(f.request().last_error_code, 'balance_insufficient')
+    assert.equal(f.request().stripe_refund_id, null)
+  }
   assert.equal(f.posts.length, 1)
   assert.equal(f.refunds.length, 0)
+  f.setFailure(undefined)
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.posts.length, 2)
+  assert.equal(f.refunds.length, 1)
+  assert.equal(f.posts[0].requestOptions.idempotencyKey, f.posts[1].requestOptions.idempotencyKey)
+  await f.reconcile({ resumeCapture: true })
+  assert.equal(f.posts.length, 2)
+  assert.equal(f.refunds.length, 1)
+})
+
+test('read-only reconciliation discovers an accepted owned refund despite a prior failed request', async () => {
+  const f = fixture({ destination: true })
+  f.request().state = 'failed'; f.request().last_error_code = 'stripe_refund_request_failed'
+  const refund = f.addRefund(4500, 'succeeded', true)
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  assert.equal(f.request().stripe_refund_id, refund.id)
+  assert.equal(f.request().last_error_code, null)
+  assert.equal(f.posts.length, 0)
+})
+
+test('read-only reconciliation preserves full external refund and transfer accounting after request failure', async () => {
+  const f = fixture({ destination: true })
+  f.request().state = 'failed'; f.request().last_error_code = 'balance_insufficient'
+  f.addRefund(4500, 'succeeded', false)
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  assert.equal(f.request().last_error_code, null)
+  assert.equal(f.request().transfer_status, 'succeeded')
+  assert.equal(f.booking.payment_status, 'refunded')
+  assert.equal(f.booking.amount_refunded_cents, 4500)
+  assert.equal(f.posts.length, 0)
 })
 
 test('an async destination capture may have its automatic transfer group before transfer materializes', async () => {

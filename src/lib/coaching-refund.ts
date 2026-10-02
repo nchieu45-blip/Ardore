@@ -225,15 +225,21 @@ function authoritativeResult(data: unknown, fallback: CoachingRefundResult): Coa
 }
 
 async function persistSnapshot(service: SupabaseClient, booking: CoachingRefundBooking,
-  request: CoachingRefundRequest | null, snapshot: ProviderSnapshot): Promise<CoachingRefundResult> {
+  request: CoachingRefundRequest | null, snapshot: ProviderSnapshot,
+  preserveUnsubmittedFailure = false): Promise<CoachingRefundResult> {
   const totals = refundTotals(snapshot)
   const refund = request ? ownedRefund(snapshot, request) : null
   const transfer = transferStatus(snapshot)
   const complete = totals.succeeded === snapshot.actualPaid
   const failed = refund && ['failed', 'canceled'].includes(refund.status ?? '')
+  // A later event can observe the payment without observing an accepted refund.
+  // Keep the rejected request actionable; only an explicit cancellation retry
+  // may restart it. An accepted own refund or full external refund still wins.
+  const unsubmittedFailure = preserveUnsubmittedFailure && request?.state === 'failed' && !refund && !complete
   const state: CoachingRefundState = transfer === 'failed' ? 'failed'
-    : complete && !snapshot.accountingPending ? 'succeeded' : failed ? 'failed' : 'pending'
-  const errorCode = transfer === 'failed' ? 'transfer_reconciliation_required'
+    : unsubmittedFailure ? 'failed' : complete && !snapshot.accountingPending ? 'succeeded' : failed ? 'failed' : 'pending'
+  const errorCode = unsubmittedFailure ? request.last_error_code ?? 'stripe_refund_failed'
+    : transfer === 'failed' ? 'transfer_reconciliation_required'
     : failed ? safeErrorCode({ code: refund.failure_reason ?? 'stripe_refund_failed' })
       : snapshot.accountingPending ? 'payment_capture_pending' : null
   const paymentStatus = complete ? 'refunded' : totals.succeeded > 0 ? 'partially_refunded' : 'paid'
@@ -368,5 +374,5 @@ export async function reconcileCoachingRefund({ service, paymentIntentId, stripe
       request: request as CoachingRefundRequest, resumeCapture: true })
   }
   return persistSnapshot(service, booking as CoachingRefundBooking, request as CoachingRefundRequest | null,
-    await providerSnapshot(booking as CoachingRefundBooking))
+    await providerSnapshot(booking as CoachingRefundBooking), true)
 }
