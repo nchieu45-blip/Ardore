@@ -7,6 +7,10 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import Stripe from 'stripe'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 if (!process.argv.includes('--run-production-synthetic')) {
   console.log('Skipped: requires --run-production-synthetic and local TEST credentials.')
@@ -19,10 +23,11 @@ assert.ok(process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_'), 'TEST key requi
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false, autoRefreshToken: false } })
-const run = `ardore-refund-${randomUUID()}`
+const run = `ardore-refund-${randomUUID().slice(0, 12)}`
 const startedAt = Math.floor(Date.now() / 1000)
 const users = [], bookings = [], intents = [], sessions = []
-let coach, connectedAccount
+let coach, connectedAccount, cliDirectory
+let transferVerification = 'not_run'
 const results = []
 const check = async query => { const result = await query; if (result.error) throw new Error(`Database operation failed: ${result.error.code}`); return result.data }
 const pass = label => { results.push(label); console.log(`PASS ${label}`) }
@@ -30,11 +35,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const id = object => typeof object === 'string' ? object : object?.id
 
 async function syntheticUser(role) {
-  const email = `delivered+${run}-${role}@resend.dev`
+  const email = `delivered+${run}-${role}-${users.length}@resend.dev`
   const password = randomBytes(32).toString('base64url')
   const result = await service.auth.admin.createUser({ email, password, email_confirm: true,
     user_metadata: { role, full_name: 'Synthetic refund verification' } })
-  if (result.error) throw new Error(`Synthetic user creation failed: ${result.error.code}`)
+  if (result.error) throw Object.assign(new Error('Synthetic user creation failed'), { code: result.error.code, authStatus: result.error.status })
   users.push(result.data.user.id)
   const jar = new Map()
   const client = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
@@ -169,6 +174,11 @@ try {
   await verifyFullRefund(ongoing, 'coach')
   pass('coach can abort ongoing not-yet-delivered session with full refund')
 
+  const undelivered = await pay(await booking(buyer, { hours: -3 }))
+  assert.equal((await api('/api/coaching/cancel', coachUser, { bookingId: undelivered.id })).status, 200)
+  await verifyFullRefund(undelivered, 'coach')
+  pass('elapsed appointment time does not prevent full coach refund for an undelivered confirmed booking')
+
   const free = await booking(buyer, { hours: 80, free: true })
   const freeCancel = await api('/api/coaching/cancel', buyer, { bookingId: free.id })
   assert.equal(freeCancel.status, 200); assert.equal(freeCancel.data.refundStatus, 'not_requested')
@@ -188,6 +198,7 @@ try {
 
   // A fresh synthetic TEST connected account validates the live-style
   // destination architecture without altering any coach's Connect configuration.
+  try {
   connectedAccount = await stripe.accounts.create({ type: 'custom', country: 'DE',
     business_type: 'individual', email: coachUser.email,
     capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
@@ -198,6 +209,12 @@ try {
     tos_acceptance: { date: Math.floor(Date.now() / 1000), ip: '127.0.0.1' },
     metadata: { ardore_synthetic_run: run },
   })
+  } catch (error) {
+    if (error.type !== 'StripeInvalidRequestError' || !error.message?.includes("signed up for Connect")) throw error
+    transferVerification = 'not_applicable_connect_not_enabled'
+    console.log('SKIP actual transfer rehearsal: Connect not enabled; deployed TEST checkouts use platform payments.')
+  }
+  if (connectedAccount) {
   const destinationBooking = await pay(await booking(buyer, { hours: 90 }), connectedAccount.id)
   const destCancel = await api('/api/coaching/cancel', coachUser, { bookingId: destinationBooking.id })
   assert.equal(destCancel.status, 200)
@@ -211,23 +228,41 @@ try {
   assert.equal(fee.amount_refunded, fee.amount)
   assert.equal((await api('/api/coaching/cancel', coachUser, { bookingId: destinationBooking.id })).status, 200)
   assert.equal((await stripe.refunds.list({ payment_intent: destinationBooking.stripe_payment_intent_id })).data.length, 1)
+  transferVerification = 'verified'
   pass('actual Stripe TEST destination refund reverses associated transfer and entire application fee exactly once')
+  }
 
   // Provider-generated events, not forged unsigned requests, must reach the app.
   let acceptedEvent = false
+  let acceptedEventId
   for (let attempt = 0; attempt < 18; attempt++) {
     const events = await stripe.events.list({ type: 'charge.refunded', limit: 100 })
     const event = events.data.find(event => event.data.object.metadata?.booking_id === eligible.id)
     if (event) {
       const stored = await check(service.from('stripe_webhook_events').select('event_id').eq('event_id', event.id))
-      if (stored.length === 1) { acceptedEvent = true; break }
+      if (stored.length === 1) { acceptedEvent = true; acceptedEventId = event.id; break }
     }
     await sleep(5000)
   }
   assert.ok(acceptedEvent, 'Provider webhook must be accepted by deployed application')
   pass('Stripe-generated refund webhook accepted by deployed production endpoint')
+  const endpoints = (await stripe.webhookEndpoints.list({ limit: 100 })).data.filter(endpoint =>
+    endpoint.url === `${base}/api/webhooks/stripe` && endpoint.status === 'enabled' && !endpoint.livemode)
+  assert.equal(endpoints.length, 1)
+  cliDirectory = mkdtempSync(join(tmpdir(), 'ardore-refund-cli-'))
+  const replay = spawnSync('stripe', ['events', 'resend', acceptedEventId,
+    '--webhook-endpoint', endpoints[0].id, '--confirm'], {
+    env: { ...process.env, STRIPE_API_KEY: process.env.STRIPE_SECRET_KEY, XDG_CONFIG_HOME: cliDirectory },
+    encoding: 'utf8', timeout: 30000,
+  })
+  // CLI output is intentionally never printed: it can include provider payloads.
+  assert.equal(replay.status, 0, 'Stripe TEST event replay must be accepted')
+  await sleep(5000)
+  assert.equal((await check(service.from('stripe_webhook_events').select('event_id').eq('event_id', acceptedEventId))).length, 1)
+  await verifyFullRefund(eligible, 'platform')
+  pass('actual provider webhook replay leaves one event claim and one full refund')
 } catch (error) {
-  console.error(JSON.stringify({ failedAfter: results.at(-1) ?? 'setup', code: error.code ?? error.name, location: error.stack?.split('\n').find(line => line.includes('test-synthetic-coaching-refunds.mjs:'))?.trim() }))
+  console.error(JSON.stringify({ failedAfter: results.at(-1) ?? 'setup', code: error.code ?? error.name, authStatus: error.authStatus, location: error.stack?.split('\n').find(line => line.includes('test-synthetic-coaching-refunds.mjs:'))?.trim() }))
   process.exitCode = 1
 } finally {
   const cleanupErrors = []
@@ -279,6 +314,7 @@ try {
     }).map(event => event.id)
     if (owned.length) await check(service.from('stripe_webhook_events').delete().in('event_id', owned))
   } catch (error) { cleanupErrors.push(`event_cleanup:${error.code ?? error.name}`) }
-  console.log(JSON.stringify({ passed: results.length, mutableSyntheticDataCleaned: cleanupErrors.length === 0, cleanupErrors }))
+  if (cliDirectory) rmSync(cliDirectory, { recursive: true, force: true })
+  console.log(JSON.stringify({ passed: results.length, transferVerification, mutableSyntheticDataCleaned: cleanupErrors.length === 0, cleanupErrors }))
   if (cleanupErrors.length) process.exitCode = 1
 }

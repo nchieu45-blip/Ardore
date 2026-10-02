@@ -151,7 +151,8 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
   const isLive       = VIDEO_CALLS_ENABLED && b.status === 'confirmed' && hasValidCoachingPayment(b)
     && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
-  const canCancel = b.status === 'confirmed' && endAt.getTime() > now
+  // Completion is explicit; elapsed appointment time alone is not delivery.
+  const canCancel = b.status === 'confirmed'
   const canReschedule = scheduledAt.getTime() > now
   const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const isAboSession = b.is_subscription_session

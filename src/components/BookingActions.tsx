@@ -168,6 +168,9 @@ export default function BookingActions({
                 </p>
               </div>
             </div>
+            {!refundRetry && role === 'creator' && (
+              <p className="mb-4 text-sm text-gray-700">Storniere nur, wenn die gebuchte Leistung noch nicht vollständig erbracht wurde. Abgeschlossene Sessions sind von dieser Stornierung ausgeschlossen.</p>
+            )}
             {!refundRetry && paid && (
               <p className="mb-4 text-sm text-gray-700">Der tatsächlich bezahlte Betrag wird vollständig über die ursprüngliche Zahlungsmethode erstattet. Die Erstattung ist erst abgeschlossen, sobald Stripe sie bestätigt hat.</p>
             )}

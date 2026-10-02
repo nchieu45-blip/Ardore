@@ -208,12 +208,16 @@ for (const [page, role] of [['src/app/buyer/sessions/page.tsx', 'buyer'], ['src/
   })
 }
 
-test('coach can abort an in-progress booking; completed and ended bookings have no cancellation action', async () => {
+test('coach can cancel undelivered confirmed bookings even after appointment time; completed bookings stay excluded', async () => {
   const fixture = sessionFixture([row({ scheduled_at: future(-0.05) })])
   renderToStaticMarkup(await load('src/app/creator/sessions/page.tsx', fixture.modules).default())
   assert.equal(fixture.actions.length, 1)
   assert.equal(fixture.actions[0].canReschedule, false)
-  for (const booking of [row({ status: 'completed' }), row({ scheduled_at: future(-2) })]) {
+  const undelivered = sessionFixture([row({ scheduled_at: future(-2) })])
+  renderToStaticMarkup(await load('src/app/creator/sessions/page.tsx', undelivered.modules).default())
+  assert.equal(undelivered.actions.length, 1)
+  assert.equal(undelivered.actions[0].canReschedule, false)
+  for (const booking of [row({ status: 'completed' }), row({ status: 'completed', scheduled_at: future(-2) })]) {
     const ended = sessionFixture([booking])
     renderToStaticMarkup(await load('src/app/creator/sessions/page.tsx', ended.modules).default())
     assert.equal(ended.actions.length, 0)

@@ -8,9 +8,10 @@ price, duration, description, availability and cutoff edits remain permitted.
 
 Customers may cancel up to their booking's cutoff and receive every actually
 captured cent, including fees. Later cancellation stays refused. Coaches can
-cancel or abort a confirmed session until it has finished and refund the whole
+cancel or abort a confirmed session whose service has not been fully delivered and refund the whole
 customer payment regardless of the customer cutoff. Completed sessions cannot
-enter this cancellation path. Included/zero-price bookings have no Stripe refund.
+enter this cancellation path. Mere passage of the scheduled end time is not
+proof of delivery. Included/zero-price bookings have no Stripe refund.
 
 Historical rows lacking an agreed cutoff remain NULL rather than receiving a
 fabricated current policy. Customer cancellation/rescheduling requires support
@@ -62,3 +63,9 @@ customer/coach refunds, repeated calls, API failure, actual destination transfer
 and fee reversal, and provider webhook acceptance. Stripe payment/refund history
 is immutable; those test entries are marked cleaned while mutable test users,
 bookings, refund rows, checkout reservations and Connect accounts are removed.
+
+The current Stripe account has not activated Connect. Actual destination-transfer
+rehearsal therefore requires Connect setup before live launch. Current deployed
+TEST checkouts have no coach transfer; destination reversal behavior is covered
+by regression tests. The synthetic verifier reports this explicitly and continues
+with actual refund webhook acceptance/replay instead of enabling account features.
