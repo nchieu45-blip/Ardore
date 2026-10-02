@@ -59,7 +59,8 @@ The opt-in `scripts/test-synthetic-coaching-refunds.mjs
 Supabase users and Stripe TEST payments. It requires local service credentials,
 keeps credentials/cookies in memory, and deletes only IDs it created. It covers
 cutoff changes, pricing edits, ownership, late/free/completed cancellation,
-customer/coach refunds, repeated calls, API failure, actual destination transfer
+customer/coach refunds, repeated calls, API failure, real asynchronous bank
+refund failure with no automatic replacement, dashboard status, actual destination transfer
 and fee reversal, and provider webhook acceptance. Stripe payment/refund history
 is immutable; those test entries are marked cleaned while mutable test users,
 bookings, refund rows, checkout reservations and Connect accounts are removed.

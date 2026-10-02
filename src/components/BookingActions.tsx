@@ -16,7 +16,7 @@ export interface BookingRefund {
 export function BookingRefundStatus({ refund }: { refund: BookingRefund | null }) {
   if (!refund || refund.state === 'not_requested') return null
   if (refund.state === 'succeeded') {
-    return <p role="status" className="mt-3 text-sm text-green-700">Deine Erstattung wurde von Stripe bestätigt. Die Gutschrift erfolgt über die ursprüngliche Zahlungsmethode.</p>
+    return <p role="status" className="mt-3 text-sm text-green-700">Die Erstattung wurde von Stripe bestätigt. Die Gutschrift erfolgt über die ursprüngliche Zahlungsmethode.</p>
   }
   if (refund.state === 'failed') {
     return <p role="alert" className="mt-3 text-sm text-red-700">Die Buchung ist abgesagt. Die vollständige Erstattung konnte noch nicht abgeschlossen werden. Bitte versuche es erneut oder kontaktiere den Ardore-Support.</p>

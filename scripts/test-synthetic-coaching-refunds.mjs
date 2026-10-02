@@ -26,7 +26,8 @@ const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.S
 const run = `ardore-refund-${randomUUID().slice(0, 12)}`
 const startedAt = Math.floor(Date.now() / 1000)
 const users = [], bookings = [], intents = [], sessions = []
-let coach, connectedAccount, cliDirectory
+const intentionallyFailedRefundIntents = new Set()
+let coach, connectedAccount, cliDirectory, coachUserIdForCleanup
 let transferVerification = 'not_run'
 const results = []
 const check = async query => { const result = await query; if (result.error) throw new Error(`Database operation failed: ${result.error.code}`); return result.data }
@@ -68,9 +69,9 @@ async function booking(buyer, { hours = 72, free = false, completed = false } = 
   bookings.push(data.id)
   return data
 }
-async function pay(row, destination) {
+async function pay(row, destination, paymentMethod = 'pm_card_visa') {
   const payment = await stripe.paymentIntents.create({ amount: row.price_cents, currency: 'eur',
-    payment_method: 'pm_card_visa', confirm: true, automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+    payment_method: paymentMethod, confirm: true, automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
     metadata: { checkout_type: 'coaching_session', booking_id: row.id, buyer_id: row.buyer_id,
       creator_id: row.creator_id, ardore_synthetic_run: run },
     ...(destination ? { application_fee_amount: 50, transfer_data: { destination } } : {}),
@@ -101,6 +102,7 @@ async function verifyFullRefund(row, owner) {
 try {
   const buyer = await syntheticUser('buyer')
   const coachUser = await syntheticUser('creator')
+  coachUserIdForCleanup = coachUser.userId
   const foreign = await syntheticUser('buyer')
   coach = await check(service.from('creator_profiles').insert({ user_id: coachUser.userId,
     display_name: 'Synthetic refund verification', slug: run }).select('id').single())
@@ -151,6 +153,14 @@ try {
   const repeated = await Promise.all(Array.from({ length: 3 }, () => api('/api/coaching/cancel', buyer, { bookingId: eligible.id })))
   assert.ok(repeated.every(result => result.status === 200))
   await verifyFullRefund(eligible, 'platform')
+  const unavailableProvider = await service.rpc('apply_coaching_refund_state', {
+    p_booking_id: eligible.id, p_state: { state: 'failed', last_error_code: 'synthetic_provider_outage' },
+    p_payment_status: 'paid', p_amount_paid_cents: null, p_amount_refunded_cents: null,
+    p_provider_checked_at: new Date().toISOString(),
+  })
+  assert.equal(unavailableProvider.error, null)
+  assert.equal(unavailableProvider.data.applied, false)
+  await verifyFullRefund(eligible, 'platform')
   const visible = await check(buyer.client.from('booking_refunds').select('booking_id,state,amount_cents').eq('booking_id', eligible.id))
   assert.equal(visible.length, 1)
   assert.ok((await buyer.client.from('booking_refunds').select('processing_fee_cents').eq('booking_id', eligible.id)).error)
@@ -195,6 +205,42 @@ try {
   const failedPayment = await check(service.from('bookings').select('payment_status,amount_refunded_cents').eq('id', unavailable.id).single())
   assert.equal(failedPayment.payment_status, 'paid'); assert.equal(failedPayment.amount_refunded_cents, 0)
   pass('Stripe API failure keeps payment paid and refund failed, without false success')
+
+  // Stripe's documented asynchronous failure test card (ending 5126).
+  // The provider initially succeeds, then emits refund.failed; fresh webhook
+  // reconciliation must remove the false final paid/refunded assumption.
+  const bankFailed = await pay(await booking(buyer, { hours: 88 }), undefined, 'pm_card_refundFail')
+  intentionallyFailedRefundIntents.add(bankFailed.stripe_payment_intent_id)
+  const bankResponse = await api('/api/coaching/cancel', buyer, { bookingId: bankFailed.id })
+  assert.ok([200, 202, 503].includes(bankResponse.status))
+  const bankLedger = await refundState(bankFailed)
+  assert.ok(bankLedger.stripe_refund_id)
+  let bankFailureReconciled = false
+  for (let attempt = 0; attempt < 48; attempt++) {
+    const provider = await stripe.refunds.retrieve(bankLedger.stripe_refund_id)
+    const ledger = await refundState(bankFailed)
+    if (provider.status === 'failed' && ledger.state === 'failed') { bankFailureReconciled = true; break }
+    await sleep(5000)
+  }
+  assert.ok(bankFailureReconciled, 'Stripe-generated refund.failed must reconcile in the deployed app')
+  const afterBankFailure = await check(service.from('bookings').select('status,payment_status,amount_refunded_cents').eq('id', bankFailed.id).single())
+  assert.equal(afterBankFailure.status, 'cancelled'); assert.equal(afterBankFailure.payment_status, 'paid')
+  assert.equal(afterBankFailure.amount_refunded_cents, 0)
+  assert.equal((await api('/api/coaching/cancel', buyer, { bookingId: bankFailed.id })).status, 503)
+  assert.equal((await stripe.refunds.list({ payment_intent: bankFailed.stripe_payment_intent_id })).data.length, 1)
+  pass('actual asynchronous Stripe refund failure reconciles payment and does not generate a replacement refund')
+
+  for (const [path, actor] of [['/buyer/sessions', buyer], ['/creator/sessions', coachUser]]) {
+    const page = await fetch(`${base}${path}`, { headers: { Cookie: actor.cookie() }, redirect: 'manual' })
+    assert.equal(page.status, 200)
+    const html = await page.text()
+    assert.ok(html.includes('Die Erstattung wurde von Stripe bestätigt'))
+    assert.ok(html.includes('Die vollständige Erstattung konnte noch nicht abgeschlossen werden'))
+  }
+  const feeLedger = await refundState(eligible)
+  assert.equal(feeLedger.processing_fee_accounting_status, 'recorded')
+  assert.ok(Number.isInteger(feeLedger.processing_fee_cents) && feeLedger.processing_fee_cents >= 0)
+  pass('buyer/coach production dashboards display confirmed and failed refunds; processing fees remain internal')
 
   // A fresh synthetic TEST connected account validates the live-style
   // destination architecture without altering any coach's Connect configuration.
@@ -275,7 +321,7 @@ try {
       const intent = await stripe.paymentIntents.retrieve(intentId)
       assert.equal(intent.livemode, false); assert.equal(intent.metadata.ardore_synthetic_run, run)
       const charge = await stripe.charges.retrieve(id(intent.latest_charge))
-      if (charge.amount_refunded < charge.amount_captured) {
+      if (charge.amount_refunded < charge.amount_captured && !intentionallyFailedRefundIntents.has(intent.id)) {
         await stripe.refunds.create({ payment_intent: intent.id,
           ...(charge.transfer ? { reverse_transfer: true, refund_application_fee: Boolean(charge.application_fee) } : {}),
           metadata: { ardore_synthetic_run: run, cleanup: 'true' } }, { idempotencyKey: `${run}-${intent.id}-cleanup` })
@@ -289,15 +335,25 @@ try {
     try { await check(service.from('booking_refunds').delete().in('booking_id', bookings)); await check(service.from('bookings').delete().in('id', bookings)) }
     catch (error) { cleanupErrors.push(error.name) }
   }
+  let preserveCoach = false
   if (coach) {
+    // A concurrent real interaction must never be lost through parent cascades.
+    for (const table of ['bookings', 'messages', 'subscriptions']) {
+      const { count, error } = await service.from(table).select('id', { count: 'exact', head: true }).eq('creator_id', coach.id)
+      if (error || (count ?? 0) > 0) preserveCoach = true
+    }
+    if (preserveCoach) cleanupErrors.push('unowned_interaction_preserved_for_review')
+  }
+  if (coach && !preserveCoach) {
     for (const table of ['availability_slots', 'coaching_offers', 'creator_profiles']) {
       try { await check(service.from(table).delete().eq(table === 'creator_profiles' ? 'id' : 'creator_id', coach.id)) }
       catch (error) { cleanupErrors.push(`${table}:${error.name}`) }
     }
   }
   if (users.length) {
-    try { await check(service.from('notifications').delete().in('user_id', users)) } catch (error) { cleanupErrors.push(error.name) }
+    try { await check(service.from('notifications').delete().in('user_id', users.filter(userId => !preserveCoach || userId !== coachUserIdForCleanup))) } catch (error) { cleanupErrors.push(error.name) }
     for (const userId of users) {
+      if (preserveCoach && userId === coachUserIdForCleanup) continue
       try { const result = await service.auth.admin.deleteUser(userId); if (result.error) throw new Error('Auth cleanup failed') }
       catch (error) { cleanupErrors.push(error.name) }
     }

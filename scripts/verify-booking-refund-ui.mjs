@@ -44,7 +44,7 @@ test('refund statuses distinguish acceptance, pending and failure without invent
   assert.doesNotMatch(show('pending'), /wurden.*erstattet|5,00/)
   assert.match(show('failed'), /role="alert".*konnte noch nicht abgeschlossen werden/)
   assert.doesNotMatch(show('failed'), /wurde von Stripe bestätigt/)
-  assert.match(show('succeeded'), /Deine Erstattung wurde von Stripe bestätigt/)
+  assert.match(show('succeeded'), /Die Erstattung wurde von Stripe bestätigt/)
   assert.doesNotMatch(show('succeeded'), /5,00|vollständig erstattet/)
 })
 
