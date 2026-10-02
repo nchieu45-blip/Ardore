@@ -68,6 +68,23 @@ function safeErrorCode(error: unknown): string {
   return typeof code === 'string' && /^[a-z_]{1,80}$/.test(code) ? code : 'stripe_refund_request_failed'
 }
 
+function transientRefundError(error: unknown): boolean {
+  if (error instanceof RefundValidationError || typeof error !== 'object' || error === null) return false
+  const details = error as { code?: unknown; type?: unknown; statusCode?: unknown; message?: unknown }
+  const code = typeof details.code === 'string' ? details.code : ''
+  // Capture events must be retried after a transport/provider/database outage.
+  // Validation errors and rejected refunds remain explicit permanent failures.
+  return ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(String(details.type))
+    || ['api_connection_error', 'api_error', 'rate_limit', '40001', '40P01'].includes(code)
+    || /^(08|53|57P|58)/.test(code) || /^PGRST00[0-3]$/.test(code)
+    || (typeof details.statusCode === 'number' && (details.statusCode === 429 || details.statusCode >= 500))
+    // postgrest-js returns transport errors as plain objects with an empty code.
+    || (!code && typeof details.message === 'string'
+      && /^(?:TypeError:\s*)?(?:fetch failed|failed to fetch|network request failed)(?:[.:\s]|$)/i.test(details.message))
+    || (error instanceof TypeError && typeof details.message === 'string'
+      && /fetch failed|failed to fetch|network/i.test(details.message))
+}
+
 function activeRefund(refund: Stripe.Refund): boolean {
   return !['failed', 'canceled'].includes(refund.status ?? '')
 }
@@ -248,10 +265,11 @@ async function persistSnapshot(service: SupabaseClient, booking: CoachingRefundB
 }
 
 /** Called only after the cancellation RPC has durably claimed this booking. */
-export async function processCoachingRefund({ service, booking, request }: {
+export async function processCoachingRefund({ service, booking, request, resumeCapture = false }: {
   service: SupabaseClient
   booking: CoachingRefundBooking
   request: CoachingRefundRequest
+  resumeCapture?: boolean
 }): Promise<CoachingRefundResult> {
   if (request.booking_id !== booking.id || booking.status !== 'cancelled'
     || request.stripe_payment_intent_id !== booking.stripe_payment_intent_id) throw new RefundValidationError('unclaimed_refund_request')
@@ -273,7 +291,8 @@ export async function processCoachingRefund({ service, booking, request }: {
     const { data: frozenData, error: freezeError } = await service.rpc('apply_coaching_refund_state', {
       p_booking_id: booking.id, p_state: { state: 'pending', amount_cents: amount,
         stripe_payment_intent_id: snapshot.intent.id, stripe_livemode: snapshot.intent.livemode,
-        transfer_status: snapshot.transfer ? 'pending' : 'not_required', last_error_code: null },
+        transfer_status: snapshot.transfer ? 'pending' : 'not_required',
+        last_error_code: resumeCapture ? 'payment_capture_pending' : null },
       p_payment_status: totals.succeeded > 0 ? 'partially_refunded' : 'paid',
       p_amount_refunded_cents: totals.succeeded, p_amount_paid_cents: snapshot.actualPaid,
       p_provider_checked_at: snapshot.checkedAt,
@@ -306,6 +325,10 @@ export async function processCoachingRefund({ service, booking, request }: {
       }
       snapshot = current
     } catch { /* Preserve the durable request for a later retry/webhook. */ }
+    // Keep the authorised capture claim resumable and let the webhook release
+    // its event claim for delivery retry. The frozen amount/idempotency key also
+    // cover a timeout after Stripe accepted the refund but before persistence.
+    if (resumeCapture && transientRefundError(error)) throw error
     const code = safeErrorCode(error)
     const { data: failureData, error: saveError } = await service.rpc('apply_coaching_refund_state', {
       p_booking_id: booking.id,
@@ -341,7 +364,8 @@ export async function reconcileCoachingRefund({ service, paymentIntentId, stripe
   if (requestError) throw requestError
   if (resumeCapture && booking.status === 'cancelled' && request?.state === 'pending'
     && request.last_error_code === 'payment_capture_pending' && !request.stripe_refund_id) {
-    return processCoachingRefund({ service, booking: booking as CoachingRefundBooking, request: request as CoachingRefundRequest })
+    return processCoachingRefund({ service, booking: booking as CoachingRefundBooking,
+      request: request as CoachingRefundRequest, resumeCapture: true })
   }
   return persistSnapshot(service, booking as CoachingRefundBooking, request as CoachingRefundRequest | null,
     await providerSnapshot(booking as CoachingRefundBooking))

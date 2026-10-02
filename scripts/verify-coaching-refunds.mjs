@@ -31,6 +31,10 @@ function fixture(options = {}) {
   const rpcCalls = []
   let createFailure = options.createFailure
   let refundStatus = options.refundStatus ?? 'succeeded'
+  let failedProviderReads = 0
+  let failedPersistWrites = 0
+  let failedPersistState
+  let persistWriteError = { code: '08006' }
 
   function addRefund(amount, status = 'succeeded', own = false) {
     const refund = { id: `re_synthetic_${refunds.length + 1}`, charge: charge.id, payment_intent: intent.id, amount,
@@ -57,6 +61,10 @@ function fixture(options = {}) {
     async rpc(name, parameters) {
       assert.equal(name, 'apply_coaching_refund_state')
       rpcCalls.push(structuredClone(parameters))
+      if (failedPersistWrites > 0 && (!failedPersistState || parameters.p_state?.state === failedPersistState)) {
+        failedPersistWrites -= 1
+        return { data: null, error: persistWriteError }
+      }
       if (parameters.p_state && request) {
         if (request.amount_cents !== null && parameters.p_state.amount_cents !== undefined
           && parameters.p_state.amount_cents !== null && request.amount_cents !== parameters.p_state.amount_cents) {
@@ -71,7 +79,14 @@ function fixture(options = {}) {
     },
   }
   const fakeStripe = {
-    paymentIntents: { retrieve: async id => { assert.equal(id, intent.id); return structuredClone(intent) } },
+    paymentIntents: { retrieve: async id => {
+      assert.equal(id, intent.id)
+      if (failedProviderReads > 0) {
+        failedProviderReads -= 1
+        throw { code: 'api_connection_error', type: 'StripeConnectionError' }
+      }
+      return structuredClone(intent)
+    } },
     charges: { retrieve: async id => { assert.equal(id, charge.id); return structuredClone(charge) } },
     refunds: {
       list: parameters => { assert.equal(parameters.charge, charge.id); return { autoPagingToArray: async () => structuredClone(refunds) } },
@@ -98,6 +113,10 @@ function fixture(options = {}) {
   }, loadedModule.exports, loadedModule, { env: { STRIPE_SECRET_KEY: options.liveKey ? 'sk_live_synthetic' : 'sk_test_synthetic' } })
   return { booking, intent, charge, transfer, applicationFee, refunds, posts, rpcCalls, addRefund,
     request: () => request,
+    failProviderReads: count => { failedProviderReads = count },
+    failPersistWrites: (count, state, error = { code: '08006' }) => {
+      failedPersistWrites = count; failedPersistState = state; persistWriteError = error
+    },
     setFailure: value => { createFailure = value }, setStatus: value => { refundStatus = value },
     process: () => loadedModule.exports.processCoachingRefund({ service: database, booking: structuredClone(booking), request: structuredClone(request) }),
     reconcile: (options = {}) => loadedModule.exports.reconcileCoachingRefund({ service: database, paymentIntentId: intent.id, stripeLivemode: false,
@@ -370,6 +389,89 @@ test('waiting capture events preserve pending claim without a Stripe POST until 
   assert.equal((await f.reconcile({ resumeCapture: true })).state, 'pending')
   assert.equal(f.posts.length, 0)
   assert.equal(f.request().last_error_code, 'payment_capture_pending')
+})
+
+test('capture-resume Stripe GET outage preserves the claim and a later event refunds exactly once', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  f.charge.transfer = 'tr_synthetic'; f.charge.application_fee = 'fee_synthetic'
+  f.failProviderReads(2)
+  await assert.rejects(f.reconcile({ resumeCapture: true }), error => error.code === 'api_connection_error')
+  assert.equal(f.request().state, 'pending')
+  assert.equal(f.request().last_error_code, 'payment_capture_pending')
+  assert.equal(f.posts.length, 0)
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  await f.reconcile({ resumeCapture: true })
+  assert.equal(f.posts.length, 1)
+})
+
+test('capture-resume freeze outage retains eligibility for a successful event retry', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  f.charge.transfer = 'tr_synthetic'; f.charge.application_fee = 'fee_synthetic'
+  f.failPersistWrites(1, 'pending')
+  await assert.rejects(f.reconcile({ resumeCapture: true }), error => error.code === '08006')
+  assert.equal(f.request().state, 'pending')
+  assert.equal(f.request().last_error_code, 'payment_capture_pending')
+  assert.equal(f.posts.length, 0)
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  await f.reconcile({ resumeCapture: true })
+  assert.equal(f.posts.length, 1)
+})
+
+test('capture-resume persist outage after Stripe acceptance retries reconciliation without another refund', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  f.charge.transfer = 'tr_synthetic'; f.charge.application_fee = 'fee_synthetic'
+  f.failPersistWrites(2, 'succeeded')
+  await assert.rejects(f.reconcile({ resumeCapture: true }), error => error.code === '08006')
+  assert.equal(f.request().state, 'pending')
+  assert.equal(f.request().last_error_code, 'payment_capture_pending')
+  assert.equal(f.request().amount_cents, 4500)
+  assert.equal(f.posts.length, 1)
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  await f.reconcile({ resumeCapture: true })
+  assert.equal(f.posts.length, 1)
+  assert.equal(f.refunds.length, 1)
+})
+
+test('capture-resume postgrest-js plain transport failure retries without replacing an accepted refund', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  f.charge.transfer = 'tr_synthetic'; f.charge.application_fee = 'fee_synthetic'
+  f.failPersistWrites(2, 'succeeded', { code: '', message: 'TypeError: fetch failed', details: 'TypeError: fetch failed', hint: '' })
+  await assert.rejects(f.reconcile({ resumeCapture: true }), error => error.code === '')
+  assert.equal(f.request().state, 'pending')
+  assert.equal(f.request().last_error_code, 'payment_capture_pending')
+  assert.equal(f.posts.length, 1)
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'succeeded')
+  await f.reconcile({ resumeCapture: true })
+  assert.equal(f.posts.length, 1)
+  assert.equal(f.refunds.length, 1)
+})
+
+test('capture-resume permanent ownership validation still fails closed without a refund', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  f.charge.transfer = 'tr_synthetic'; f.charge.application_fee = 'fee_synthetic'
+  f.charge.metadata = { ...f.charge.metadata, buyer_id: 'different-buyer' }
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'failed')
+  assert.equal(f.request().last_error_code, 'payment_ownership_or_state_mismatch')
+  assert.equal(f.posts.length, 0)
+})
+
+test('capture-resume permanent refund rejection still records failed without automatic replacement', async () => {
+  const f = asyncDestinationFixture()
+  await f.process()
+  f.charge.transfer = 'tr_synthetic'; f.charge.application_fee = 'fee_synthetic'
+  f.setFailure('before')
+  assert.equal((await f.reconcile({ resumeCapture: true })).state, 'failed')
+  assert.equal(f.request().last_error_code, 'balance_insufficient')
+  assert.equal(f.posts.length, 1)
+  assert.equal(f.refunds.length, 0)
+  await f.reconcile({ resumeCapture: true })
+  assert.equal(f.posts.length, 1)
+  assert.equal(f.refunds.length, 0)
 })
 
 test('an async destination capture may have its automatic transfer group before transfer materializes', async () => {
