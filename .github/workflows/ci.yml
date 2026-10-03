@@ -42,7 +42,7 @@ jobs:
         run: npx tsc --noEmit --incremental false
 
       - name: Regression tests
-        run: node --test scripts/verify-coaching-refunds.mjs scripts/verify-coaching-cancellation.mjs scripts/verify-coaching-refund-webhooks.mjs scripts/verify-booking-refund-ui.mjs scripts/verify-purchase-receipts.mjs scripts/verify-subscription-authority.mjs scripts/verify-checkout-authority.mjs scripts/verify-product-download-authority.mjs scripts/verify-group-entitlement.mjs scripts/verify-stripe-connect-authority.mjs
+        run: node --test scripts/verify-coaching-payment-lifecycle.mjs scripts/verify-coaching-checkout-retry.mjs scripts/verify-coaching-payment.mjs scripts/verify-booking-slots.mjs scripts/verify-coaching-payment-recovery.mjs scripts/verify-coaching-refunds.mjs scripts/verify-coaching-cancellation.mjs scripts/verify-coaching-refund-webhooks.mjs scripts/verify-booking-refund-ui.mjs scripts/verify-purchase-receipts.mjs scripts/verify-subscription-authority.mjs scripts/verify-checkout-authority.mjs scripts/verify-product-download-authority.mjs scripts/verify-group-entitlement.mjs scripts/verify-stripe-connect-authority.mjs
 
       - name: Build
         run: npm run build

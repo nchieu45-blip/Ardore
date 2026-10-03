@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { addDaysToDateString, berlinDateTimeToIso, currentBerlinDateString, getWindowsForDate, generateSlots, isValidDateString } from '@/lib/coaching-slots'
 import { getAuthorizedExcludedBookingDuration } from '@/lib/coaching-booking'
+import { reconcileExpiredCoachingReservations } from '@/lib/coaching-payment-lifecycle'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -25,6 +26,12 @@ export async function GET(req: NextRequest) {
     }
   }
   const service = await createServiceClient()
+  try {
+    const recovery = await reconcileExpiredCoachingReservations({ service, creatorId, limit: 10 })
+    if (recovery.failed || recovery.unresolved) throw new Error('Unresolved payment reservation')
+  } catch {
+    return NextResponse.json({ error: 'Verfügbarkeit konnte nicht sicher geprüft werden' }, { status: 503 })
+  }
   const utcStart = berlinDateTimeToIso(date, '00:00')
   const utcEnd = berlinDateTimeToIso(addDaysToDateString(date, 1), '00:00')
   if (!utcStart || !utcEnd) return NextResponse.json({ error: 'Ungültiges Datum' }, { status: 400 })

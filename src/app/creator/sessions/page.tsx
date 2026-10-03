@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import BookingActions, { BookingRefundStatus, type BookingRefund } from '@/components/BookingActions'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
+import { BookingPaymentReconciliationStatus } from '@/components/BookingPaymentActions'
 
 export const metadata: Metadata = { title: 'Meine Buchungen' }
 
@@ -39,6 +40,7 @@ interface BookingRow {
   status: string
   notes: string | null
   payment_status: string
+  refund_status: string
   stripe_livemode: boolean | null
 }
 
@@ -56,7 +58,7 @@ export default async function CreatorSessionsPage() {
 
   const bookingsRes = await supabase
     .from('bookings')
-    .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, notes, payment_status, stripe_livemode')
+    .select('id, buyer_name, buyer_email, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, notes, payment_status, refund_status, stripe_livemode')
     .eq('creator_id', creator.id)
     .order('scheduled_at', { ascending: false })
 
@@ -218,6 +220,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
         </Link>
       </div>
       <BookingRefundStatus refund={refund} />
+      {!refund && b.refund_status && b.refund_status !== 'not_requested' && <BookingPaymentReconciliationStatus state={b.refund_status} />}
       {(canCancel || (b.status === 'cancelled' && (refund?.state === 'pending' || refund?.state === 'failed'))) && (
         <BookingActions
           bookingId={b.id}

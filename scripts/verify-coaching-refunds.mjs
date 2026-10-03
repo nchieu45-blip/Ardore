@@ -9,7 +9,10 @@ const compiled = ts.transpileModule(source, {
 }).outputText
 
 function fixture(options = {}) {
-  const metadata = { checkout_type: 'coaching_session', booking_id: 'synthetic-booking', buyer_id: 'synthetic-buyer', creator_id: 'synthetic-creator' }
+  const metadata = { checkout_type: 'coaching_session', booking_id: 'synthetic-booking', buyer_id: 'synthetic-buyer', creator_id: 'synthetic-creator',
+    ...(options.target && !options.target.legacyCheckout ? { payment_attempt_id: options.target.attemptId } : {}) }
+  const claimKey = options.target ? `ardore-coaching-reconciliation-${options.target.attemptId}-v1`
+    : 'ardore-booking-refund-synthetic-booking-v1'
   const booking = { id: metadata.booking_id, buyer_id: metadata.buyer_id, creator_id: metadata.creator_id,
     price_cents: 4500, amount_paid_cents: 4500, stripe_payment_intent_id: 'pi_synthetic', stripe_livemode: false,
     status: 'cancelled', payment_status: 'paid', amount_refunded_cents: 0 }
@@ -38,7 +41,7 @@ function fixture(options = {}) {
 
   function addRefund(amount, status = 'succeeded', own = false) {
     const refund = { id: `re_synthetic_${refunds.length + 1}`, charge: charge.id, payment_intent: intent.id, amount,
-      currency: 'eur', status, metadata: own ? { booking_id: booking.id, ardore_refund_key: `ardore-booking-refund-${booking.id}-v1` } : {},
+      currency: 'eur', status, metadata: own ? { booking_id: booking.id, ardore_refund_key: claimKey } : {},
       transfer_reversal: options.destination ? `trr_synthetic_${refunds.length + 1}` : null,
       balance_transaction: 'txn_refund' }
     refunds.push(refund)
@@ -59,7 +62,8 @@ function fixture(options = {}) {
       return query
     },
     async rpc(name, parameters) {
-      assert.equal(name, 'apply_coaching_refund_state')
+      assert.equal(name, options.target ? 'apply_coaching_attempt_refund_state' : 'apply_coaching_refund_state')
+      if (options.target) { assert.equal(parameters.p_attempt_id, options.target.attemptId); assert.equal(parameters.p_booking_id, undefined) }
       rpcCalls.push(structuredClone(parameters))
       if (failedPersistWrites > 0 && (!failedPersistState || parameters.p_state?.state === failedPersistState)) {
         failedPersistWrites -= 1
@@ -118,9 +122,12 @@ function fixture(options = {}) {
       failedPersistWrites = count; failedPersistState = state; persistWriteError = error
     },
     setFailure: value => { createFailure = value }, setStatus: value => { refundStatus = value },
-    process: () => loadedModule.exports.processCoachingRefund({ service: database, booking: structuredClone(booking), request: structuredClone(request) }),
-    reconcile: (options = {}) => loadedModule.exports.reconcileCoachingRefund({ service: database, paymentIntentId: intent.id, stripeLivemode: false,
-      resumeCapture: options.resumeCapture ?? false }) }
+    process: () => loadedModule.exports.processCoachingRefund({ service: database, booking: structuredClone(booking), request: structuredClone(request), target: options.target }),
+    reconcile: (settings = {}) => options.target
+      ? loadedModule.exports.reconcileClaimedCoachingRefund({ service: database, booking: structuredClone(booking),
+        request: structuredClone(request), target: options.target, resumeCapture: settings.resumeCapture ?? false })
+      : loadedModule.exports.reconcileCoachingRefund({ service: database, paymentIntentId: intent.id, stripeLivemode: false,
+        resumeCapture: settings.resumeCapture ?? false }) }
 }
 
 test('eligible customer receives every actually paid cent; fees never reduce refund', async () => {
@@ -531,4 +538,45 @@ test('synchronous missing fee/transfer and mismatched async ownership fail close
   mismatched.intent.transfer_data = { destination: 'acct_foreign' }
   assert.equal((await mismatched.process()).state, 'failed')
   assert.equal(mismatched.posts.length, 0)
+})
+
+
+test('technical payment reconciliation uses its own durable key and private attempt ledger', async () => {
+  const target = { attemptId: '11111111-1111-4111-8111-111111111111' }
+  const f = fixture({ target, actor: 'system' })
+  assert.equal((await f.process()).state, 'succeeded')
+  await f.process(); await f.reconcile(); await f.reconcile()
+  assert.equal(f.posts.length, 1); assert.equal(f.refunds.length, 1)
+  assert.equal(f.posts[0].requestOptions.idempotencyKey, `ardore-coaching-reconciliation-${target.attemptId}-v1`)
+  assert.equal(f.posts[0].parameters.metadata.payment_attempt_id, target.attemptId)
+  assert.equal(f.posts[0].parameters.metadata.actor_role, 'system')
+  assert.equal(f.posts[0].parameters.reason, undefined)
+  assert.equal(f.request().processing_fee_cost_owner, 'platform')
+  assert.ok(f.rpcCalls.every(call => call.p_attempt_id === target.attemptId && !call.p_booking_id))
+})
+
+test('system reconciliation retains full Connect reversal and fee refund protections', async () => {
+  const f = fixture({ target: { attemptId: '22222222-2222-4222-8222-222222222222' }, actor: 'system', destination: true })
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.posts[0].parameters.amount, 4500)
+  assert.equal(f.posts[0].parameters.reverse_transfer, true)
+  assert.equal(f.posts[0].parameters.refund_application_fee, true)
+  assert.equal(f.transfer.amount_reversed, 4500)
+  assert.equal(f.applicationFee.amount_refunded, 450)
+  assert.equal(f.request().processing_fee_cost_owner, 'platform')
+})
+
+test('another checkout attempt cannot be refunded even with the same booking and customer metadata', async () => {
+  const target = { attemptId: '33333333-3333-4333-8333-333333333333' }
+  const f = fixture({ target, actor: 'system' })
+  f.intent.metadata = { ...f.intent.metadata, payment_attempt_id: 'different-attempt' }
+  assert.equal((await f.process()).state, 'failed')
+  assert.equal(f.request().last_error_code, 'payment_attempt_ownership_mismatch')
+  assert.equal(f.posts.length, 0)
+})
+
+test('legacy exact-session reconciliation may use original provider metadata without an attempt ID', async () => {
+  const f = fixture({ target: { attemptId: '44444444-4444-4444-8444-444444444444', legacyCheckout: true }, actor: 'system' })
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.posts.length, 1)
 })

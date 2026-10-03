@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader2, Tag, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -60,6 +60,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   const [booking, setBooking] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)
   const [agreedPolicyHours, setAgreedPolicyHours] = useState<number | null>(null)
+  const submissionRef = useRef<{ terms: string; requestId: string } | null>(null)
 
   // Discount state (only for paid sessions)
   const [showCodeInput,  setShowCodeInput]  = useState(false)
@@ -159,10 +160,15 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
     if (!selected || !chosenSlot || !name.trim() || !email.trim()) return
     setBooking(true)
     try {
+      const terms = JSON.stringify({ creatorId, date: formatDate(selected), time: chosenSlot, name: name.trim(), email: email.trim(), notes: notes.trim(), subscriptionId: useSubscription ? subscriberSessions!.subscriptionId : null, discountId: !useSubscription ? discount?.id ?? null : null, cancellationPolicyHours: offer.cancellation_policy_hours })
+      if (!submissionRef.current || submissionRef.current.terms !== terms) {
+        submissionRef.current = { terms, requestId: crypto.randomUUID() }
+      }
       const res  = await fetch('/api/coaching/book', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          requestId: submissionRef.current.requestId,
           creatorId,
           expectedCancellationPolicyHours: offer.cancellation_policy_hours,
           date:           formatDate(selected),
@@ -175,10 +181,14 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
         }),
       })
       if (res.status === 401) { window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
-      const json = await res.json() as { bookingId?: string; checkoutUrl?: string | null; cancellationPolicyHours?: number; error?: string }
+      const json = await res.json() as { bookingId?: string; checkoutUrl?: string | null; cancellationPolicyHours?: number; paymentPending?: boolean; error?: string }
       if (!res.ok) throw new Error(json.error ?? 'Buchungsfehler')
       if (json.checkoutUrl) {
         window.location.assign(json.checkoutUrl)
+        return
+      }
+      if (json.paymentPending) {
+        window.location.assign('/buyer/sessions')
         return
       }
       setAgreedPolicyHours(json.cancellationPolicyHours ?? offer.cancellation_policy_hours)

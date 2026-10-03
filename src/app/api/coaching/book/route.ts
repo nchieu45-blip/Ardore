@@ -2,22 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isValidCoachingDuration, validateCoachingSlot } from '@/lib/coaching-booking'
 import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
-import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
-import { stripe } from '@/lib/stripe/server'
+import { randomUUID } from 'node:crypto'
+import { berlinDateTimeToIso } from '@/lib/coaching-slots'
+import { COACHING_RESERVATION_MINUTES, startOrResumeCoachingCheckout } from '@/lib/coaching-checkout'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 
-// Stripe requires expires_at to be at least 30 minutes in the future. The
-// extra minute avoids clock/network skew while keeping the hold short.
-const RESERVATION_MINUTES = 31
-
-function appUrl() {
-  const raw = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
-  return `${raw.startsWith('http') ? raw : `https://${raw}`}`.replace(/\/$/, '')
-}
-
 export async function POST(req: NextRequest) {
-  const { creatorId, date, time, name, email, notes, subscriptionId, discountId, expectedCancellationPolicyHours } = await req.json()
-  if (!creatorId || !date || !time || !name || !email) return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
+  const payload = await req.json().catch(() => null)
+  if (!payload || typeof payload !== 'object') return NextResponse.json({ error: 'Ungültige Anfrage' }, { status: 400 })
+  const { creatorId, date, time, name, email, notes, subscriptionId, discountId, expectedCancellationPolicyHours, requestId } = payload
+  if (![creatorId, date, time, name, email].every(value => typeof value === 'string' && value.trim())) return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,6 +19,34 @@ export async function POST(req: NextRequest) {
   if (email.trim().toLowerCase() !== user.email.toLowerCase()) {
     return NextResponse.json({ error: 'Die E-Mail-Adresse stimmt nicht mit deinem Konto überein.' }, { status: 400 })
   }
+
+  if (requestId !== undefined && (typeof requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))) {
+    return NextResponse.json({ error: 'Ungültige Buchungsanfrage' }, { status: 400 })
+  }
+  const bookingRequestKey = requestId ?? randomUUID()
+  const service = await createServiceClient()
+  const scheduledAt = berlinDateTimeToIso(date, time)
+  async function resumeRequest() {
+    const { data: existing, error: existingError } = await service.from('bookings')
+      .select('id, creator_id, scheduled_at, buyer_name, buyer_email, notes, status, payment_status, cancellation_policy_hours')
+      .eq('buyer_id', user!.id).eq('booking_request_key', bookingRequestKey).maybeSingle()
+    if (existingError) return NextResponse.json({ error: 'Buchungsstatus konnte nicht geprüft werden.' }, { status: 503 })
+    if (!existing) return null
+    if (existing.creator_id !== creatorId || !scheduledAt || new Date(existing.scheduled_at).getTime() !== new Date(scheduledAt).getTime()
+      || existing.buyer_name !== name.trim() || existing.buyer_email.toLowerCase() !== email.trim().toLowerCase()
+      || (existing.notes ?? null) !== (typeof notes === 'string' ? notes.trim() || null : null)
+      || (expectedCancellationPolicyHours !== undefined && expectedCancellationPolicyHours !== existing.cancellation_policy_hours)) {
+      return NextResponse.json({ error: 'Diese Buchungsanfrage wurde bereits für einen anderen Termin oder andere Angaben verwendet.' }, { status: 409 })
+    }
+    if (existing.payment_status === 'not_required' && existing.status === 'confirmed') {
+      return NextResponse.json({ bookingId: existing.id, cancellationPolicyHours: existing.cancellation_policy_hours })
+    }
+    const result = await startOrResumeCoachingCheckout({ service, bookingId: existing.id, buyerId: user!.id })
+    const { status, ...body } = result
+    return NextResponse.json(body, { status })
+  }
+  const resumed = await resumeRequest()
+  if (resumed) return resumed
 
   let isSubscriptionSession = false
   let resolvedSubscriptionId: string | null = null
@@ -84,19 +106,18 @@ export async function POST(req: NextRequest) {
   }
 
   const slotValidation = await validateCoachingSlot({ creatorId, date, time, durationMinutes: effectiveDuration })
-  if (!slotValidation.ok) return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
+  if (!slotValidation.ok) {
+    if (slotValidation.status === 409) {
+      const concurrentRequest = await resumeRequest()
+      if (concurrentRequest) return concurrentRequest
+    }
+    return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
+  }
 
-  const service = await createServiceClient()
   const requiresPayment = !isSubscriptionSession && discountedPriceCents > 0
   const stripeLivemode = requiresPayment
     ? process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
     : null
-  let paymentCreator: {
-    display_name: string
-    stripe_account_id: string | null
-    stripe_account_active: boolean | null
-  } | null = null
-
   if (requiresPayment) {
     const { data: creator, error: creatorError } = await service.from('creator_profiles')
       .select('display_name, stripe_account_id, stripe_account_active')
@@ -106,8 +127,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Coach nicht gefunden.' }, { status: 404 })
     }
 
-    paymentCreator = creator
-
     // Live customer funds must always use a fully enabled Connect account.
     // Test-mode lifecycle checks stay on the platform test balance and cannot
     // accidentally route funds to a live connected account stored here.
@@ -116,18 +135,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const reservationExpiresAt = requiresPayment ? new Date(Date.now() + RESERVATION_MINUTES * 60_000) : null
+  const reservationExpiresAt = requiresPayment ? new Date(Date.now() + COACHING_RESERVATION_MINUTES * 60_000) : null
   const { data: booking, error } = await service.from('bookings').insert({
-    creator_id: creatorId, buyer_id: user.id, scheduled_at: slotValidation.scheduledAt,
+    creator_id: creatorId, buyer_id: user.id, booking_request_key: bookingRequestKey, scheduled_at: slotValidation.scheduledAt,
     cancellation_policy_hours: cancellationPolicyHours,
     duration_minutes: effectiveDuration, status: requiresPayment ? 'pending_payment' : 'confirmed',
     payment_status: requiresPayment ? 'pending' : 'not_required', buyer_email: user.email,
-    buyer_name: name.trim(), notes: notes?.trim() || null, subscription_id: resolvedSubscriptionId,
+    buyer_name: name.trim(), notes: typeof notes === 'string' ? notes.trim() || null : null, subscription_id: resolvedSubscriptionId,
     is_subscription_session: isSubscriptionSession, price_cents: isSubscriptionSession ? 0 : discountedPriceCents,
     buffer_minutes: slotValidation.bufferMinutes, reservation_expires_at: reservationExpiresAt?.toISOString() ?? null,
     discount_id: discountRowId,
     stripe_livemode: stripeLivemode,
   }).select('id, cancellation_policy_hours').single()
+  if (error?.code === '23505') {
+    const duplicate = await resumeRequest()
+    if (duplicate) return duplicate
+  }
   if (error?.code === '40001') return NextResponse.json({ error: 'Die Stornierungsfrist wurde geändert. Bitte lade die Buchung neu.', policyChanged: true }, { status: 409 })
   if (error?.code === '23P01') return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
   if (error || !booking) return NextResponse.json({ error: 'Buchung konnte nicht erstellt werden.' }, { status: 500 })
@@ -137,29 +160,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ bookingId: booking.id, cancellationPolicyHours: booking.cancellation_policy_hours })
   }
 
-  try {
-    if (!paymentCreator) throw new Error('Coach not found')
-    const metadata = { checkout_type: 'coaching_session', booking_id: booking.id, buyer_id: user.id, creator_id: creatorId, scheduled_at: slotValidation.scheduledAt }
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment', customer_email: user.email,
-      line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: discountedPriceCents,
-        product_data: { name: `1:1 Coaching mit ${paymentCreator.display_name}`, metadata: { booking_id: booking.id } } } }],
-      metadata,
-      payment_intent_data: { metadata,
-        ...(stripeLivemode && paymentCreator.stripe_account_id && paymentCreator.stripe_account_active
-          ? { application_fee_amount: calculateArdorePlatformFee(discountedPriceCents), transfer_data: { destination: paymentCreator.stripe_account_id } } : {}) },
-      expires_at: Math.floor(reservationExpiresAt!.getTime() / 1000),
-      success_url: `${appUrl()}/buyer/sessions?checkout=success&booking=${booking.id}`,
-      cancel_url: `${appUrl()}/buyer/sessions?checkout=cancelled&booking=${booking.id}`,
-    })
-    const { error: updateError } = await service.from('bookings').update({ stripe_checkout_session_id: session.id })
-      .eq('id', booking.id).eq('status', 'pending_payment')
-    if (updateError) throw updateError
-    return NextResponse.json({ bookingId: booking.id, checkoutUrl: session.url, cancellationPolicyHours: booking.cancellation_policy_hours })
-  } catch (checkoutError) {
-    await service.from('bookings').update({ status: 'payment_failed', payment_status: 'failed', payment_updated_at: new Date().toISOString() })
-      .eq('id', booking.id).eq('status', 'pending_payment')
-    console.error('[coaching-checkout] creation failed', checkoutError)
-    return NextResponse.json({ error: 'Die Zahlung konnte nicht gestartet werden.' }, { status: 500 })
-  }
+  const result = await startOrResumeCoachingCheckout({ service, bookingId: booking.id, buyerId: user.id })
+  const { status, ...body } = result
+  return NextResponse.json(body, { status })
 }

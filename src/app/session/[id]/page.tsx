@@ -60,7 +60,8 @@ export default async function SessionPage({
   // eslint-disable-next-line react-hooks/purity
   const now         = Date.now()
   const msUntil     = scheduledAt.getTime() - now
-  const isLive      = now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isConfirmed = ['confirmed', 'completed'].includes(b.status)
+  const isLive      = isConfirmed && hasValidCoachingPayment(b) && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
   const hasValidPayment = hasValidCoachingPayment(b)
   const isOver      = now > endAt.getTime()
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
@@ -117,7 +118,7 @@ export default async function SessionPage({
               Live jetzt
             </span>
           )}
-          {!isLive && !isOver && (
+          {isConfirmed && !isLive && !isOver && (
             <span className="inline-flex items-center bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium px-3 py-1 rounded-full">
               Startet {msUntil > 3_600_000
                 ? `in ${Math.round(msUntil / 3_600_000)} Std.`
@@ -126,9 +127,14 @@ export default async function SessionPage({
                 : 'gleich'}
             </span>
           )}
-          {isOver && (
+          {isConfirmed && isOver && (
             <span className="inline-flex items-center bg-gray-50 text-gray-500 border border-gray-200 text-xs font-medium px-3 py-1 rounded-full">
               Session beendet
+            </span>
+          )}
+          {!isConfirmed && b.status !== 'cancelled' && (
+            <span role="status" className="inline-flex items-center bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium px-3 py-1 rounded-full">
+              {b.status === 'payment_failed' ? 'Zahlung fehlgeschlagen – Session nicht bestätigt' : b.status === 'expired' ? 'Reservierung abgelaufen – Session nicht bestätigt' : b.status === 'refunded' ? 'Zahlung erstattet' : b.status === 'reversed' ? 'Zahlung rückgängig' : 'Zahlung ausstehend – Session nicht bestätigt'}
             </span>
           )}
           {b.status === 'cancelled' && (

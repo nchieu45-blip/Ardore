@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { reconcileExpiredCoachingReservations } from '@/lib/coaching-payment-lifecycle'
 import {
   addDaysToDateString,
   berlinDateTimeToIso,
@@ -80,6 +81,12 @@ export async function validateCoachingSlot({
   }
 
   const service = await createServiceClient()
+  try {
+    const recovery = await reconcileExpiredCoachingReservations({ service, creatorId, limit: 10 })
+    if (recovery.failed || recovery.unresolved) throw new Error('Unresolved payment reservation')
+  } catch {
+    return { ok: false, status: 503, error: 'Verfügbarkeit konnte nicht sicher geprüft werden' }
+  }
   let bookingsQuery = service
     .from('bookings')
     .select('scheduled_at, duration_minutes')

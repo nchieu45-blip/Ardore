@@ -164,6 +164,8 @@ test('only future active live-paid or server-free subscriptions with matching ti
 function webhookFixture({ type = 'checkout.session.completed', mismatch = false, updateError = false, status = 'active' } = {}) {
   const saved = []
   const releasedEvents = []
+  const completedEvents = []
+  let claimToken
   const period = Math.floor(Date.now() / 1000) + 3600
   const subscription = { id: 'sub_synthetic', status, livemode: false, items: { data: [{ current_period_end: period }] } }
   const event = {
@@ -174,6 +176,17 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     } },
   }
   const service = {
+    async rpc(name, params) {
+      assert.equal(params.p_event_id, event.id)
+      if (name === 'claim_stripe_webhook_event') {
+        claimToken = params.p_lease_token
+        return { data: { claimed: true, processed: false }, error: null }
+      }
+      assert.equal(params.p_lease_token, claimToken)
+      if (name === 'release_stripe_webhook_event') releasedEvents.push(event.id)
+      else { assert.equal(name, 'complete_stripe_webhook_event'); completedEvents.push(event.id) }
+      return { data: true, error: null }
+    },
     auth: { admin: { getUserById: async () => ({ data: { user: null } }) } },
     from(table) {
       const query = {
@@ -201,9 +214,11 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     '@/lib/notifications': { createNotification() { throw new Error('Unexpected notification') } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking() { throw new Error('Unexpected coaching booking') } },
     '@/lib/coaching-refund': { reconcileCoachingRefund() { throw new Error('Unexpected coaching refund') } },
+    '@/lib/coaching-payment-reconciliation': { reconcileCoachingPaymentReconciliation() { throw new Error('Unexpected payment reconciliation') } },
+    '@/lib/coaching-payment-lifecycle': { reconcileCoachingCheckout() { throw new Error('Unexpected coaching lifecycle') } },
   }, { STRIPE_SECRET_KEY: 'sk_test_synthetic' })
   return {
-    saved, releasedEvents, period,
+    saved, releasedEvents, completedEvents, period,
     run: () => route.POST({ text: async () => '{}', headers: new Headers({ 'stripe-signature': 'synthetic' }) }),
   }
 }
@@ -211,6 +226,7 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
 test('a trusted Stripe subscription checkout binds tier ownership and uses current item billing periods', async () => {
   const state = webhookFixture()
   assert.equal((await state.run()).status, 200)
+  assert.deepEqual(state.completedEvents, ['evt_synthetic'])
   assert.deepEqual(state.saved, [{
     buyer_id: buyerId, creator_id: creatorId, tier_id: tierId, stripe_subscription_id: 'sub_synthetic',
     stripe_livemode: false, status: 'active', current_period_end: new Date(state.period * 1000).toISOString(),
@@ -219,6 +235,7 @@ test('a trusted Stripe subscription checkout binds tier ownership and uses curre
   assert.equal((await mismatched.run()).status, 500)
   assert.deepEqual(mismatched.saved, [])
   assert.deepEqual(mismatched.releasedEvents, ['evt_synthetic'])
+  assert.deepEqual(mismatched.completedEvents, [])
 })
 
 test('Stripe paused, unpaid and incomplete lifecycle states never become active entitlement', async () => {
@@ -235,5 +252,6 @@ test('failed Stripe lifecycle updates release the event for retry instead of sil
     const state = webhookFixture({ type, updateError: true })
     assert.equal((await state.run()).status, 500)
     assert.deepEqual(state.releasedEvents, ['evt_synthetic'])
+    assert.deepEqual(state.completedEvents, [])
   }
 })

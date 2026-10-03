@@ -12,6 +12,8 @@ const compiled = ts.transpileModule(source, {
 
 function fixture(duplicate = false) {
   const receipts = []
+  let claimToken
+  let completed = 0
   let savedPurchases = []
   const products = [
     { id: 'product-a', price: 90, title: 'Product A', creator: { display_name: 'Synthetic creator' } },
@@ -26,6 +28,17 @@ function fixture(duplicate = false) {
     } },
   }
   const database = {
+    async rpc(name, params) {
+      assert.equal(params.p_event_id, event.id)
+      if (name === 'claim_stripe_webhook_event') {
+        claimToken = params.p_lease_token
+        return { data: { claimed: !duplicate, processed: duplicate }, error: null }
+      }
+      assert.equal(name, 'complete_stripe_webhook_event')
+      assert.equal(params.p_lease_token, claimToken)
+      completed += 1
+      return { data: true, error: null }
+    },
     auth: { admin: { getUserById: async () => ({ data: { user: { email: 'delivered@resend.dev', user_metadata: {} } } }) } },
     from(table) {
       assert.ok(['stripe_webhook_events', 'products', 'purchases'].includes(table))
@@ -50,6 +63,8 @@ function fixture(duplicate = false) {
     '@/lib/notifications': { createNotification: async () => { throw new Error('Unexpected notification') } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async () => { throw new Error('Unexpected coaching confirmation') } },
     '@/lib/coaching-refund': { reconcileCoachingRefund: async () => { throw new Error('Unexpected coaching refund') } },
+    '@/lib/coaching-payment-reconciliation': { reconcileCoachingPaymentReconciliation() { throw new Error('Unexpected payment reconciliation') } },
+    '@/lib/coaching-payment-lifecycle': { reconcileCoachingCheckout() { throw new Error('Unexpected coaching lifecycle') } },
   }
   const loadedModule = { exports: {} }
   new Function('require', 'exports', 'module', 'process', compiled)(
@@ -60,6 +75,7 @@ function fixture(duplicate = false) {
   return {
     receipts,
     purchases: () => savedPurchases,
+    completed: () => completed,
     run: () => loadedModule.exports.POST({ text: async () => '{}', headers: new Headers({ 'stripe-signature': 'synthetic' }) }),
   }
 }
@@ -70,6 +86,7 @@ test('discounted unequal-price purchases have receipts matching the saved per-pr
   assert.deepEqual(state.purchases().map(p => p.amount_paid), [72, 8])
   assert.deepEqual(state.receipts.map(p => p.amountPaid), [72, 8])
   assert.deepEqual(state.receipts.map(p => p.productTitle), ['Product A', 'Product B'])
+  assert.equal(state.completed(), 1)
 })
 
 test('duplicate webhook delivery sends no additional receipts and writes no purchases', async () => {
@@ -79,4 +96,5 @@ test('duplicate webhook delivery sends no additional receipts and writes no purc
   assert.equal((await response.json()).duplicate, true)
   assert.deepEqual(state.purchases(), [])
   assert.deepEqual(state.receipts, [])
+  assert.equal(state.completed(), 0)
 })

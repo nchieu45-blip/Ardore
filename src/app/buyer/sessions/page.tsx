@@ -7,6 +7,7 @@ import SessionReviewPrompt from '@/components/SessionReviewPrompt'
 import BookingActions, { BookingRefundStatus, type BookingRefund } from '@/components/BookingActions'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
+import BookingPaymentActions, { BookingPaymentReconciliationStatus } from '@/components/BookingPaymentActions'
 
 export const metadata: Metadata = { title: 'Meine Sessions' }
 
@@ -39,6 +40,7 @@ interface BookingRow {
   status: string
   daily_room_url: string | null
   payment_status: string
+  refund_status: string
   stripe_livemode: boolean | null
   creator_profiles: { id: string; display_name: string; slug: string; avatar_url: string | null } | null
 }
@@ -62,7 +64,7 @@ export default async function BuyerSessionsPage({
   const [bookingsRes, reviewsRes] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, creator_id, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, payment_status, stripe_livemode, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
+      .select('id, creator_id, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, payment_status, refund_status, stripe_livemode, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
       .eq('buyer_id', user.id)
       .order('scheduled_at', { ascending: false }),
     supabase
@@ -105,12 +107,12 @@ export default async function BuyerSessionsPage({
 
       {checkout === 'success' && (
         <div role="status" className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          Zahlung eingegangen. Deine Session wird nach der Stripe-Bestätigung als bestätigt angezeigt.
+          Deine Zahlung wird überprüft. Die Session ist erst nach der Stripe-Zahlungsbestätigung bestätigt.
         </div>
       )}
       {checkout === 'cancelled' && (
         <div role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Zahlung abgebrochen. Der Termin bleibt nur bis zum Ablauf der Reservierung blockiert.
+          Du hast den Checkout verlassen. Du kannst die Zahlung für dieselbe Buchung fortsetzen; der Zahlungsstatus wird dabei erneut geprüft.
         </div>
       )}
 
@@ -257,6 +259,14 @@ function SessionCard({
         />
       )}
       <BookingRefundStatus refund={refund} />
+      {!refund && b.refund_status && b.refund_status !== 'not_requested' && <BookingPaymentReconciliationStatus state={b.refund_status} />}
+      {creator && !b.is_subscription_session && b.price_cents > 0 && scheduledAt.getTime() > now
+        && ['pending_payment', 'payment_failed', 'expired', 'reversed'].includes(b.status)
+        && ['pending', 'failed', 'expired', 'unpaid', 'reversed'].includes(b.payment_status)
+        && (!b.refund_status || b.refund_status === 'not_requested')
+        && (!refund || refund.state === 'not_requested') && (
+          <BookingPaymentActions bookingId={b.id} status={b.status} />
+        )}
       {creator && (isUpcoming || (b.status === 'cancelled' && (refund?.state === 'pending' || refund?.state === 'failed'))) && (
         <BookingActions
           bookingId={b.id}

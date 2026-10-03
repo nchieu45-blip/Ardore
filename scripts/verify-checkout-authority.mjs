@@ -114,6 +114,7 @@ function coachingFixture(discount, priceCents = 8000, subscription = null) {
       return {
         select() { return this }, eq() { return this }, update() { return this }, in() { return this }, gte() { return this },
         insert(data) { assert.equal(table, 'bookings'); inserted = true; bookings.push(data); return this },
+        async maybeSingle() { return { data: null, error: null } },
         async single() {
           const data = table === 'coaching_offers'
             ? { is_enabled: true, price_cents: priceCents, duration_minutes: 60 }
@@ -133,6 +134,12 @@ function coachingFixture(discount, priceCents = 8000, subscription = null) {
       validateCoachingSlot: async () => ({ ok: true, scheduledAt: '2026-10-05T12:00:00.000Z', bufferMinutes: 0 }),
     },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async id => confirmations.push(id) },
+    '@/lib/coaching-slots': { berlinDateTimeToIso: () => '2026-10-05T12:00:00.000Z' },
+    '@/lib/coaching-checkout': { COACHING_RESERVATION_MINUTES: 31, startOrResumeCoachingCheckout: async ({ bookingId, buyerId }) => {
+      assert.equal(bookingId, 'synthetic-booking'); assert.equal(buyerId, buyer.id)
+      sessions.push({ line_items: [{ price_data: { unit_amount: bookings.at(-1).price_cents } }] })
+      return { status: 200, bookingId, checkoutUrl: 'https://checkout.stripe.com/synthetic' }
+    } },
     '@/lib/subscription-entitlement': loadRoute('../src/lib/subscription-entitlement.ts', {}),
     '@/lib/stripe/platformFee': { calculateArdorePlatformFee: cents => Math.round(cents / 10) },
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async data => { sessions.push(data); return { id: 'synthetic-session', url: 'https://checkout.stripe.com/synthetic' } } } } } },

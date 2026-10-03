@@ -19,16 +19,34 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
     ...changes,
   }
   const ledger = new Set()
+  const leases = new Map()
   const writes = []
   const reconciliations = []
+  const paymentReconciliations = []
+  const lifecycleCalls = []
   const retrievedCharges = []
   let confirmed = 0
   let event
   let failReconciliation = reconciliationFailure
   let failChargeRead = chargeReadFailure
   const service = {
+    async rpc(name, params) {
+      const id = params.p_event_id
+      if (name === 'claim_stripe_webhook_event') {
+        if (ledger.has(id)) return { data: { claimed: false, processed: true }, error: null }
+        const current = leases.get(id)
+        if (current && !current.expired) return { data: { claimed: false, busy: true }, error: null }
+        leases.set(id, { token: params.p_lease_token, expired: false })
+        return { data: { claimed: true, processed: false }, error: null }
+      }
+      assert.ok(['complete_stripe_webhook_event', 'release_stripe_webhook_event'].includes(name))
+      assert.equal(leases.get(id)?.token, params.p_lease_token)
+      if (name === 'complete_stripe_webhook_event') ledger.add(id)
+      else leases.get(id).expired = true
+      return { data: true, error: null }
+    },
     from(table) {
-      assert.ok(['bookings', 'stripe_webhook_events', 'purchases'].includes(table))
+      assert.ok(['bookings', 'purchases'].includes(table))
       let action = 'select'
       let update
       const filters = {}
@@ -84,9 +102,16 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
       // durable pending-capture cancellation checks, never by the event itself.
       return { refundStatus: 'pending' }
     } },
-    '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async id => {
-      assert.equal(id, booking.id); confirmed += 1
+    '@/lib/coaching-payment-reconciliation': { reconcileCoachingPaymentReconciliation: async input => {
+      assert.equal(input.service, service)
+      paymentReconciliations.push({ paymentIntentId: input.paymentIntentId, stripeLivemode: input.stripeLivemode,
+        ...(input.resumeCapture !== undefined ? { resumeCapture: input.resumeCapture } : {}) })
+      return null
     } },
+    '@/lib/coaching-payment-lifecycle': {
+      reconcileCoachingCheckout: async input => { assert.equal(input.service, service); lifecycleCalls.push(input) },
+      reconcileCoachingPaymentIntent: async input => { assert.equal(input.service, service); lifecycleCalls.push(input) },
+    },
     '@/lib/email/send': { sendPurchaseReceipt() { throw new Error('Unexpected receipt') }, sendNewSubscriberNotification() { throw new Error('Unexpected email') } },
     '@/lib/notifications': { createNotification() { throw new Error('Unexpected notification') } },
   }
@@ -96,7 +121,7 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
     loadedModule.exports, loadedModule, { env: { STRIPE_SECRET_KEY: 'sk_test_synthetic' } }, { error() {} },
   )
   return {
-    booking, ledger, writes, reconciliations, retrievedCharges,
+    booking, ledger, writes, reconciliations, paymentReconciliations, lifecycleCalls, retrievedCharges,
     confirmed: () => confirmed,
     run(type, object, id = `evt_${type}`) {
       event = { id, type, livemode: false, data: { object } }
@@ -114,6 +139,7 @@ test('every refund lifecycle notification delegates fresh reconciliation without
     assert.equal((await state.run(type, object)).status, 200)
   }
   assert.deepEqual(state.reconciliations, Array(4).fill({ paymentIntentId: 'pi_synthetic', stripeLivemode: false }))
+  assert.deepEqual(state.paymentReconciliations, state.reconciliations)
   assert.deepEqual(state.writes, [])
   assert.equal(state.booking.status, 'cancelled')
   assert.equal(state.booking.payment_status, 'paid')
@@ -151,7 +177,7 @@ test('a refund notification without a payment intent resolves its charge before 
   assert.deepEqual(state.reconciliations, [{ paymentIntentId: 'pi_synthetic', stripeLivemode: false }])
 })
 
-test('coaching payment confirmation snapshots the actual paid checkout amount once', async () => {
+test('coaching completion delegates fresh provider reconciliation without confirming from event payload', async () => {
   const state = fixture({ booking: { status: 'pending_payment', payment_status: 'pending', refund_status: 'not_requested' } })
   const session = {
     id: 'cs_synthetic', mode: 'payment', payment_status: 'paid', currency: 'eur', amount_total: 4100,
@@ -159,12 +185,14 @@ test('coaching payment confirmation snapshots the actual paid checkout amount on
     metadata: { checkout_type: 'coaching_session', booking_id: 'booking-synthetic', buyer_id: 'buyer-synthetic', creator_id: 'creator-synthetic' },
   }
   assert.equal((await state.run('checkout.session.completed', session, 'evt_paid')).status, 200)
-  assert.equal(state.booking.amount_paid_cents, 4100)
-  assert.equal(state.booking.status, 'confirmed')
-  assert.equal(state.confirmed(), 1)
+  assert.equal(state.booking.status, 'pending_payment')
+  assert.equal(state.confirmed(), 0)
+  assert.equal(state.lifecycleCalls[0].sessionId, 'cs_synthetic')
+  assert.equal(state.lifecycleCalls[0].stripeLivemode, false)
   assert.equal((await state.run('checkout.session.completed', session, 'evt_paid_repeat')).status, 200)
-  assert.equal(state.writes.length, 1)
-  assert.equal(state.confirmed(), 1)
+  assert.equal(state.writes.length, 0)
+  assert.equal(state.lifecycleCalls.length, 2)
+  assert.equal(state.confirmed(), 0)
 })
 
 test('a stale canceled intent cannot overwrite a paid or refunded booking', async () => {

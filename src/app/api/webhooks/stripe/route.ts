@@ -3,8 +3,10 @@ import { stripe } from '@/lib/stripe/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendPurchaseReceipt, sendNewSubscriberNotification } from '@/lib/email/send'
 import { createNotification } from '@/lib/notifications'
-import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
 import { reconcileCoachingRefund } from '@/lib/coaching-refund'
+import { reconcileCoachingPaymentReconciliation } from '@/lib/coaching-payment-reconciliation'
+import { reconcileCoachingCheckout, reconcileCoachingPaymentIntent } from '@/lib/coaching-payment-lifecycle'
+import { randomUUID } from 'node:crypto'
 import Stripe from 'stripe'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'
@@ -34,13 +36,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Stripe mode mismatch' }, { status: 400 })
   }
 
-  const { error: claimError } = await supabase.from('stripe_webhook_events').insert({
-    event_id: event.id,
-    event_type: event.type,
-    livemode: event.livemode,
+  const leaseToken = randomUUID()
+  const { data: claim, error: claimError } = await supabase.rpc('claim_stripe_webhook_event', {
+    p_event_id: event.id,
+    p_event_type: event.type,
+    p_livemode: event.livemode,
+    p_lease_token: leaseToken,
   })
-  if (claimError?.code === '23505') return NextResponse.json({ received: true, duplicate: true })
   if (claimError) return NextResponse.json({ error: 'Webhook could not be recorded' }, { status: 500 })
+  if (claim?.processed) return NextResponse.json({ received: true, duplicate: true })
+  if (!claim?.claimed) return NextResponse.json({ error: 'Webhook is already processing' }, { status: 503 })
 
   try {
     switch (event.type) {
@@ -49,8 +54,9 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session
       const meta = session.metadata ?? {}
 
-      if (session.mode === 'payment' && session.payment_status === 'paid' && meta.checkout_type === 'coaching_session') {
-        await confirmCoachingCheckout(supabase, session, event.livemode)
+      if (session.mode === 'payment' && meta.checkout_type === 'coaching_session') {
+        await reconcileCoachingCheckout({ service: supabase, sessionId: session.id,
+          stripeLivemode: event.livemode, eventType: event.type })
         break
       }
 
@@ -197,6 +203,7 @@ export async function POST(req: NextRequest) {
         // of order. The event is a notification, never permission to refund
         // again; reconcile the current provider state instead of its payload.
         await reconcileCoachingRefund({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
+        await reconcileCoachingPaymentReconciliation({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
       }
       break
     }
@@ -217,6 +224,7 @@ export async function POST(req: NextRequest) {
       }
       if (paymentIntentId) {
         await reconcileCoachingRefund({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
+        await reconcileCoachingPaymentReconciliation({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
       }
       break
     }
@@ -243,6 +251,8 @@ export async function POST(req: NextRequest) {
         : charge.payment_intent?.id ?? null
       if (paymentIntentId) {
         await reconcileCoachingRefund({ service: supabase, paymentIntentId,
+          stripeLivemode: event.livemode, resumeCapture: true })
+        await reconcileCoachingPaymentReconciliation({ service: supabase, paymentIntentId,
           stripeLivemode: event.livemode, resumeCapture: true })
       }
       break
@@ -288,7 +298,12 @@ export async function POST(req: NextRequest) {
     case 'payment_intent.canceled': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       await updatePurchaseState(supabase, paymentIntent.id, event.livemode, 'reversed')
-      await updateCoachingPaymentState(supabase, paymentIntent.id, event.livemode, 'reversed')
+      if (paymentIntent.metadata?.checkout_type === 'coaching_session') {
+        await reconcileCoachingPaymentIntent({ service: supabase, paymentIntentId: paymentIntent.id,
+          stripeLivemode: event.livemode, eventType: event.type })
+      } else {
+        await updateCoachingPaymentState(supabase, paymentIntent.id, event.livemode, 'reversed')
+      }
       break
     }
 
@@ -296,28 +311,19 @@ export async function POST(req: NextRequest) {
     case 'checkout.session.async_payment_failed': {
       const session = event.data.object as Stripe.Checkout.Session
       if (session.metadata?.checkout_type === 'coaching_session') {
-        const paymentStatus = event.type === 'checkout.session.expired' ? 'expired' : 'failed'
-        const bookingStatus = event.type === 'checkout.session.expired' ? 'expired' : 'payment_failed'
-        const { error } = await supabase.from('bookings').update({
-          status: bookingStatus,
-          payment_status: paymentStatus,
-          payment_updated_at: new Date().toISOString(),
-        }).eq('stripe_checkout_session_id', session.id).eq('stripe_livemode', event.livemode).eq('status', 'pending_payment')
-        if (error) throw error
+        await reconcileCoachingCheckout({ service: supabase, sessionId: session.id,
+          stripeLivemode: event.livemode, eventType: event.type })
       }
       break
     }
 
-    case 'payment_intent.payment_failed': {
+    case 'payment_intent.payment_failed':
+    case 'payment_intent.succeeded': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
-      let query = supabase.from('bookings').update({
-        status: 'payment_failed', payment_status: 'failed', payment_updated_at: new Date().toISOString(),
-      }).eq('stripe_livemode', event.livemode).eq('status', 'pending_payment')
-      query = paymentIntent.metadata?.booking_id
-        ? query.eq('id', paymentIntent.metadata.booking_id)
-        : query.eq('stripe_payment_intent_id', paymentIntent.id)
-      const { error } = await query
-      if (error) throw error
+      if (paymentIntent.metadata?.checkout_type === 'coaching_session') {
+        await reconcileCoachingPaymentIntent({ service: supabase, paymentIntentId: paymentIntent.id,
+          stripeLivemode: event.livemode, eventType: event.type })
+      }
       break
     }
 
@@ -347,11 +353,16 @@ export async function POST(req: NextRequest) {
       break
     }
     }
+    const { data: completed, error: completeError } = await supabase.rpc('complete_stripe_webhook_event', {
+      p_event_id: event.id, p_lease_token: leaseToken,
+    })
+    if (completeError || !completed) throw completeError ?? new Error('webhook_lease_lost')
   } catch (error) {
     // Permit Stripe to retry after a processing failure. No browser role can
     // access this service-only idempotency ledger.
-    await supabase.from('stripe_webhook_events').delete().eq('event_id', event.id)
-    console.error('[stripe-webhook] processing failed', error)
+    await supabase.rpc('release_stripe_webhook_event', { p_event_id: event.id, p_lease_token: leaseToken })
+    const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
+    console.error('[stripe-webhook] processing failed', typeof code === 'string' && /^[a-zA-Z0-9_]{1,80}$/.test(code) ? code : 'webhook_processing_failed')
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
 
@@ -375,51 +386,6 @@ function trustedSubscriptionState(subscription: Stripe.Subscription, stripeLivem
     : ['active', 'trialing', 'past_due', 'canceled'].includes(subscription.status) ? subscription.status
     : 'past_due'
   return { status, current_period_end: new Date(periodEnd * 1000).toISOString() }
-}
-
-async function confirmCoachingCheckout(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  session: Stripe.Checkout.Session,
-  stripeLivemode: boolean,
-) {
-  const meta = session.metadata ?? {}
-  if (!meta.booking_id || !meta.buyer_id || !meta.creator_id) throw new Error('Missing coaching checkout metadata')
-  const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id
-  if (!paymentIntentId || session.currency !== 'eur') throw new Error('Invalid coaching payment')
-
-  const { data: booking, error: readError } = await supabase.from('bookings')
-    .select('id, buyer_id, creator_id, price_cents, status, payment_status, stripe_livemode, discount_id, discount_redeemed_at')
-    .eq('id', meta.booking_id).single()
-  if (readError || !booking) throw readError ?? new Error('Coaching booking not found')
-  if (booking.buyer_id !== meta.buyer_id || booking.creator_id !== meta.creator_id
-    || booking.price_cents !== session.amount_total || booking.stripe_livemode !== stripeLivemode) {
-    throw new Error('Coaching checkout does not match reserved booking')
-  }
-  if (booking.payment_status === 'paid') return
-  if (booking.status !== 'pending_payment' || booking.payment_status !== 'pending') {
-    throw new Error('Coaching reservation is no longer payable')
-  }
-
-  const now = new Date().toISOString()
-  const { data: confirmed, error: updateError } = await supabase.from('bookings').update({
-    status: 'confirmed', payment_status: 'paid', stripe_payment_intent_id: paymentIntentId,
-    amount_paid_cents: session.amount_total,
-    paid_at: now, payment_updated_at: now,
-  }).eq('id', booking.id).eq('status', 'pending_payment').eq('payment_status', 'pending').select('id').maybeSingle()
-  if (updateError) throw updateError
-  if (!confirmed) return
-
-  if (booking.discount_id && !booking.discount_redeemed_at) {
-    const { data: discount } = await supabase.from('discounts').select('redemption_count').eq('id', booking.discount_id).single()
-    if (discount) {
-      const { error: discountError } = await supabase.from('discounts')
-        .update({ redemption_count: discount.redemption_count + 1 })
-        .eq('id', booking.discount_id).eq('redemption_count', discount.redemption_count)
-      if (!discountError) await supabase.from('bookings').update({ discount_redeemed_at: now }).eq('id', booking.id)
-    }
-  }
-  await provisionConfirmedCoachingBooking(booking.id)
 }
 
 async function updateCoachingPaymentState(

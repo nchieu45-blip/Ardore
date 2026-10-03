@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const bookingRoute = readFileSync(new URL('../src/app/api/coaching/book/route.ts', import.meta.url), 'utf8')
+const checkoutHelper = readFileSync(new URL('../src/lib/coaching-checkout.ts', import.meta.url), 'utf8')
+const lifecycleHelper = readFileSync(new URL('../src/lib/coaching-payment-lifecycle.ts', import.meta.url), 'utf8')
 const webhookRoute = readFileSync(new URL('../src/app/api/webhooks/stripe/route.ts', import.meta.url), 'utf8')
 const migration = readFileSync(new URL('../supabase/migrations/025_add_coaching_payment_lifecycle.sql', import.meta.url), 'utf8')
 const feeHelper = readFileSync(new URL('../src/lib/stripe/platformFee.ts', import.meta.url), 'utf8')
@@ -10,13 +12,13 @@ const reminderRoute = readFileSync(new URL('../src/app/api/cron/session-reminder
 const reviewPromptRoute = readFileSync(new URL('../src/app/api/cron/session-review-prompts/route.ts', import.meta.url), 'utf8')
 
 assert.match(bookingRoute, /status: requiresPayment \? 'pending_payment' : 'confirmed'/)
-assert.match(bookingRoute, /calculateArdorePlatformFee\(discountedPriceCents\)/)
-assert.match(bookingRoute, /stripe\.checkout\.sessions\.create/)
+assert.match(checkoutHelper, /calculateArdorePlatformFee\(booking.price_cents\)/)
+assert.match(checkoutHelper, /provider\.checkout\.sessions\.create/)
 assert.match(bookingRoute, /select\('display_name, stripe_account_id, stripe_account_active'\)/)
 assert.doesNotMatch(bookingRoute, /stripe_account_status/)
 assert.match(bookingRoute, /if \(stripeLivemode && \(!creator\.stripe_account_id \|\| !creator\.stripe_account_active\)\)/)
-assert.match(bookingRoute, /stripeLivemode && paymentCreator\.stripe_account_id && paymentCreator\.stripe_account_active/)
-assert.match(webhookRoute, /eq\('status', 'pending_payment'\)\.eq\('payment_status', 'pending'\)/)
+assert.match(checkoutHelper, /stripeLivemode \? creator.stripe_account_id : null/)
+assert.match(lifecycleHelper, /session.payment_status !== 'paid'/)
 assert.match(webhookRoute, /checkout\.session\.expired/)
 assert.match(webhookRoute, /charge\.refunded/)
 assert.match(webhookRoute, /charge\.dispute\.created/)

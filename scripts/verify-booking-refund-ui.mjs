@@ -20,6 +20,7 @@ function load(path, overrides = {}, globals = {}) {
     if (name === 'lucide-react') return new Proxy({}, { get: () => () => null })
     if (name === '@/components/ui/Button') return { Button: props => React.createElement('button', props) }
     if (name === '@/components/RescheduleModal') return { __esModule: true, default: () => null }
+    if (name === '@/components/BookingPaymentActions') return { __esModule: true, default: () => null, BookingPaymentReconciliationStatus: properties => properties.state === 'pending' ? React.createElement('p', { role: 'status' }, 'Die vollständige Erstattung wird bearbeitet und ist noch nicht bestätigt.') : properties.state === 'failed' ? React.createElement('p', { role: 'alert' }, 'Die vollständige Erstattung konnte noch nicht abgeschlossen werden.') : properties.state === 'succeeded' ? React.createElement('p', { role: 'status' }, 'Stripe hat die Erstattung bestätigt.') : null }
     if (name === '@/components/SessionReviewPrompt') return { __esModule: true, default: () => null }
     if (name === '@/lib/features') return { VIDEO_CALLS_ENABLED: true }
     if (name === '@/lib/coaching-payment') return { hasValidCoachingPayment: () => true }
@@ -206,6 +207,16 @@ for (const [page, role] of [['src/app/buyer/sessions/page.tsx', 'buyer'], ['src/
     const unavailable = sessionFixture([row({})], [], true)
     assert.match(renderToStaticMarkup(await load(page, unavailable.modules).default({ searchParams: Promise.resolve({}) })), /Der Erstattungsstatus konnte nicht geladen werden/)
   })
+  test(`${role} session page projects technical refunds without reading private attempts or offering cancellation retry`, async () => {
+    for (const refund_status of ['pending', 'failed', 'succeeded']) {
+      const fixture = sessionFixture([row({ status: 'expired', payment_status: 'paid', refund_status })])
+      const html = renderToStaticMarkup(await load(page, fixture.modules).default({ searchParams: Promise.resolve({}) }))
+      assert.match(html, refund_status === 'pending' ? /vollständige Erstattung wird bearbeitet/ : refund_status === 'failed' ? /vollständige Erstattung konnte noch nicht/ : /Stripe hat die Erstattung bestätigt/)
+      assert.equal(fixture.actions.length, 0)
+      assert.ok(fixture.queries.every(query => query.table !== 'coaching_payment_attempts'))
+      assert.match(fixture.queries.find(query => query.table === 'bookings').selected, /refund_status/)
+    }
+  })
 }
 
 test('coach can cancel undelivered confirmed bookings even after appointment time; completed bookings stay excluded', async () => {
@@ -292,7 +303,7 @@ test('booking form discloses cutoff before CTA and sends it only as a server com
   let payload
   const BookingWidget = load('src/app/creators/[slug]/BookingWidget.tsx', {
     react: {
-      ...React, useEffect() {}, useCallback: callback => callback,
+      ...React, useEffect() {}, useCallback: callback => callback, useRef: () => ({ current: null }),
       useState(initial) {
         const slot = index++
         if (!(slot in states)) states[slot] = ({ 2: new Date('2026-10-10T12:00:00Z'), 5: '12:00', 6: 'form', 7: 'Synthetic buyer', 8: 'delivered@resend.dev' })[slot] ?? initial
