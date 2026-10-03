@@ -30,6 +30,7 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
     status: 'pending_payment', payment_status: 'pending', stripe_livemode: false,
     stripe_checkout_session_id: 'cs_synthetic', current_payment_attempt_id: attemptId, fulfilled_payment_attempt_id: null,
     reservation_expires_at: new Date(Date.now() - 1000).toISOString(),
+    payment_updated_at: '2000-01-01T00:00:00.000Z',
     ...bookingChanges,
   }
   const attempt = {
@@ -76,20 +77,54 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
   let recoveryError = null
   const recoveries = []
   const legacyRegistrations = []
+  const additionalBookings = []
+  const orders = []
+  const touches = []
+  let touchError = null
+  let beforeTouch = null
   const service = {
     from(table) {
       assert.ok(['bookings', 'coaching_payment_attempts', 'purchases'].includes(table), table)
       const filters = []
+      const conditions = []
+      const ordering = []
+      let rowLimit = Infinity
+      let action = 'select'
+      let update
       const execute = () => {
-        const rows = table === 'bookings' ? [booking] : table === 'coaching_payment_attempts' ? [...attempts.values()] : []
-        return rows.filter(row => filters.every(testRow => testRow(row)))
+        const rows = table === 'bookings' ? [booking, ...additionalBookings] : table === 'coaching_payment_attempts' ? [...attempts.values()] : []
+        if (action === 'update' && table === 'bookings') {
+          assert.deepEqual(Object.keys(update), ['payment_updated_at'])
+          touches.push({ update, conditions: structuredClone(conditions) })
+          if (beforeTouch) { const callback = beforeTouch; beforeTouch = null; callback() }
+        }
+        const matching = rows.filter(row => filters.every(testRow => testRow(row)))
+        if (action === 'update' && table === 'bookings') {
+          for (const row of matching) Object.assign(row, update)
+        }
+        return matching.sort((first, second) => {
+          for (const { key, options } of ordering) {
+            if (first[key] === second[key]) continue
+            if (first[key] == null) return options?.nullsFirst ? -1 : 1
+            if (second[key] == null) return options?.nullsFirst ? 1 : -1
+            const direction = options?.ascending === false ? -1 : 1
+            return (first[key] < second[key] ? -1 : 1) * direction
+          }
+          return 0
+        }).slice(0, rowLimit).map(row => structuredClone(row))
       }
       return {
-        select() { return this }, eq(key, value) { filters.push(row => row[key] === value); return this },
+        select() { return this }, eq(key, value) { conditions.push({ key, value }); filters.push(row => row[key] === value); return this },
+        is(key, value) { conditions.push({ key, value }); filters.push(row => row[key] == null && value === null); return this },
         lte(key, value) { filters.push(row => row[key] <= value); return this },
-        order() { return this }, limit() { return this }, update() { assert.equal(table, 'purchases'); return this },
+        order(key, options) { orders.push({ key, options }); ordering.push({ key, options }); return this },
+        limit(value) { rowLimit = value; return this },
+        update(row) { assert.ok(['bookings', 'purchases'].includes(table)); action = 'update'; update = row; return this },
         async maybeSingle() { return { data: execute()[0] ?? null, error: null } },
-        then(resolve, reject) { return Promise.resolve({ data: execute(), error: null }).then(resolve, reject) },
+        then(resolve, reject) {
+          if (action === 'update' && table === 'bookings' && touchError) return Promise.resolve({ data: null, error: touchError }).then(resolve, reject)
+          return Promise.resolve({ data: execute(), error: null }).then(resolve, reject)
+        },
       }
     },
     async rpc(name, params) {
@@ -199,19 +234,21 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
   }, logs)
   return {
     booking, attempt, session, intent, charge, sessions, intents, charges, attempts, claims,
-    observations, reconciliations, providerReads, recoveries, legacyRegistrations, logs, helper, confirmations: () => confirmations,
+    observations, reconciliations, providerReads, recoveries, legacyRegistrations, orders, touches, additionalBookings, logs, helper, confirmations: () => confirmations,
     paid() { session.status = 'complete'; session.payment_status = 'paid'; intent.status = 'succeeded'; intent.amount_received = 500; intent.latest_charge = charge.id },
     failProvider(error = { code: 'api_connection_error', message: 'private-provider-data' }) { providerFailure = error },
     failObservation(error = { code: '40001' }) { observationError = error },
     barrier(promise) { readBarrier = promise },
     recoverSession(id) { recoveredSessionId = id },
     failRecovery(error) { recoveryError = error },
+    failTouch(error = { code: '40001' }) { touchError = error },
+    beforeTouch(callback) { beforeTouch = callback },
     run(type, object = type.startsWith('payment_intent.') ? intent : session, id = `evt_${type}`, mode = false) {
       const event = { id, type, livemode: mode, data: { object: structuredClone(object) } }
       return route.POST({ text: async () => JSON.stringify(event), headers: new Headers({ 'stripe-signature': 'synthetic' }) })
     },
     reconcile: (id = session.id) => helper.reconcileCoachingCheckout({ service, sessionId: id, stripeLivemode: false }),
-    timeouts: () => helper.reconcileExpiredCoachingReservations({ service }),
+    timeouts: options => helper.reconcileExpiredCoachingReservations({ service, ...options }),
   }
 }
 
@@ -516,4 +553,66 @@ test('timeout creation discovery failure preserves the hold rather than claiming
   assert.equal(result.failed, 1)
   assert.equal(result.released, 0)
   assert.equal(state.booking.status, 'pending_payment')
+})
+
+test('reservation batches check the least recently observed holds first, including null timestamps', async () => {
+  const state = fixture(); state.session.status = 'complete'; state.intent.status = 'processing'
+  await state.timeouts()
+  assert.deepEqual(state.orders, [
+    { key: 'payment_updated_at', options: { ascending: true, nullsFirst: true } },
+    { key: 'reservation_expires_at', options: { ascending: true } },
+  ])
+})
+
+test('processing holds rotate by changing only their timestamp under booking, pending-state and attempt guards', async () => {
+  const state = fixture(); state.session.status = 'complete'; state.intent.status = 'processing'
+  const result = await state.timeouts()
+  assert.equal(result.failed, 0)
+  assert.equal(result.released, 0)
+  assert.equal(state.booking.status, 'pending_payment')
+  assert.equal(state.booking.payment_status, 'pending')
+  assert.ok(state.booking.payment_updated_at > '2000-01-01T00:00:00.000Z')
+  assert.deepEqual(state.touches[0].conditions, [
+    { key: 'id', value: bookingId }, { key: 'status', value: 'pending_payment' },
+    { key: 'current_payment_attempt_id', value: attemptId },
+  ])
+})
+
+test('unresolved and failed holds rotate too, preventing bounded batches from starving other reservations', async () => {
+  const state = fixture({ bookingChanges: { stripe_checkout_session_id: null, current_payment_attempt_id: null, payment_updated_at: null } })
+  for (let index = 0; index < 3; index += 1) state.additionalBookings.push({
+    ...state.booking, id: `booking-extra-${index}`, payment_updated_at: `2000-01-0${index + 2}T00:00:00.000Z`,
+  })
+  const first = await state.timeouts({ limit: 2 })
+  const second = await state.timeouts({ limit: 2 })
+  assert.equal(first.unresolved, 2)
+  assert.equal(second.unresolved, 2)
+  assert.equal(new Set(state.touches.map(touch => touch.conditions.find(condition => condition.key === 'id').value)).size, 4)
+  assert.ok(state.touches.every(touch => touch.conditions.some(condition => condition.key === 'current_payment_attempt_id' && condition.value === null)))
+  const failed = fixture(); failed.failProvider()
+  assert.equal((await failed.timeouts()).failed, 1)
+  assert.ok(failed.booking.payment_updated_at > '2000-01-01T00:00:00.000Z')
+  assert.equal(failed.booking.status, 'pending_payment')
+})
+
+test('rotation cannot overwrite a confirmed booking or a replacement attempt created concurrently', async () => {
+  const confirmed = fixture(); confirmed.paid()
+  await confirmed.timeouts()
+  assert.equal(confirmed.booking.status, 'confirmed')
+  assert.equal(confirmed.booking.payment_updated_at, '2000-01-01T00:00:00.000Z')
+  const replaced = fixture({ bookingChanges: { stripe_checkout_session_id: null } })
+  replaced.beforeTouch(() => { replaced.booking.current_payment_attempt_id = nextAttemptId })
+  await replaced.timeouts()
+  assert.equal(replaced.booking.current_payment_attempt_id, nextAttemptId)
+  assert.equal(replaced.booking.payment_updated_at, '2000-01-01T00:00:00.000Z')
+  assert.equal(replaced.booking.status, 'pending_payment')
+})
+
+test('rotation database failure reports a retryable error while preserving every financial and reservation state', async () => {
+  const state = fixture({ bookingChanges: { stripe_checkout_session_id: null } }); state.failTouch()
+  const before = structuredClone(state.booking)
+  const result = await state.timeouts()
+  assert.equal(result.failed, 1)
+  assert.deepEqual(state.booking, before)
+  assert.deepEqual(state.logs, [['[coaching-reservation] rotation failed', '40001']])
 })

@@ -228,12 +228,14 @@ export async function reconcileExpiredCoachingReservations({ service, creatorId,
 }) {
   let query = service.from('bookings').select('id,stripe_checkout_session_id,stripe_livemode,current_payment_attempt_id')
     .eq('status', 'pending_payment').lte('reservation_expires_at', new Date().toISOString())
-    .order('reservation_expires_at').limit(Math.min(100, Math.max(1, limit)))
+    .order('payment_updated_at', { ascending: true, nullsFirst: true })
+    .order('reservation_expires_at', { ascending: true }).limit(Math.min(100, Math.max(1, limit)))
   if (creatorId) query = query.eq('creator_id', creatorId)
   const { data, error } = await query
   if (error) throw error
   const results = { checked: 0, released: 0, confirmed: 0, reconciliation: 0, unresolved: 0, failed: 0 }
   for (const row of data ?? []) {
+    let rowFailed = false
     try {
       let sessionId = row.stripe_checkout_session_id
       if (!sessionId && row.current_payment_attempt_id) {
@@ -253,8 +255,26 @@ export async function reconcileExpiredCoachingReservations({ service, creatorId,
       // One provider outage must not prevent reconciliation of other holds.
       // Callers still return a retryable failure when this counter is nonzero.
       results.failed += 1
+      rowFailed = true
       const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
       console.error('[coaching-reservation] reconciliation failed', typeof code === 'string' && /^[a-zA-Z0-9_]{1,80}$/.test(code) ? code : 'reservation_reconciliation_failed')
+    } finally {
+      // Rotate processing, unresolved, and failed holds behind unchecked ones.
+      // This changes only the check timestamp of the same still-pending attempt;
+      // a concurrent confirmation, cancellation, or retry is never overwritten.
+      try {
+        let touch = service.from('bookings').update({ payment_updated_at: new Date().toISOString() })
+          .eq('id', row.id).eq('status', 'pending_payment')
+        touch = row.current_payment_attempt_id
+          ? touch.eq('current_payment_attempt_id', row.current_payment_attempt_id)
+          : touch.is('current_payment_attempt_id', null)
+        const { error: touchError } = await touch
+        if (touchError) throw touchError
+      } catch (error) {
+        if (!rowFailed) results.failed += 1
+        const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
+        console.error('[coaching-reservation] rotation failed', typeof code === 'string' && /^[a-zA-Z0-9_]{1,80}$/.test(code) ? code : 'reservation_rotation_failed')
+      }
     }
   }
   return results
