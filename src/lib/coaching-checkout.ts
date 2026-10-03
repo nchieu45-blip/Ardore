@@ -4,6 +4,8 @@ import { stripe } from '@/lib/stripe/server'
 import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
 import { reconcileCoachingCheckout } from '@/lib/coaching-payment-lifecycle'
 import { recoverCreatingCoachingCheckout } from '@/lib/coaching-checkout-recovery'
+import { ConnectReadinessError, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
+import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
 
 export const COACHING_RESERVATION_MINUTES = 31
 
@@ -19,6 +21,7 @@ type Attempt = {
   stripe_payment_intent_id: string | null; checkout_url: string | null; stripe_livemode: boolean;
   checkout_idempotency_key: string; reservation_expires_at: string; created_at: string;
   price_cents: number; destination_account_id: string | null; application_fee_cents: number;
+  charge_architecture?: 'destination' | 'separate';
 }
 
 type Claim = { booking?: Booking; attempt?: Attempt; created?: boolean; registered?: boolean; error?: string }
@@ -60,6 +63,16 @@ function confirmedOrReconciled(booking: Booking): CoachingCheckoutResult | null 
   return null
 }
 
+async function ensureSettlementOrder(service: SupabaseClient, booking: Booking, attempt: Attempt) {
+  if (attempt.charge_architecture !== 'separate') return
+  if (!attempt.destination_account_id) throw new Error('Missing agreed settlement account')
+  await createSettlementOrder({ service, id: attempt.id, kind: 'booking',
+    buyerId: booking.buyer_id, creatorId: booking.creator_id, accountId: attempt.destination_account_id,
+    grossCents: attempt.price_cents, livemode: attempt.stripe_livemode,
+    reference: { bookingId: booking.id, attemptId: attempt.id },
+  })
+}
+
 /** Only trusted server callers can choose a booking; all commercial terms come from its frozen snapshot. */
 export async function startOrResumeCoachingCheckout({
   service, bookingId, buyerId, provider = stripe,
@@ -75,7 +88,7 @@ export async function startOrResumeCoachingCheckout({
       || !['pending', 'failed', 'expired', 'unpaid', 'reversed'].includes(booking.payment_status)
       || booking.is_subscription_session || !Number.isSafeInteger(booking.price_cents) || booking.price_cents < 50
       || new Date(booking.scheduled_at).getTime() <= Date.now()) return unavailable('not_payable')
-    const stripeLivemode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
+    const stripeLivemode = configuredStripeLivemode()
     if (booking.stripe_livemode !== stripeLivemode) return unavailable('mode_mismatch')
 
     if (!booking.current_payment_attempt_id && booking.stripe_checkout_session_id) {
@@ -112,7 +125,15 @@ export async function startOrResumeCoachingCheckout({
           return response(booking, { status: 202, paymentPending: true })
         }
         if (session.status === 'open') {
+          const readyCoach = await requirePayoutReadyCoach(service, booking.creator_id, provider)
+          if (attempt.destination_account_id !== readyCoach.accountId) {
+            return { status: 409, error: 'Diese Zahlungsanfrage kann nicht sicher fortgesetzt werden. Bitte kontaktiere den Support.' }
+          }
           if (!session.url) throw new Error('Open checkout URL unavailable')
+          await ensureSettlementOrder(service, booking, attempt)
+          if (attempt.charge_architecture === 'separate') {
+            await registerSettlementCheckout({ service, orderId: attempt.id, sessionId: session.id })
+          }
           return response(booking, { checkoutUrl: session.url })
         }
 
@@ -139,18 +160,14 @@ export async function startOrResumeCoachingCheckout({
       }
     }
 
-    const { data: creator, error: creatorError } = await service.from('creator_profiles')
-      .select('display_name, stripe_account_id, stripe_account_active').eq('id', booking.creator_id).single()
-    if (creatorError || !creator) return unavailable('not_found')
-    if (stripeLivemode && (!creator.stripe_account_id || !creator.stripe_account_active)) {
-      return { status: 409, error: 'Dieser Coach kann derzeit keine Zahlungen empfangen.' }
-    }
+    const readyCoach = await requirePayoutReadyCoach(service, booking.creator_id, provider)
     const reservationExpiresAt = new Date(Date.now() + COACHING_RESERVATION_MINUTES * 60_000).toISOString()
     const { data: claimData, error: claimError } = await service.rpc('begin_coaching_payment_attempt', {
       p_booking_id: booking.id, p_buyer_id: buyerId, p_livemode: stripeLivemode, p_expires_at: reservationExpiresAt,
       p_replace_attempt_id: replaceAttemptId,
-      p_destination_account_id: stripeLivemode ? creator.stripe_account_id : null,
-      p_application_fee_cents: stripeLivemode ? calculateArdorePlatformFee(booking.price_cents) : 0,
+      p_destination_account_id: readyCoach.accountId,
+      p_application_fee_cents: calculateArdorePlatformFee(booking.price_cents),
+      p_charge_architecture: 'separate',
     })
     if (claimError || !claimData) throw new Error('Payment attempt could not be claimed')
     const claim = claimData as Claim
@@ -158,13 +175,29 @@ export async function startOrResumeCoachingCheckout({
     if (!claim.booking || !claim.attempt) throw new Error('Invalid checkout claim')
     booking = claim.booking
     attempt = claim.attempt
+    if (claim.created && attempt.charge_architecture !== 'separate') {
+      throw new Error('New payment attempt is missing its settlement architecture')
+    }
+    // Reused attempts retain their original financial target. A changed
+    // connection must never silently redirect an existing payment.
+    if (attempt.destination_account_id !== readyCoach.accountId) {
+      return { status: 409, error: 'Diese Zahlungsanfrage kann nicht sicher fortgesetzt werden. Bitte kontaktiere den Support.' }
+    }
     if (attempt.stripe_checkout_session_id) {
       const existing = await provider.checkout.sessions.retrieve(attempt.stripe_checkout_session_id)
+      await ensureSettlementOrder(service, booking, attempt)
+      if (attempt.charge_architecture === 'separate') {
+        await registerSettlementCheckout({ service, orderId: attempt.id, sessionId: existing.id })
+      }
       return existing.status === 'open' && existing.url
         ? response(booking, { checkoutUrl: existing.url })
         : response(booking, { status: 202, paymentPending: true })
     }
     if (attempt.provider_state !== 'creating') return response(booking, { status: 202, paymentPending: true })
+
+    // Freeze coach ownership and earnings before creating a payable provider
+    // object. Separate charges move no money until successful fulfillment.
+    await ensureSettlementOrder(service, booking, attempt)
 
     // Recover a provider response lost before registering the session. Beyond
     // Stripe's idempotency-key retention we never blindly create another session.
@@ -175,7 +208,8 @@ export async function startOrResumeCoachingCheckout({
     }
 
     const metadata = { checkout_type: 'coaching_session', booking_id: booking.id, payment_attempt_id: attempt.id,
-      buyer_id: booking.buyer_id, creator_id: booking.creator_id, scheduled_at: booking.scheduled_at }
+      buyer_id: booking.buyer_id, creator_id: booking.creator_id, scheduled_at: booking.scheduled_at,
+      ...(attempt.charge_architecture === 'separate' ? { ardore_order_id: attempt.id } : {}) }
     let session: Stripe.Checkout.Session
     try {
       session = await provider.checkout.sessions.create({
@@ -183,7 +217,9 @@ export async function startOrResumeCoachingCheckout({
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: attempt.price_cents,
           product_data: { name: '1:1 Coaching', metadata: { booking_id: booking.id } } } }],
         metadata,
-        payment_intent_data: { metadata, ...(attempt.destination_account_id
+        payment_intent_data: { metadata,
+          ...(attempt.charge_architecture === 'separate' ? { transfer_group: `ardore-order-${attempt.id}` } : {}),
+          ...(attempt.charge_architecture !== 'separate' && attempt.destination_account_id
           ? { application_fee_amount: attempt.application_fee_cents, transfer_data: { destination: attempt.destination_account_id } } : {}) },
         expires_at: Math.floor(new Date(attempt.reservation_expires_at).getTime() / 1000),
         success_url: `${appUrl()}/buyer/sessions?checkout=success&booking=${booking.id}`,
@@ -198,6 +234,9 @@ export async function startOrResumeCoachingCheckout({
       // Its durable attempt stays creating so a retry uses exactly the same key.
       throw new Error('Checkout creation could not be confirmed')
     }
+    if (attempt.charge_architecture === 'separate') {
+      await registerSettlementCheckout({ service, orderId: attempt.id, sessionId: session.id })
+    }
     const { data: registeredData, error: registrationError } = await service.rpc('register_coaching_checkout', {
       p_attempt_id: attempt.id, p_session_id: session.id, p_session_url: session.url,
     })
@@ -208,7 +247,8 @@ export async function startOrResumeCoachingCheckout({
       return confirmedOrReconciled(booking) ?? response(booking, { status: 202, paymentPending: true })
     }
     return response(booking, { checkoutUrl: session.url })
-  } catch {
+  } catch (error) {
+    if (error instanceof ConnectReadinessError) return { status: error.status, bookingId, error: error.message }
     return { status: 503, bookingId, error: 'Der Zahlungsstatus konnte noch nicht sicher bestätigt werden. Bitte versuche es erneut; starte keine zusätzliche Buchung.' }
   }
 }

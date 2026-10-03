@@ -24,7 +24,7 @@ function load(path, overrides, logs = []) {
   return loadedModule.exports
 }
 
-function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attemptChanges = {} } = {}) {
+function fixture({ legacy = false, slotTaken = false, separate = false, bookingChanges = {}, attemptChanges = {} } = {}) {
   const booking = {
     id: bookingId, buyer_id: buyerId, creator_id: creatorId, price_cents: 500,
     status: 'pending_payment', payment_status: 'pending', stripe_livemode: false,
@@ -38,11 +38,13 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
     price_cents: 500, stripe_livemode: false, stripe_checkout_session_id: 'cs_synthetic',
     stripe_payment_intent_id: null, destination_account_id: null, application_fee_cents: 0,
     legacy_checkout: legacy, provider_state: 'creating', fulfillment_state: 'not_fulfilled',
+    charge_architecture: separate ? 'separate' : 'destination',
     ...attemptChanges,
   }
   const metadata = {
     checkout_type: 'coaching_session', booking_id: bookingId, buyer_id: buyerId, creator_id: creatorId,
     ...(legacy ? {} : { payment_attempt_id: attemptId }),
+    ...(separate ? { ardore_order_id: attemptId } : {}),
   }
   const session = {
     id: 'cs_synthetic', livemode: false, mode: 'payment', currency: 'eur', amount_total: 500,
@@ -53,11 +55,12 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
     id: 'pi_synthetic', livemode: false, currency: 'eur', amount: 500, amount_received: 0,
     status: 'requires_payment_method', latest_charge: null, metadata: { ...metadata },
     transfer_data: null, application_fee_amount: null, last_payment_error: null,
+    transfer_group: separate ? `ardore-order-${attemptId}` : null,
   }
   const charge = {
     id: 'ch_synthetic', payment_intent: intent.id, livemode: false, currency: 'eur', paid: true,
     captured: true, disputed: false, amount_captured: 500, amount_refunded: 0,
-    metadata: { ...metadata }, transfer_data: null,
+    metadata: { ...metadata }, transfer_data: null, transfer_group: separate ? `ardore-order-${attemptId}` : null,
   }
   const sessions = new Map([[session.id, session]])
   const intents = new Map([[intent.id, intent]])
@@ -66,6 +69,10 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
   const claims = new Map()
   const observations = []
   const reconciliations = []
+  const settlementRecords = new Map()
+  const settlementTransfers = new Set()
+  const settlementEffects = []
+  let settlementFailure = null
   const cancellationReconciliations = []
   const providerReads = []
   const logs = []
@@ -218,9 +225,33 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
     reconcileCoachingRefund: async input => { cancellationReconciliations.push(input); return null },
   }
   const confirmation = { provisionConfirmedCoachingBooking: async id => { assert.equal(id, booking.id); confirmations += 1 } }
+  const settlement = {
+    async isRetiredStripeTestEvent() { return false },
+    async recordSuccessfulSettlement({ service: database, orderId, paymentIntentId, sessionId }) {
+      assert.equal(database, service); assert.equal(orderId, attempt.id)
+      assert.equal(paymentIntentId, intent.id); assert.equal(sessionId, session.id)
+      settlementEffects.push('record')
+      if (settlementFailure) { const error = settlementFailure; settlementFailure = null; throw error }
+      const value = { id: `settlement-${orderId}` }
+      settlementRecords.set(orderId, value); return value
+    },
+    async settlePayment({ service: database, settlementId }) {
+      assert.equal(database, service); assert.equal(settlementId, `settlement-${attempt.id}`)
+      assert.equal(booking.fulfilled_payment_attempt_id, attempt.id)
+      assert.equal(booking.status, 'confirmed'); assert.equal(booking.payment_status, 'paid')
+      assert.equal(attempt.fulfillment_state, 'paid_confirmed')
+      assert.equal(charge.amount_refunded, 0)
+      settlementEffects.push('settle'); settlementTransfers.add(settlementId)
+    },
+    async reconcileSettlementRefund() {},
+    async reconcileSettlementProviderEvent() { return { handled: false } },
+    async reconcileSettlementCheckout() { return { handled: false } },
+    async reconcileSettlementInvoice() { return { handled: false } },
+  }
   const helper = load('../src/lib/coaching-payment-lifecycle.ts', {
     '@/lib/stripe/server': { stripe: provider }, '@/lib/coaching-payment-reconciliation': refund,
     '@/lib/coaching-confirmation': confirmation,
+    '@/lib/stripe/settlement': settlement,
     '@/lib/coaching-checkout-recovery': { recoverCreatingCoachingCheckout: async input => {
       recoveries.push(input)
       if (recoveryError) throw recoveryError
@@ -231,13 +262,15 @@ function fixture({ legacy = false, slotTaken = false, bookingChanges = {}, attem
     '@/lib/stripe/server': { stripe: provider }, '@/lib/supabase/server': { createServiceClient: async () => service },
     '@/lib/coaching-refund': refund, '@/lib/coaching-payment-reconciliation': refund, '@/lib/coaching-payment-lifecycle': helper,
     '@/lib/email/send': {}, '@/lib/notifications': {},
+    '@/lib/stripe/settlement': settlement,
   }, logs)
   return {
     booking, attempt, session, intent, charge, sessions, intents, charges, attempts, claims,
-    observations, reconciliations, providerReads, recoveries, legacyRegistrations, orders, touches, additionalBookings, logs, helper, confirmations: () => confirmations,
+    observations, reconciliations, providerReads, recoveries, legacyRegistrations, orders, touches, additionalBookings, logs, helper, settlementRecords, settlementTransfers, settlementEffects, confirmations: () => confirmations,
     paid() { session.status = 'complete'; session.payment_status = 'paid'; intent.status = 'succeeded'; intent.amount_received = 500; intent.latest_charge = charge.id },
     failProvider(error = { code: 'api_connection_error', message: 'private-provider-data' }) { providerFailure = error },
     failObservation(error = { code: '40001' }) { observationError = error },
+    failSettlement(error = { code: 'settlement_unavailable' }) { settlementFailure = error },
     barrier(promise) { readBarrier = promise },
     recoverSession(id) { recoveredSessionId = id },
     failRecovery(error) { recoveryError = error },
@@ -262,6 +295,73 @@ test('captured payment confirms once, recording the provider amount and exact id
   assert.equal(observed.payment_intent_id, 'pi_synthetic')
   assert.equal(observed.provider_state, 'paid')
   assert.ok(state.providerReads.some(row => row.kind === 'charge'))
+})
+
+test('separate paid booking records one settlement and transfers only its fulfilled payment', async () => {
+  const state = fixture({ separate: true }); state.paid()
+  assert.equal((await state.run('checkout.session.completed')).status, 200)
+  assert.equal(state.settlementRecords.size, 1); assert.equal(state.settlementTransfers.size, 1)
+  assert.deepEqual(state.settlementEffects, ['record', 'settle'])
+  assert.equal((await state.run('checkout.session.async_payment_succeeded', state.session, 'evt_delayed')).status, 200)
+  assert.equal(state.settlementRecords.size, 1); assert.equal(state.settlementTransfers.size, 1)
+  assert.equal(state.confirmations(), 1)
+})
+
+test('separate unpaid and failed payments never record earnings or initiate transfers', async () => {
+  const state = fixture({ separate: true }); state.session.status = 'complete'
+  assert.equal((await state.run('checkout.session.async_payment_failed')).status, 200)
+  assert.equal(state.settlementRecords.size, 0); assert.equal(state.settlementTransfers.size, 0)
+})
+
+test('separate delayed success in an occupied slot records its payment for refund and never transfers', async () => {
+  const state = fixture({ separate: true, slotTaken: true }); state.paid()
+  assert.equal((await state.run('checkout.session.async_payment_succeeded')).status, 200)
+  assert.equal(state.settlementRecords.size, 1); assert.equal(state.settlementTransfers.size, 0)
+  assert.deepEqual(state.settlementEffects, ['record'])
+  assert.deepEqual(state.reconciliations, [attemptId]); assert.equal(state.confirmations(), 0)
+})
+
+test('separate already-refunded payment cannot create coach earnings or transfer', async () => {
+  const state = fixture({ separate: true }); state.paid(); state.charge.amount_refunded = 500
+  assert.equal((await state.run('checkout.session.completed')).status, 200)
+  assert.equal(state.settlementRecords.size, 1); assert.equal(state.settlementTransfers.size, 0)
+  assert.deepEqual(state.reconciliations, [attemptId])
+})
+
+test('settlement persistence retry preserves one valid booking and confirmation side effect', async () => {
+  const state = fixture({ separate: true }); state.paid(); state.failSettlement()
+  assert.equal((await state.run('checkout.session.completed', state.session, 'evt_ledger_retry')).status, 500)
+  assert.equal(state.booking.status, 'confirmed'); assert.equal(state.confirmations(), 1)
+  assert.equal(state.settlementTransfers.size, 0)
+  assert.equal((await state.run('checkout.session.completed', state.session, 'evt_ledger_retry')).status, 200)
+  assert.equal(state.settlementRecords.size, 1); assert.equal(state.settlementTransfers.size, 1)
+  assert.equal(state.confirmations(), 1)
+})
+
+for (const [name, mutate] of [
+  ['Checkout order', state => { state.session.metadata.ardore_order_id = 'other-order' }],
+  ['Intent order', state => { state.intent.metadata.ardore_order_id = 'other-order' }],
+  ['Charge order', state => { state.charge.metadata.ardore_order_id = 'other-order' }],
+  ['Intent destination', state => { state.intent.transfer_data = { destination: 'acct_other' } }],
+  ['Intent application fee', state => { state.intent.application_fee_amount = 50 }],
+  ['Intent transfer group', state => { state.intent.transfer_group = 'other-group' }],
+  ['Charge transfer group', state => { state.charge.transfer_group = 'other-group' }],
+  ['Charge application fee', state => { state.charge.application_fee = 'fee_other' }],
+  ['Charge automatic transfer', state => { state.charge.transfer = 'tr_other' }],
+  ['Charge source transfer', state => { state.charge.source_transfer = 'tr_other' }],
+]) {
+  test(`separate ${name} mismatch cannot fulfill or settle`, async () => {
+    const state = fixture({ separate: true }); state.paid(); mutate(state)
+    assert.equal((await state.run('checkout.session.completed')).status, 500)
+    assert.equal(state.observations.length, 0); assert.equal(state.settlementRecords.size, 0)
+    assert.equal(state.settlementTransfers.size, 0); assert.equal(state.confirmations(), 0)
+  })
+}
+
+test('historical destination fulfillment never starts a new separate settlement', async () => {
+  const state = fixture(); state.paid()
+  assert.equal((await state.run('checkout.session.completed')).status, 200)
+  assert.equal(state.settlementRecords.size, 0); assert.equal(state.settlementTransfers.size, 0)
 })
 
 test('completed but unpaid asynchronous checkout never confirms or releases its held slot', async () => {

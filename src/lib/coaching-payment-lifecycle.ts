@@ -4,6 +4,7 @@ import { stripe } from '@/lib/stripe/server'
 import { provisionConfirmedCoachingBooking } from '@/lib/coaching-confirmation'
 import { processCoachingPaymentReconciliation } from '@/lib/coaching-payment-reconciliation'
 import { recoverCreatingCoachingCheckout } from '@/lib/coaching-checkout-recovery'
+import { recordSuccessfulSettlement, settlePayment } from '@/lib/stripe/settlement'
 
 export type CoachingProviderState = 'open' | 'processing' | 'paid' | 'failed' | 'expired' | 'canceled'
 
@@ -18,6 +19,7 @@ interface LifecycleBooking {
   stripe_checkout_session_id: string | null
   current_payment_attempt_id: string | null
   reservation_expires_at: string | null
+  fulfilled_payment_attempt_id?: string | null
 }
 
 interface LifecycleAttempt {
@@ -34,6 +36,7 @@ interface LifecycleAttempt {
   legacy_checkout: boolean
   provider_state: string
   fulfillment_state: string
+  charge_architecture?: 'destination' | 'separate'
 }
 
 export interface CoachingLifecycleResult {
@@ -66,6 +69,7 @@ function metadataMatches(metadata: Stripe.Metadata | null, booking: LifecycleBoo
   return metadata?.checkout_type === 'coaching_session' && metadata.booking_id === booking.id
     && metadata.buyer_id === booking.buyer_id && metadata.creator_id === booking.creator_id
     && (attempt.legacy_checkout ? !metadata.payment_attempt_id : metadata.payment_attempt_id === attempt.id)
+    && (attempt.charge_architecture !== 'separate' || metadata.ardore_order_id === attempt.id)
 }
 
 function providerState(session: Stripe.Checkout.Session, intent: Stripe.PaymentIntent | null): CoachingProviderState {
@@ -97,7 +101,7 @@ export async function reconcileCoachingCheckout({ service, sessionId, stripeLive
     throw new CoachingLifecycleError('checkout_ownership_or_mode_mismatch')
   }
   const { data: booking, error: bookingError } = await service.from('bookings')
-    .select('id,buyer_id,creator_id,price_cents,status,payment_status,stripe_livemode,stripe_checkout_session_id,current_payment_attempt_id,reservation_expires_at')
+    .select('id,buyer_id,creator_id,price_cents,status,payment_status,stripe_livemode,stripe_checkout_session_id,current_payment_attempt_id,reservation_expires_at,fulfilled_payment_attempt_id')
     .eq('id', session.metadata.booking_id).maybeSingle()
   if (bookingError) throw bookingError
   if (!booking) throw new CoachingLifecycleError('coaching_booking_missing')
@@ -157,8 +161,11 @@ export async function reconcileCoachingCheckout({ service, sessionId, stripeLive
   }
   if (intent && (intent.id !== intentId || intent.livemode !== stripeLivemode || intent.currency !== 'eur'
     || intent.amount !== attempt.price_cents || !metadataMatches(intent.metadata, reserved, attempt)
-    || objectId(intent.transfer_data?.destination) !== attempt.destination_account_id
-    || (intent.application_fee_amount ?? 0) !== attempt.application_fee_cents)) {
+    || (attempt.charge_architecture === 'separate'
+      ? Boolean(intent.transfer_data) || (intent.application_fee_amount ?? 0) !== 0
+        || intent.transfer_group !== `ardore-order-${attempt.id}`
+      : objectId(intent.transfer_data?.destination) !== attempt.destination_account_id
+        || (intent.application_fee_amount ?? 0) !== attempt.application_fee_cents))) {
     throw new CoachingLifecycleError('payment_intent_snapshot_mismatch')
   }
 
@@ -173,7 +180,10 @@ export async function reconcileCoachingCheckout({ service, sessionId, stripeLive
       || charge.livemode !== stripeLivemode || charge.currency !== 'eur' || charge.disputed
       || !metadataMatches(charge.metadata, reserved, attempt) || charge.amount_captured !== intent.amount_received
       || charge.amount_captured !== attempt.price_cents
-      || objectId(charge.transfer_data?.destination) !== attempt.destination_account_id
+      || (attempt.charge_architecture === 'separate'
+        ? Boolean(charge.transfer_data) || Boolean(charge.transfer) || Boolean(charge.application_fee)
+          || Boolean(charge.source_transfer) || charge.transfer_group !== `ardore-order-${attempt.id}`
+        : objectId(charge.transfer_data?.destination) !== attempt.destination_account_id)
       || !Number.isSafeInteger(charge.amount_refunded) || charge.amount_refunded < 0 || charge.amount_refunded > charge.amount_captured) {
       throw new CoachingLifecycleError('captured_charge_snapshot_mismatch')
     }
@@ -195,10 +205,24 @@ export async function reconcileCoachingCheckout({ service, sessionId, stripeLive
   if (error) throw error
   if (!data?.booking || !data?.attempt) throw new CoachingLifecycleError('payment_observation_failed')
   const result: CoachingLifecycleResult = { ...data, providerState: state }
+  // Confirmation is already durable. A later ledger/provider outage must not
+  // lose this one-time confirmation side effect on the webhook's next retry.
+  if (result.newly_confirmed) await provisionConfirmedCoachingBooking(data.booking.id)
+  if (state === 'paid' && intent && attempt.charge_architecture === 'separate') {
+    // Record every captured payment, including losers that require a refund.
+    // Only the exact fulfilled, still-paid booking may initiate settlement.
+    const settlement = await recordSuccessfulSettlement({ service, orderId: attempt.id,
+      paymentIntentId: intent.id, sessionId: session.id,
+    })
+    if (!result.needs_reconciliation && data.attempt.fulfillment_state === 'paid_confirmed'
+      && data.booking.fulfilled_payment_attempt_id === attempt.id && data.booking.status === 'confirmed'
+      && data.booking.payment_status === 'paid' && amountRefunded === 0) {
+      await settlePayment({ service, settlementId: settlement.id })
+    }
+  }
   if (result.needs_reconciliation) {
     await processCoachingPaymentReconciliation({ service, attemptId: data.attempt.id })
   }
-  if (result.newly_confirmed) await provisionConfirmedCoachingBooking(data.booking.id)
   return result
 }
 

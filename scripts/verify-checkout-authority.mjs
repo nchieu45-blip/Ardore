@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import ts from 'typescript'
+import { connectReadinessFixture } from './fixtures/connect-readiness.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -30,8 +31,12 @@ const makeDiscount = creatorId => ({
   target_product_id: null, target_tier_id: null,
 })
 
-function productFixture(products, discount = null) {
+function productFixture(products, discount = null, readinessFailure = null) {
   const sessions = []
+  const sessionOptions = []
+  const orders = []
+  const registrations = []
+  const readinessChecks = []
   const database = {
     auth: { getUser: async () => ({ data: { user: buyer } }) },
     from(table) {
@@ -53,12 +58,23 @@ function productFixture(products, discount = null) {
     },
   }
   const route = loadRoute('../src/app/api/stripe/checkout/route.ts', {
-    '@/lib/supabase/server': { createClient: async () => database },
-    '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async data => { sessions.push(data); return { url: 'https://checkout.stripe.com/synthetic' } } } } } },
+    '@/lib/supabase/server': { createClient: async () => database, createServiceClient: async () => database },
+    '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (data, options) => {
+      sessions.push(data); sessionOptions.push(options)
+      return { id: 'cs_synthetic', url: 'https://checkout.stripe.com/synthetic' }
+    } } } } },
+    '@/lib/stripe/settlement': {
+      isRetiredStripeTestEvent: async () => false,
+      async createSettlementOrder(input) { assert.equal(input.service, database); orders.push(input); return { id: 'synthetic-order' } },
+      async registerSettlementCheckout(input) { assert.equal(input.service, database); registrations.push(input) },
+    },
     '@/lib/stripe/platformFee': { calculateArdorePlatformFee: cents => Math.round(cents / 10) },
+    '@/lib/stripe/connect-readiness': connectReadinessFixture({ failure: readinessFailure, onCheck(service, creatorId) {
+      assert.equal(service, database); readinessChecks.push(creatorId)
+    } }),
   })
   return {
-    sessions,
+    sessions, sessionOptions, orders, registrations, readinessChecks,
     run: body => route.POST({ json: async () => ({ withdrawalConsent: true, ...body }) }),
   }
 }
@@ -89,10 +105,11 @@ test('another coach discount cannot reduce product checkout price', async () => 
   assert.equal(state.sessions[0].line_items[0].price_data.unit_amount, 2900)
 })
 
-test('coach discount cannot discount another coach products in a mixed cart', async () => {
+test('mixed-coach cart cannot collect a platform-only payment with no coach settlement', async () => {
   const state = productFixture([makeProduct('first', 'coach-a', 29), makeProduct('second', 'coach-b', 49)], makeDiscount('coach-a'))
-  assert.equal((await state.run({ items: [{ productId: 'first' }, { productId: 'second' }], discountId: 'synthetic-discount' })).status, 200)
-  assert.deepEqual(state.sessions[0].line_items.map(item => item.price_data.unit_amount), [2900, 4900])
+  assert.equal((await state.run({ items: [{ productId: 'first' }, { productId: 'second' }], discountId: 'synthetic-discount' })).status, 409)
+  assert.deepEqual(state.sessions, [])
+  assert.deepEqual(state.readinessChecks, [])
 })
 
 test('legitimate own-coach product discount remains usable', async () => {
@@ -102,7 +119,7 @@ test('legitimate own-coach product discount remains usable', async () => {
   assert.equal(state.sessions[0].line_items[0].price_data.unit_amount, 2320)
 })
 
-function coachingFixture(discount, priceCents = 8000, subscription = null) {
+function coachingFixture(discount, priceCents = 8000, subscription = null, readinessFailure = null) {
   const bookings = []
   const sessions = []
   const confirmations = []
@@ -141,6 +158,7 @@ function coachingFixture(discount, priceCents = 8000, subscription = null) {
       return { status: 200, bookingId, checkoutUrl: 'https://checkout.stripe.com/synthetic' }
     } },
     '@/lib/subscription-entitlement': loadRoute('../src/lib/subscription-entitlement.ts', {}),
+    '@/lib/stripe/connect-readiness': connectReadinessFixture({ failure: readinessFailure }),
     '@/lib/stripe/platformFee': { calculateArdorePlatformFee: cents => Math.round(cents / 10) },
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async data => { sessions.push(data); return { id: 'synthetic-session', url: 'https://checkout.stripe.com/synthetic' } } } } } },
   })
@@ -159,6 +177,55 @@ test('foreign 100 percent session discount cannot grant unpaid coaching entitlem
   assert.equal(state.sessions[0].line_items[0].price_data.unit_amount, 8000)
   assert.deepEqual(state.confirmations, [])
 })
+
+test('paid product checkout freezes commercial amounts and settles separately to a freshly verified coach', async () => {
+  const state = productFixture([makeProduct('visible', 'coach-a', 27.49)])
+  assert.equal((await state.run({ productId: 'visible', stripe_account_id: 'acct_attacker', application_fee_amount: 0 })).status, 200)
+  assert.deepEqual(state.readinessChecks, ['coach-a'])
+  assert.equal(state.sessions[0].payment_intent_data.transfer_data, undefined)
+  assert.equal(state.sessions[0].payment_intent_data.application_fee_amount, undefined)
+  assert.deepEqual(state.sessions[0].payment_intent_data.metadata, state.sessions[0].metadata)
+  assert.equal(state.sessions[0].metadata.ardore_order_id, 'synthetic-order')
+  assert.equal(state.sessions[0].payment_intent_data.transfer_group, 'ardore-order-synthetic-order')
+  assert.deepEqual(state.sessionOptions, [{ idempotencyKey: 'ardore-order-checkout-synthetic-order-v1' }])
+  assert.deepEqual({ ...state.orders[0], service: 'service', reference: { ...state.orders[0].reference, withdrawalConsentAt: 'timestamp' } }, {
+    service: 'service', kind: 'products', buyerId: buyer.id, creatorId: 'coach-a',
+    accountId: 'acct_syntheticReady', grossCents: 2749, livemode: false,
+    reference: { items: [{ productId: 'visible', amountCents: 2749 }], withdrawalConsentAt: 'timestamp', withdrawalConsentVersion: 'widerruf-v1' },
+  })
+  assert.deepEqual(state.registrations.map(input => ({ orderId: input.orderId, sessionId: input.sessionId })), [{ orderId: 'synthetic-order', sessionId: 'cs_synthetic' }])
+})
+
+test('free coach-priced products do not require payout eligibility or create monetary Stripe fields', async () => {
+  const state = productFixture([makeProduct('free', 'coach-a', 0)], null, { code: 'connect_account_missing', status: 409 })
+  assert.equal((await state.run({ productId: 'free' })).status, 200)
+  assert.deepEqual(state.readinessChecks, [])
+  assert.equal(state.orders[0].accountId, null)
+  assert.equal(state.orders[0].grossCents, 0)
+  assert.deepEqual(state.orders[0].reference.items, [{ productId: 'free', amountCents: 0 }])
+  assert.equal(state.sessions[0].payment_intent_data, undefined)
+  assert.equal(state.sessions[0].line_items[0].price_data.unit_amount, 0)
+})
+
+for (const failure of [
+  { code: 'connect_account_missing', status: 409 },
+  { code: 'connect_account_not_ready', status: 409 },
+  { code: 'connect_mode_mismatch', status: 409 },
+  { code: 'connect_provider_unavailable', status: 503 },
+]) {
+  test(`paid checkout is blocked for ${failure.code}, without inserting a booking or collecting money`, async () => {
+    const product = productFixture([makeProduct('visible', 'coach-a', 29)], null, failure)
+    assert.equal((await product.run({ productId: 'visible' })).status, failure.status)
+    assert.deepEqual(product.sessions, [])
+    const coaching = coachingFixture(null, 8000, null, failure)
+    assert.equal((await coaching.run()).status, failure.status)
+    assert.deepEqual(coaching.bookings, [])
+    assert.deepEqual(coaching.sessions, [])
+    const free = coachingFixture(null, 0, null, failure)
+    assert.equal((await free.run()).status, 200)
+    assert.equal(free.bookings[0].payment_status, 'not_required')
+  })
+}
 
 test('coach can still legitimately offer 100 percent discount on their own service', async () => {
   const state = coachingFixture(makeDiscount('coach-a'))

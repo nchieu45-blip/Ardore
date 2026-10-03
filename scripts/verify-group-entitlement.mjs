@@ -67,9 +67,9 @@ test('unpaid, expired, canceled or foreign-tier subscriptions cannot grant a fre
     { ...validSub, current_period_end: '2000-01-01T00:00:00Z' },
     { ...validSub, subscription_tiers: { creator_id: 'coach-b' } }]) {
     const state = fixture({ subscription })
-    assert.equal((await state.run()).status, 200)
+    assert.equal((await state.run()).status, 409)
     assert.deepEqual(state.writes, [])
-    assert.equal(state.checkouts[0].line_items[0].price_data.unit_amount, 5900)
+    assert.deepEqual(state.checkouts, [], 'Unsupported paid groups must not collect money without fulfillment or settlement')
   }
 })
 

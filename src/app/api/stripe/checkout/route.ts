@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
-import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
+import { ConnectReadinessError, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
+import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -75,7 +76,8 @@ export async function POST(req: NextRequest) {
       quantity: 1 as const,
     }))
 
-  // Use Connect transfer only when every item is from the same creator with an active account
+  // Each order settles to one coach. Mixed carts must never collect money
+  // without a deterministic allocation to each coach.
   type ProductRow = {
     id: string
     creator_id: string
@@ -84,16 +86,9 @@ export async function POST(req: NextRequest) {
   }
 
   const creatorIds = [...new Set((products as ProductRow[]).map(p => p.creator_id))]
-  const singleCreator = creatorIds.length === 1
-
-  const firstProduct = products[0] as ProductRow
-  const creatorRaw = firstProduct.creator
-  const creatorInfo = Array.isArray(creatorRaw) ? creatorRaw[0] : creatorRaw
-
-  const useConnect =
-    singleCreator &&
-    !!creatorInfo?.stripe_account_id &&
-    !!creatorInfo?.stripe_account_active
+  if (creatorIds.length !== 1) {
+    return NextResponse.json({ error: 'Bitte kaufe Angebote verschiedener Coaches einzeln.' }, { status: 409 })
+  }
 
   const totalCents = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount, 0)
 
@@ -143,35 +138,61 @@ export async function POST(req: NextRequest) {
       }))
     : lineItems
   const finalTotalCents = finalLineItems.reduce((sum, item) => sum + item.price_data.unit_amount, 0)
-
+  const service = await createServiceClient()
+  let accountId: string | null = null
+  let livemode = configuredStripeLivemode()
+  if (finalTotalCents > 0) {
+    try {
+      const readiness = await requirePayoutReadyCoach(service, creatorIds[0])
+      accountId = readiness.accountId
+      livemode = readiness.livemode
+    } catch (error) {
+      if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
+    }
+  }
+  const order = await createSettlementOrder({
+    service,
+    kind: 'products',
+    buyerId: user.id,
+    creatorId: creatorIds[0],
+    accountId,
+    grossCents: finalTotalCents,
+    livemode,
+    reference: {
+      items: productIds.map((productId, index) => ({
+        productId, amountCents: finalLineItems[index].price_data.unit_amount,
+      })),
+      withdrawalConsentAt: consentTimestamp,
+      withdrawalConsentVersion: consentTimestamp ? 'widerruf-v1' : null,
+    },
+  })
+  const metadata = {
+    ardore_order_id: order.id,
+    buyer_id: user.id,
+    creator_id: creatorIds[0],
+    product_ids: productIds.join(','),
+    ...(productIds.length === 1 ? { product_id: productIds[0] } : {}),
+    ...(consentTimestamp ? {
+      withdrawal_consent_at: consentTimestamp,
+      withdrawal_consent_version: 'widerruf-v1',
+    } : {}),
+  }
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
     locale: 'de',
     customer_email: user.email,
     line_items: finalLineItems,
-    metadata: {
-      buyer_id: user.id,
-      product_ids: productIds.join(','),
-      // Keep legacy field for single-product backward compat with webhook
-      ...(productIds.length === 1 ? { product_id: productIds[0], creator_id: creatorIds[0] } : {}),
-      // Withdrawal-right consent (§ 356 Abs. 5 BGB) — only set for digital content
-      ...(consentTimestamp ? {
-        withdrawal_consent_at:      consentTimestamp,
-        withdrawal_consent_version: 'widerruf-v1',
-      } : {}),
-    },
+    metadata,
     success_url: `${appUrl}/buyer/library?success=1`,
     cancel_url: `${appUrl}/marketplace`,
-    ...(useConnect
-      ? {
-          payment_intent_data: {
-            application_fee_amount: calculateArdorePlatformFee(finalTotalCents),
-            transfer_data: { destination: creatorInfo!.stripe_account_id! },
-          },
-        }
-      : {}),
-  })
+    ...(finalTotalCents > 0 ? { payment_intent_data: {
+      metadata,
+      transfer_group: `ardore-order-${order.id}`,
+    } } : {}),
+  }, { idempotencyKey: `ardore-order-checkout-${order.id}-v1` })
+  await registerSettlementCheckout({ service, orderId: order.id, sessionId: session.id })
 
   // Increment redemption count (best-effort; TODO: move to webhook handler
   // checkout.session.completed for guaranteed once-per-payment increment)

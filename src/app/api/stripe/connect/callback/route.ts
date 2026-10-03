@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { stripe } from '@/lib/stripe/server'
+import { ConnectReadinessError, inspectConnectAccount } from '@/lib/stripe/connect-readiness'
 
 export async function GET() {
   const supabase = await createClient()
@@ -25,13 +25,12 @@ export async function GET() {
 
   if (creator.stripe_account_id) {
     try {
-      const account = await stripe.accounts.retrieve(creator.stripe_account_id)
-      const isActive = account.charges_enabled && account.payouts_enabled
+      const readiness = await inspectConnectAccount(creator.stripe_account_id, creator.id)
       const service = await createServiceClient()
       // Status is derived from Stripe, never from callback/query/body input.
       const { data: updatedCreator, error: updateError } = await service
         .from('creator_profiles')
-        .update({ stripe_account_active: isActive })
+        .update({ stripe_account_active: readiness.ready })
         .eq('id', creator.id)
         .eq('user_id', user.id)
         .eq('stripe_account_id', creator.stripe_account_id)
@@ -44,8 +43,10 @@ export async function GET() {
       if (!updatedCreator) {
         return NextResponse.json({ error: 'Stripe-Verknüpfung wurde geändert. Bitte versuche es erneut.' }, { status: 409 })
       }
-    } catch {
-      return NextResponse.json({ error: 'Stripe-Status konnte nicht geladen werden. Bitte versuche es erneut.' }, { status: 502 })
+    } catch (error) {
+      return NextResponse.json({ error: 'Stripe-Status konnte nicht geladen werden. Bitte versuche es erneut.' }, {
+        status: error instanceof ConnectReadinessError ? error.status : 502,
+      })
     }
   }
 

@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { berlinDateTimeToIso } from '@/lib/coaching-slots'
 import { COACHING_RESERVATION_MINUTES, startOrResumeCoachingCheckout } from '@/lib/coaching-checkout'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
+import { ConnectReadinessError, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 
 export async function POST(req: NextRequest) {
   const payload = await req.json().catch(() => null)
@@ -115,23 +116,13 @@ export async function POST(req: NextRequest) {
   }
 
   const requiresPayment = !isSubscriptionSession && discountedPriceCents > 0
-  const stripeLivemode = requiresPayment
-    ? process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
-    : null
+  let stripeLivemode: boolean | null = null
   if (requiresPayment) {
-    const { data: creator, error: creatorError } = await service.from('creator_profiles')
-      .select('display_name, stripe_account_id, stripe_account_active')
-      .eq('id', creatorId)
-      .single()
-    if (creatorError || !creator) {
-      return NextResponse.json({ error: 'Coach nicht gefunden.' }, { status: 404 })
-    }
-
-    // Live customer funds must always use a fully enabled Connect account.
-    // Test-mode lifecycle checks stay on the platform test balance and cannot
-    // accidentally route funds to a live connected account stored here.
-    if (stripeLivemode && (!creator.stripe_account_id || !creator.stripe_account_active)) {
-      return NextResponse.json({ error: 'Dieser Coach kann derzeit keine Zahlungen empfangen.' }, { status: 409 })
+    try {
+      stripeLivemode = (await requirePayoutReadyCoach(service, creatorId)).livemode
+    } catch (error) {
+      if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
+      return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
     }
   }
 

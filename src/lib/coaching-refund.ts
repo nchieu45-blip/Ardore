@@ -1,6 +1,7 @@
 import type Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe/server'
+import { getSettlementRefundContext, prepareSettlementRefund, reconcileSettlementRefund, recordSuccessfulSettlement } from '@/lib/stripe/settlement'
 
 export type CoachingRefundState = 'not_requested' | 'pending' | 'succeeded' | 'failed'
 export type CoachingTransferStatus = 'not_required' | 'pending' | 'succeeded' | 'failed'
@@ -88,6 +89,7 @@ interface ProviderSnapshot {
   applicationFee: Stripe.ApplicationFee | null
   actualPaid: number
   accountingPending: boolean
+  settlement: NonNullable<Awaited<ReturnType<typeof getSettlementRefundContext>>> | null
 }
 
 class RefundValidationError extends Error {
@@ -134,7 +136,7 @@ function refundTotals(snapshot: ProviderSnapshot) {
   }
 }
 
-async function providerSnapshot(booking: CoachingRefundBooking, target?: CoachingRefundTarget): Promise<ProviderSnapshot> {
+async function providerSnapshot(service: SupabaseClient, booking: CoachingRefundBooking, target?: CoachingRefundTarget): Promise<ProviderSnapshot> {
   const checkedAt = new Date().toISOString()
   if (!booking.stripe_payment_intent_id || booking.stripe_livemode === null) throw new RefundValidationError('missing_booking_payment')
   const configuredLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
@@ -172,6 +174,37 @@ async function providerSnapshot(booking: CoachingRefundBooking, target?: Coachin
   const reserved = refunds.filter(activeRefund).reduce((sum, refund) => sum + refund.amount, 0)
   if (reserved > actualPaid) throw new RefundValidationError('refund_amount_mismatch')
 
+  let settlement = await getSettlementRefundContext({ service, paymentIntentId: intent.id })
+  if (!settlement && intent.metadata.ardore_order_id) {
+    // A cancellation may race the callback immediately after booking payment
+    // observation. The private frozen order must validate this payment before
+    // registering its ledger; provider metadata alone never grants ownership.
+    await recordSuccessfulSettlement({ service, orderId: intent.metadata.ardore_order_id, paymentIntentId: intent.id })
+    settlement = await getSettlementRefundContext({ service, paymentIntentId: intent.id })
+  }
+  if (intent.metadata.ardore_order_id || charge.metadata.ardore_order_id || settlement) {
+    if (!settlement || settlement.kind !== 'booking' || settlement.buyerId !== booking.buyer_id
+      || settlement.creatorId !== booking.creator_id || settlement.grossCents !== actualPaid
+      || settlement.livemode !== booking.stripe_livemode || settlement.reference.bookingId !== booking.id
+      || settlement.reference.attemptId !== intent.metadata.payment_attempt_id
+      || intent.metadata.ardore_order_id !== settlement.orderId || charge.metadata.ardore_order_id !== settlement.orderId
+      || (target && settlement.orderId !== target.attemptId)
+      || intent.transfer_data || charge.transfer_data || charge.transfer || charge.source_transfer
+      || (intent.application_fee_amount ?? 0) !== 0 || charge.application_fee
+      || intent.transfer_group !== settlement.transferGroup || charge.transfer_group !== settlement.transferGroup) {
+      throw new RefundValidationError('settlement_ownership_mismatch')
+    }
+    const transfer = settlement.transferId ? await stripe.transfers.retrieve(settlement.transferId) : null
+    if (transfer && (transfer.id !== settlement.transferId || objectId(transfer.source_transaction) !== charge.id
+      || objectId(transfer.destination) !== settlement.accountId
+      || transfer.livemode !== charge.livemode || transfer.currency !== charge.currency
+      || transfer.amount !== settlement.transferAmount || transfer.amount_reversed !== settlement.reversedAmount
+      || transfer.amount > actualPaid || transfer.amount_reversed < 0 || transfer.amount_reversed > transfer.amount)) {
+      throw new RefundValidationError('transfer_ownership_mismatch')
+    }
+    return { checkedAt, intent, charge, refunds, transfer, applicationFee: null, actualPaid, accountingPending: false, settlement }
+  }
+
   const transferId = objectId(charge.transfer)
   const destination = objectId(charge.transfer_data?.destination)
   const feeId = objectId(charge.application_fee)
@@ -206,7 +239,7 @@ async function providerSnapshot(booking: CoachingRefundBooking, target?: Coachin
     || applicationFee.amount_refunded > applicationFee.amount)) {
     throw new RefundValidationError('application_fee_ownership_mismatch')
   }
-  return { checkedAt, intent, charge, refunds, transfer, applicationFee, actualPaid, accountingPending }
+  return { checkedAt, intent, charge, refunds, transfer, applicationFee, actualPaid, accountingPending, settlement: null }
 }
 
 function transferStatus(snapshot: ProviderSnapshot): CoachingTransferStatus {
@@ -286,7 +319,10 @@ async function persistSnapshot(service: SupabaseClient, booking: CoachingRefundB
       : snapshot.accountingPending ? 'payment_capture_pending' : null
   const paymentStatus = complete ? 'refunded' : totals.succeeded > 0 ? 'partially_refunded' : 'paid'
   const feeCosts = request ? await processingCosts(snapshot) : null
-  const reversalIds = [...new Set(snapshot.refunds.map(item => objectId(item.transfer_reversal)).filter((id): id is string => Boolean(id)))]
+  const reversalIds = [...new Set([
+    ...snapshot.refunds.map(item => objectId(item.transfer_reversal)).filter((id): id is string => Boolean(id)),
+    ...(snapshot.settlement?.reversalIds ?? []),
+  ])]
   const feeRefundIds = snapshot.applicationFee?.refunds.data.map(item => item.id) ?? []
   const ledgerState = request ? {
     state, amount_cents: request.amount_cents ?? refund?.amount ?? null,
@@ -324,14 +360,18 @@ export async function processCoachingRefund({ service, booking, request, resumeC
     || request.stripe_payment_intent_id !== booking.stripe_payment_intent_id) throw new RefundValidationError('unclaimed_refund_request')
   let snapshot: ProviderSnapshot | null = null
   try {
-    snapshot = await providerSnapshot(booking, target)
+    snapshot = await providerSnapshot(service, booking, target)
     const existing = ownedRefund(snapshot, request, target)
     const totals = refundTotals(snapshot)
     if (snapshot.accountingPending) return await persistSnapshot(service, booking, request, snapshot, false, target)
     if (existing || totals.succeeded === snapshot.actualPaid || totals.reserved !== totals.succeeded) {
+      if (snapshot.settlement) {
+        await reconcileSettlementRefund({ service, paymentIntentId: snapshot.intent.id })
+        snapshot = await providerSnapshot(service, booking, target)
+      }
       return await persistSnapshot(service, booking, request, snapshot, false, target)
     }
-    if (transferStatus(snapshot) === 'failed') throw new RefundValidationError('transfer_reconciliation_required')
+    if (!snapshot.settlement && transferStatus(snapshot) === 'failed') throw new RefundValidationError('transfer_reconciliation_required')
     const remaining = snapshot.actualPaid - totals.succeeded
     const amount = request.amount_cents ?? remaining
     if (amount !== remaining || amount <= 0) throw new RefundValidationError('refund_amount_changed_requires_reconciliation')
@@ -351,9 +391,22 @@ export async function processCoachingRefund({ service, booking, request, resumeC
     request = frozen?.refund ?? { ...request, amount_cents: amount }
     if (request.amount_cents !== amount) throw new RefundValidationError('refund_amount_changed_requires_reconciliation')
     if (request.stripe_refund_id || request.state === 'succeeded') {
-      return await persistSnapshot(service, booking, request, await providerSnapshot(booking, target), false, target)
+      return await persistSnapshot(service, booking, request, await providerSnapshot(service, booking, target), false, target)
     }
-    if (snapshot.transfer && snapshot.transfer.amount_reversed === snapshot.transfer.amount) {
+    if (snapshot.settlement) {
+      const preparation = await prepareSettlementRefund({ service, paymentIntentId: snapshot.intent.id,
+        targetRefundedCents: snapshot.actualPaid, refundKey: refundKey(booking.id, target),
+      })
+      if (!preparation || preparation.settlementId !== snapshot.settlement.settlementId) {
+        throw new RefundValidationError('settlement_ownership_mismatch')
+      }
+      // Preparation durably prevents new transfers and reconciles any already
+      // accepted transfer before the full customer refund is submitted.
+      snapshot = await providerSnapshot(service, booking, target)
+      if (snapshot.transfer && snapshot.transfer.amount_reversed !== snapshot.transfer.amount) {
+        throw new RefundValidationError('transfer_reconciliation_required')
+      }
+    } else if (snapshot.transfer && snapshot.transfer.amount_reversed === snapshot.transfer.amount) {
       throw new RefundValidationError('transfer_previously_reversed_requires_reconciliation')
     }
     await stripe.refunds.create({
@@ -362,16 +415,21 @@ export async function processCoachingRefund({ service, booking, request, resumeC
       metadata: { booking_id: booking.id, buyer_id: booking.buyer_id, creator_id: booking.creator_id,
         actor_role: request.actor_role, ardore_refund_key: refundKey(booking.id, target),
         ...(target ? { payment_attempt_id: target.attemptId } : {}) },
-      ...(snapshot.transfer ? { reverse_transfer: true,
+      ...(snapshot.transfer && !snapshot.settlement ? { reverse_transfer: true,
         ...(snapshot.applicationFee ? { refund_application_fee: true } : {}) } : {}),
     }, { idempotencyKey: refundKey(booking.id, target) })
-    return await persistSnapshot(service, booking, request, await providerSnapshot(booking, target), false, target)
+    if (snapshot.settlement) await reconcileSettlementRefund({ service, paymentIntentId: snapshot.intent.id })
+    return await persistSnapshot(service, booking, request, await providerSnapshot(service, booking, target), false, target)
   } catch (error) {
     // A timeout may have occurred after Stripe accepted the request. Fresh
     // reconciliation is attempted before declaring failure, without another POST.
     try {
-      const current = await providerSnapshot(booking, target)
+      let current = await providerSnapshot(service, booking, target)
       if (ownedRefund(current, request, target) || refundTotals(current).succeeded === current.actualPaid) {
+        if (current.settlement) {
+          await reconcileSettlementRefund({ service, paymentIntentId: current.intent.id })
+          current = await providerSnapshot(service, booking, target)
+        }
         return await persistSnapshot(service, booking, request, current, false, target)
       }
       snapshot = current
@@ -428,5 +486,10 @@ export async function reconcileClaimedCoachingRefund({ service, booking, request
     && request.last_error_code === 'payment_capture_pending' && !request.stripe_refund_id) {
     return processCoachingRefund({ service, booking, request, resumeCapture: true, target })
   }
-  return persistSnapshot(service, booking, request, await providerSnapshot(booking, target), true, target)
+  const snapshot = await providerSnapshot(service, booking, target)
+  if (snapshot.settlement) {
+    await reconcileSettlementRefund({ service, paymentIntentId: snapshot.intent.id })
+    return persistSnapshot(service, booking, request, await providerSnapshot(service, booking, target), true, target)
+  }
+  return persistSnapshot(service, booking, request, snapshot, true, target)
 }

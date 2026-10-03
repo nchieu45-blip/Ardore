@@ -81,6 +81,12 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
     },
   }
   const overrides = {
+    '@/lib/stripe/settlement': {
+      isRetiredStripeTestEvent: async () => false,
+      reconcileSettlementCheckout: async () => ({ handled: false }),
+      reconcileSettlementInvoice: async () => ({ handled: false }),
+      reconcileSettlementProviderEvent: async () => ({ handled: false }),
+    },
     '@/lib/stripe/server': { stripe: {
       webhooks: { constructEvent: () => event },
       charges: { retrieve: async id => {

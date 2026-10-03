@@ -10,7 +10,8 @@ const compiled = ts.transpileModule(source, {
 
 function fixture(options = {}) {
   const metadata = { checkout_type: 'coaching_session', booking_id: 'synthetic-booking', buyer_id: 'synthetic-buyer', creator_id: 'synthetic-creator',
-    ...(options.target && !options.target.legacyCheckout ? { payment_attempt_id: options.target.attemptId } : {}) }
+    ...(options.target && !options.target.legacyCheckout ? { payment_attempt_id: options.target.attemptId } : {}),
+    ...(options.separate ? { payment_attempt_id: options.target?.attemptId ?? 'synthetic-order', ardore_order_id: options.target?.attemptId ?? 'synthetic-order' } : {}) }
   const claimKey = options.target ? `ardore-coaching-reconciliation-${options.target.attemptId}-v1`
     : 'ardore-booking-refund-synthetic-booking-v1'
   const booking = { id: metadata.booking_id, buyer_id: metadata.buyer_id, creator_id: metadata.creator_id,
@@ -20,18 +21,26 @@ function fixture(options = {}) {
     state: 'pending', amount_cents: null, stripe_refund_id: null, stripe_payment_intent_id: booking.stripe_payment_intent_id }
   const intent = { id: booking.stripe_payment_intent_id, latest_charge: 'ch_synthetic', status: 'succeeded', metadata,
     livemode: false, currency: 'eur', amount_received: 4500, transfer_data: options.destination ? { destination: 'acct_synthetic' } : null }
+  if (options.separate) intent.transfer_group = `ardore-order-${metadata.ardore_order_id}`
   const charge = { id: 'ch_synthetic', payment_intent: intent.id, amount: 4500, amount_captured: 4500, amount_refunded: 0,
     metadata, currency: 'eur', livemode: false, paid: true, captured: true, disputed: false,
     balance_transaction: 'txn_payment', transfer: options.destination ? 'tr_synthetic' : null,
     transfer_data: intent.transfer_data, application_fee: options.destination ? 'fee_synthetic' : null,
-    transfer_group: null, source_transfer: null }
-  const transfer = { id: 'tr_synthetic', amount: 4500, amount_reversed: 0, source_transaction: charge.id,
+    transfer_group: options.separate ? intent.transfer_group : null, source_transfer: null }
+  const transfer = { id: 'tr_synthetic', amount: options.separate ? 4050 : 4500, amount_reversed: 0, source_transaction: charge.id,
     destination: 'acct_synthetic', currency: 'eur', livemode: false }
   const applicationFee = { id: 'fee_synthetic', originating_transaction: charge.id, account: 'acct_synthetic',
     amount: 450, amount_refunded: 0, currency: 'eur', livemode: false, refunds: { data: [] } }
   const refunds = []
   const posts = []
   const rpcCalls = []
+  const settlementCalls = []
+  const reversalIds = []
+  let contextExists = !options.contextMissing
+  const settlementContext = options.separate ? { settlementId: 'synthetic-ledger', orderId: metadata.ardore_order_id,
+    kind: 'booking', buyerId: booking.buyer_id, creatorId: booking.creator_id, grossCents: 4500, livemode: false,
+    reference: { bookingId: booking.id, attemptId: metadata.payment_attempt_id }, accountId: 'acct_synthetic',
+    transferGroup: intent.transfer_group } : null
   let createFailure = options.createFailure
   let refundStatus = options.refundStatus ?? 'succeeded'
   let failedProviderReads = 0
@@ -95,6 +104,7 @@ function fixture(options = {}) {
     refunds: {
       list: parameters => { assert.equal(parameters.charge, charge.id); return { autoPagingToArray: async () => structuredClone(refunds) } },
       create: async (parameters, requestOptions) => {
+        if (options.separate && !options.separateNoTransfer) assert.equal(transfer.amount_reversed, transfer.amount, 'Coach funds must be reconciled before customer refund')
         posts.push(structuredClone({ parameters, requestOptions }))
         if (createFailure === 'before') throw { code: 'balance_insufficient', message: 'Private provider account details' }
         const result = addRefund(parameters.amount, refundStatus, true)
@@ -112,10 +122,43 @@ function fixture(options = {}) {
   }
   const loadedModule = { exports: {} }
   new Function('require', 'exports', 'module', 'process', compiled)(name => {
-    assert.equal(name, '@/lib/stripe/server')
-    return { stripe: fakeStripe }
+    if (name === '@/lib/stripe/server') return { stripe: fakeStripe }
+    assert.equal(name, '@/lib/stripe/settlement')
+    return {
+      async getSettlementRefundContext({ service, paymentIntentId }) {
+        assert.equal(service, database); assert.equal(paymentIntentId, intent.id)
+        if (!contextExists || !settlementContext) return null
+        return { ...structuredClone(settlementContext), transferId: options.separateNoTransfer ? null : transfer.id,
+          transferAmount: options.separateNoTransfer ? 0 : transfer.amount,
+          reversedAmount: options.separateNoTransfer ? 0 : transfer.amount_reversed, reversalIds: [...reversalIds] }
+      },
+      async recordSuccessfulSettlement({ service, orderId, paymentIntentId }) {
+        assert.equal(service, database); assert.equal(orderId, settlementContext?.orderId); assert.equal(paymentIntentId, intent.id)
+        settlementCalls.push('record'); contextExists = true
+        return { id: 'synthetic-ledger' }
+      },
+      async prepareSettlementRefund({ service, paymentIntentId, targetRefundedCents, refundKey }) {
+        assert.equal(service, database); assert.equal(paymentIntentId, intent.id); assert.equal(refundKey, claimKey)
+        assert.equal(targetRefundedCents, 4500)
+        settlementCalls.push('prepare')
+        if (options.reversalFailure) throw { code: 'settlement_reversal_failed' }
+        if (!options.separateNoTransfer && transfer.amount_reversed < transfer.amount) {
+          transfer.amount_reversed = transfer.amount; reversalIds.push('trr_separate_synthetic')
+        }
+        return { settlementId: 'synthetic-ledger' }
+      },
+      async reconcileSettlementRefund({ service, paymentIntentId }) {
+        assert.equal(service, database); assert.equal(paymentIntentId, intent.id)
+        settlementCalls.push('reconcile')
+        const reserved = refunds.filter(item => !['failed', 'canceled'].includes(item.status ?? '')).reduce((sum, item) => sum + item.amount, 0)
+        const expected = Math.floor(transfer.amount * reserved / 4500)
+        if (!options.separateNoTransfer && transfer.amount_reversed < expected) {
+          transfer.amount_reversed = expected; reversalIds.push(`trr_separate_${reversalIds.length}`)
+        }
+      },
+    }
   }, loadedModule.exports, loadedModule, { env: { STRIPE_SECRET_KEY: options.liveKey ? 'sk_live_synthetic' : 'sk_test_synthetic' } })
-  return { booking, intent, charge, transfer, applicationFee, refunds, posts, rpcCalls, addRefund,
+  return { booking, intent, charge, transfer, applicationFee, refunds, posts, rpcCalls, addRefund, settlementCalls, settlementContext, reversalIds,
     request: () => request,
     failProviderReads: count => { failedProviderReads = count },
     failPersistWrites: (count, state, error = { code: '08006' }) => {
@@ -225,6 +268,95 @@ test('destination refund atomically reverses only booking transfer and refunds a
   await f.process()
   assert.equal(f.transfer.amount_reversed, f.transfer.amount)
 })
+
+test('separate booking refund reverses exact coach net before full customer refund and stores reversal IDs', async () => {
+  const f = fixture({ separate: true })
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.posts[0].parameters.amount, 4500)
+  assert.equal(f.posts[0].parameters.reverse_transfer, undefined)
+  assert.equal(f.posts[0].parameters.refund_application_fee, undefined)
+  assert.equal(f.transfer.amount_reversed, 4050)
+  assert.deepEqual(f.request().transfer_reversal_ids, ['trr_separate_synthetic'])
+  assert.equal(f.request().stripe_transfer_id, 'tr_synthetic')
+  assert.equal(f.request().processing_fee_cost_owner, 'platform')
+  await f.process(); await f.reconcile(); await f.reconcile()
+  assert.equal(f.posts.length, 1); assert.equal(f.reversalIds.length, 1)
+})
+
+test('separate coach cancellation retains full customer refund and coach processing-cost accounting', async () => {
+  const f = fixture({ separate: true, actor: 'creator' })
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.posts[0].parameters.amount, 4500)
+  assert.equal(f.request().processing_fee_cost_owner, 'coach')
+  assert.equal(f.transfer.amount_reversed, 4050)
+})
+
+test('separate payment that never transferred is blocked from settlement before refunding safely', async () => {
+  const f = fixture({ separate: true, separateNoTransfer: true })
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.ok(f.settlementCalls.includes('prepare'))
+  assert.equal(f.posts[0].parameters.amount, 4500)
+  assert.equal(f.request().transfer_status, 'not_required')
+})
+
+test('failed separate reversal prevents customer refund instead of leaving unreconciled coach funds', async () => {
+  const f = fixture({ separate: true, reversalFailure: true })
+  assert.equal((await f.process()).state, 'failed')
+  assert.equal(f.posts.length, 0); assert.equal(f.transfer.amount_reversed, 0)
+  assert.equal(f.booking.payment_status, 'paid')
+})
+
+test('separate refund Stripe failure can retry without reversing or refunding twice', async () => {
+  const f = fixture({ separate: true, createFailure: 'before' })
+  assert.equal((await f.process()).state, 'failed')
+  assert.equal(f.transfer.amount_reversed, 4050); assert.equal(f.reversalIds.length, 1)
+  f.setFailure(null)
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.refunds.length, 1); assert.equal(f.reversalIds.length, 1)
+  assert.deepEqual(f.posts[0], f.posts[1])
+})
+
+test('separate refund subtracts prior partial refund while fully reconciling the coach transfer', async () => {
+  const f = fixture({ separate: true }); f.addRefund(1000)
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.posts[0].parameters.amount, 3500)
+  assert.equal(f.booking.amount_refunded_cents, 4500); assert.equal(f.transfer.amount_reversed, 4050)
+})
+
+test('separate external refund webhook reconciles proportional net and full refund without customer refund POST', async () => {
+  const f = fixture({ separate: true, noRequest: true }); f.addRefund(1000)
+  await f.reconcile()
+  assert.equal(f.transfer.amount_reversed, 900); assert.equal(f.booking.payment_status, 'partially_refunded')
+  f.addRefund(3500); await f.reconcile(); await f.reconcile()
+  assert.equal(f.transfer.amount_reversed, 4050); assert.equal(f.booking.payment_status, 'refunded')
+  assert.equal(f.posts.length, 0)
+})
+
+test('separate cancellation racing missing payment ledger records only its trusted order before refund', async () => {
+  const f = fixture({ separate: true, contextMissing: true })
+  assert.equal((await f.process()).state, 'succeeded')
+  assert.equal(f.settlementCalls.filter(call => call === 'record').length, 1)
+  assert.equal(f.posts.length, 1)
+})
+
+for (const [name, mutate] of [
+  ['buyer', f => { f.settlementContext.buyerId = 'other-buyer' }],
+  ['coach', f => { f.settlementContext.creatorId = 'other-coach' }],
+  ['booking', f => { f.settlementContext.reference.bookingId = 'other-booking' }],
+  ['attempt', f => { f.settlementContext.reference.attemptId = 'other-attempt' }],
+  ['mode', f => { f.settlementContext.livemode = true }],
+  ['gross', f => { f.settlementContext.grossCents = 5000 }],
+  ['Charge group', f => { f.charge.transfer_group = 'unknown-group' }],
+  ['Intent fee', f => { f.intent.application_fee_amount = 450 }],
+  ['transfer destination', f => { f.transfer.destination = 'acct_other' }],
+]) {
+  test(`separate private ${name} mismatch fails closed before refund/reversal`, async () => {
+    const f = fixture({ separate: true }); mutate(f)
+    assert.equal((await f.process()).state, 'failed')
+    assert.equal(f.posts.length, 0); assert.equal(f.transfer.amount_reversed, 0)
+    assert.equal(f.settlementCalls.includes('prepare'), false)
+  })
+}
 
 test('a previous partial refund is deducted so total customer refund cannot exceed actual payment', async () => {
   const f = fixture({ destination: true })

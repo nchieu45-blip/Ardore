@@ -6,6 +6,7 @@ import { createNotification } from '@/lib/notifications'
 import { reconcileCoachingRefund } from '@/lib/coaching-refund'
 import { reconcileCoachingPaymentReconciliation } from '@/lib/coaching-payment-reconciliation'
 import { reconcileCoachingCheckout, reconcileCoachingPaymentIntent } from '@/lib/coaching-payment-lifecycle'
+import { isRetiredStripeTestEvent, reconcileSettlementCheckout, reconcileSettlementInvoice, reconcileSettlementProviderEvent } from '@/lib/stripe/settlement'
 import { randomUUID } from 'node:crypto'
 import Stripe from 'stripe'
 
@@ -48,6 +49,25 @@ export async function POST(req: NextRequest) {
   if (!claim?.claimed) return NextResponse.json({ error: 'Webhook is already processing' }, { status: 503 })
 
   try {
+    // Provider events are notifications. The settlement ledger retrieves the
+    // current payment/transfer/refund before any historical snapshot handler.
+    if (await isRetiredStripeTestEvent({ service: supabase, event })) {
+      const { error } = await supabase.rpc('complete_stripe_webhook_event', { p_event_id: event.id, p_lease_token: leaseToken })
+      if (error) throw new Error('Retired test event could not be recorded')
+      return NextResponse.json({ received: true, retiredTest: true })
+    }
+    const settlementProviderResult = [
+      'charge.refunded', 'charge.updated', 'refund.created', 'refund.updated', 'refund.failed',
+      'transfer.created', 'transfer.updated', 'transfer.reversed',
+      'charge.dispute.created', 'charge.dispute.closed',
+      'payment_intent.canceled', 'payment_intent.payment_failed', 'payment_intent.succeeded',
+      'customer.subscription.updated', 'customer.subscription.deleted',
+      'invoice.payment_failed',
+    ].includes(event.type)
+      ? await reconcileSettlementProviderEvent({ service: supabase, event })
+      : { handled: false }
+    await finishSettlementReconciliation(supabase, settlementProviderResult)
+
     switch (event.type) {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
@@ -57,6 +77,13 @@ export async function POST(req: NextRequest) {
       if (session.mode === 'payment' && meta.checkout_type === 'coaching_session') {
         await reconcileCoachingCheckout({ service: supabase, sessionId: session.id,
           stripeLivemode: event.livemode, eventType: event.type })
+        break
+      }
+
+      if (meta.ardore_order_id) {
+        const result = await reconcileSettlementCheckout({ service: supabase, sessionId: session.id })
+        if (!result.handled) throw new Error('owned_checkout_order_not_found')
+        await finishSettlementReconciliation(supabase, result)
         break
       }
 
@@ -198,7 +225,9 @@ export async function POST(req: NextRequest) {
         : charge.payment_intent?.id ?? null
       if (paymentIntentId) {
         const status = charge.refunded ? 'refunded' : 'partially_refunded'
-        await updatePurchaseState(supabase, paymentIntentId, event.livemode, status, charge.amount_refunded / 100)
+        if (!settlementProviderResult.handled) {
+          await updatePurchaseState(supabase, paymentIntentId, event.livemode, status, charge.amount_refunded / 100)
+        }
         // Refund webhooks can arrive before the cancellation response or out
         // of order. The event is a notification, never permission to refund
         // again; reconcile the current provider state instead of its payload.
@@ -263,7 +292,7 @@ export async function POST(req: NextRequest) {
       const paymentIntentId = typeof dispute.payment_intent === 'string'
         ? dispute.payment_intent
         : dispute.payment_intent?.id ?? null
-      if (paymentIntentId) await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'disputed')
+      if (paymentIntentId && !settlementProviderResult.handled) await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'disputed')
       if (paymentIntentId) await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, 'disputed')
       break
     }
@@ -281,14 +310,16 @@ export async function POST(req: NextRequest) {
           const restoredStatus = charge?.refunded
             ? 'refunded'
             : charge && charge.amount_refunded > 0 ? 'partially_refunded' : 'paid'
-          await updatePurchaseState(supabase, paymentIntentId, event.livemode, restoredStatus, charge ? charge.amount_refunded / 100 : undefined)
+          if (!settlementProviderResult.handled) {
+            await updatePurchaseState(supabase, paymentIntentId, event.livemode, restoredStatus, charge ? charge.amount_refunded / 100 : undefined)
+          }
           if (restoredStatus === 'refunded' || restoredStatus === 'partially_refunded') {
             await reconcileCoachingRefund({ service: supabase, paymentIntentId, stripeLivemode: event.livemode })
           } else {
             await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, restoredStatus)
           }
         } else {
-          await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'chargeback')
+          if (!settlementProviderResult.handled) await updatePurchaseState(supabase, paymentIntentId, event.livemode, 'chargeback')
           await updateCoachingPaymentState(supabase, paymentIntentId, event.livemode, 'chargeback')
         }
       }
@@ -297,7 +328,7 @@ export async function POST(req: NextRequest) {
 
     case 'payment_intent.canceled': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
-      await updatePurchaseState(supabase, paymentIntent.id, event.livemode, 'reversed')
+      if (!settlementProviderResult.handled) await updatePurchaseState(supabase, paymentIntent.id, event.livemode, 'reversed')
       if (paymentIntent.metadata?.checkout_type === 'coaching_session') {
         await reconcileCoachingPaymentIntent({ service: supabase, paymentIntentId: paymentIntent.id,
           stripeLivemode: event.livemode, eventType: event.type })
@@ -313,6 +344,10 @@ export async function POST(req: NextRequest) {
       if (session.metadata?.checkout_type === 'coaching_session') {
         await reconcileCoachingCheckout({ service: supabase, sessionId: session.id,
           stripeLivemode: event.livemode, eventType: event.type })
+      } else if (session.metadata?.ardore_order_id) {
+        const result = await reconcileSettlementCheckout({ service: supabase, sessionId: session.id })
+        if (!result.handled) throw new Error('owned_checkout_order_not_found')
+        await finishSettlementReconciliation(supabase, result)
       }
       break
     }
@@ -327,8 +362,31 @@ export async function POST(req: NextRequest) {
       break
     }
 
-    case 'customer.subscription.updated': {
-      const subscription = event.data.object as Stripe.Subscription
+    case 'invoice.payment_succeeded':
+    case 'invoice.paid': {
+      const invoice = event.data.object as Stripe.Invoice
+      const result = await reconcileSettlementInvoice({ service: supabase, invoiceId: invoice.id })
+      await finishSettlementReconciliation(supabase, result)
+      break
+    }
+
+    case 'transfer.updated':
+    case 'transfer.reversed': {
+      // The owned settlement ledger above applies current provider amounts.
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      // Current subscription status is reconciled above without granting an
+      // unpaid invoice a new entitlement period or coach transfer.
+      break
+    }
+
+    case 'customer.subscription.updated':
+    case 'customer.subscription.deleted': {
+      if (settlementProviderResult.handled) break
+      const object = event.data.object as Stripe.Subscription
+      const subscription = await stripe.subscriptions.retrieve(object.id)
       const state = trustedSubscriptionState(subscription, event.livemode)
 
       const { error } = await supabase
@@ -342,16 +400,6 @@ export async function POST(req: NextRequest) {
       break
     }
 
-    case 'customer.subscription.deleted': {
-      const subscription = event.data.object as Stripe.Subscription
-
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ status: 'canceled', stripe_livemode: event.livemode })
-        .eq('stripe_subscription_id', subscription.id)
-      if (error) throw error
-      break
-    }
     }
     const { data: completed, error: completeError } = await supabase.rpc('complete_stripe_webhook_event', {
       p_event_id: event.id, p_lease_token: leaseToken,
@@ -367,6 +415,61 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+type SettlementFulfillment = {
+  handled: boolean
+  newlyFulfilled?: boolean
+  kind?: string
+  buyerId?: string
+  creatorId?: string
+  tierId?: string
+  notifySubscriber?: boolean
+  retryNeeded?: boolean
+  items?: { productId: string; amountCents: number }[]
+  withdrawalConsentAt?: string | null
+}
+
+async function finishSettlementReconciliation(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  result: SettlementFulfillment,
+) {
+  await notifySettlementFulfillment(supabase, result)
+  if (result.retryNeeded) throw new Error('settlement_transfer_retry_required')
+}
+
+async function notifySettlementFulfillment(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  result: SettlementFulfillment,
+) {
+  if (!result.handled || !result.newlyFulfilled || !result.buyerId) return
+  if (result.kind === 'subscription' && result.notifySubscriber && result.creatorId && result.tierId) {
+    await notifyNewSubscriber(supabase, result.buyerId, result.creatorId, result.tierId)
+    return
+  }
+  if (result.kind !== 'products' || !result.items?.length) return
+  const [buyerRes, productsRes] = await Promise.all([
+    supabase.auth.admin.getUserById(result.buyerId),
+    supabase.from('products').select('id, title, creator:creator_profiles(display_name)')
+      .in('id', result.items.map(item => item.productId)),
+  ])
+  if (buyerRes.error || productsRes.error) return
+  const buyerEmail = buyerRes.data.user?.email
+  if (!buyerEmail) return
+  const buyerName = buyerRes.data.user?.user_metadata?.full_name ?? 'Kunde'
+  const products = new Map((productsRes.data ?? []).map(product => [product.id, product]))
+  // The ledger's frozen allocation is the receipt amount. Later coach price
+  // edits affect only future checkouts.
+  await Promise.allSettled(result.items.map(item => {
+    const product = products.get(item.productId)
+    if (!product) return Promise.resolve()
+    const creator = Array.isArray(product.creator) ? product.creator[0] : product.creator
+    return sendPurchaseReceipt(buyerEmail, {
+      buyerName, productTitle: product.title, amountPaid: item.amountCents / 100,
+      creatorName: creator?.display_name ?? 'Anbieter', libraryUrl: `${APP_URL}/buyer/library`,
+      withdrawalConsentAt: result.withdrawalConsentAt ?? undefined,
+    })
+  }))
 }
 
 function trustedSubscriptionState(subscription: Stripe.Subscription, stripeLivemode: boolean) {

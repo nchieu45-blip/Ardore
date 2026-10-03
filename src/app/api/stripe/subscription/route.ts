@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
-import { ARDORE_PLATFORM_FEE_PERCENT } from '@/lib/stripe/platformFee'
 import { notifyNewSubscriber } from '@/app/api/webhooks/stripe/route'
 import { appOrigin } from '@/lib/app-url'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { z } from 'zod'
+import { ConnectReadinessError, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
+import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
 
 const subscriptionRequest = z.object({
   tierId: z.uuid(),
@@ -115,6 +116,29 @@ export async function POST(req: NextRequest) {
   const originalPriceCents = Math.round(tier.price_monthly * 100)
   const finalPriceCents    = Math.max(50, originalPriceCents - discountSavingsCents)
 
+  const service = await createServiceClient()
+  let accountId: string
+  let livemode: boolean
+  try {
+    const readiness = await requirePayoutReadyCoach(service, tier.creator_id)
+    accountId = readiness.accountId
+    livemode = readiness.livemode
+  } catch (error) {
+    if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
+  }
+  const order = await createSettlementOrder({
+    service,
+    kind: 'subscription',
+    buyerId: user.id,
+    creatorId: tier.creator_id,
+    accountId,
+    grossCents: finalPriceCents,
+    livemode,
+    reference: { tierId: tier.id },
+  })
+  const metadata = { ardore_order_id: order.id, tier_id: tier.id, buyer_id: user.id, creator_id: tier.creator_id }
+
   // TODO: When Stripe Connect is active, replace the manual price reduction below
   // with a Stripe Coupon object attached via `discounts: [{ coupon: couponId }]`
   // so the discount appears natively in Stripe and subscription invoices reflect it.
@@ -135,22 +159,15 @@ export async function POST(req: NextRequest) {
       },
       quantity: 1,
     }],
-    metadata: {
-      tier_id: tier.id,
-      buyer_id: user.id,
-      creator_id: tier.creator_id,
-    },
+    metadata,
     success_url: `${appUrl}/buyer?subscribed=1`,
     cancel_url: `${appUrl}/creators`,
-    ...(tier.creator?.stripe_account_id && tier.creator?.stripe_account_active
-      ? {
-          subscription_data: {
-            application_fee_percent: ARDORE_PLATFORM_FEE_PERCENT,
-            transfer_data: { destination: tier.creator.stripe_account_id },
-          },
-        }
-      : {}),
-  })
+    subscription_data: {
+      metadata,
+    },
+  }, { idempotencyKey: `ardore-order-checkout-${order.id}-v1` })
+  await registerSettlementCheckout({ service, orderId: order.id, sessionId: session.id,
+    subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id })
 
   // Increment redemption count (best-effort)
   if (discountRowId) {

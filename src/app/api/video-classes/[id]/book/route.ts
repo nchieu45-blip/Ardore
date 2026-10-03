@@ -1,7 +1,6 @@
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { stripe } from '@/lib/stripe/server'
 import { createNotification, checkNotificationPreference } from '@/lib/notifications'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
@@ -68,6 +67,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // This legacy route has no paid fulfillment or settlement handler. Never
+  // collect a payment that cannot safely create its booking and coach payout.
+  if (priceCents > 0) {
+    return NextResponse.json({ error: 'Bezahlte Gruppenangebote sind momentan nicht buchbar.' }, { status: 409 })
+  }
+
   // Get or create shared Daily.co room for this class
   let dailyRoomUrl: string | null = null
   if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY) {
@@ -114,31 +119,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         }
       } catch { /* non-fatal: room creation failure doesn't block booking */ }
     }
-  }
-
-  // Paid booking → Stripe Checkout
-  // TODO: Stripe Connect required for live payments to coaches
-  if (priceCents > 0) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL!
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      locale: 'de',
-      customer_email: user.email,
-      line_items: [{
-        price_data: { currency: 'eur', product_data: { name: vcRaw.title }, unit_amount: priceCents },
-        quantity: 1,
-      }],
-      metadata: {
-        video_class_id: classId,
-        user_id: user.id,
-        daily_room_url: dailyRoomUrl ?? '',
-        // Webhook handler should create the video_class_booking row on checkout.session.completed
-      },
-      success_url: `${appUrl}/buyer/video-classes?success=1`,
-      cancel_url: `${appUrl}/creators/${creator?.slug ?? ''}`,
-    })
-    return NextResponse.json({ checkoutUrl: session.url })
   }
 
   // Free booking → create directly

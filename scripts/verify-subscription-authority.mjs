@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import ts from 'typescript'
+import { connectReadinessFixture } from './fixtures/connect-readiness.mjs'
 
 const require = createRequire(import.meta.url)
 const buyerId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -25,10 +26,14 @@ function load(path, overrides = {}, environment = {}) {
 
 const entitlement = load('../src/lib/subscription-entitlement.ts')
 
-function subscriptionFixture({ price = 25, active = true, discountCreatorId = creatorId, existing = null } = {}) {
+function subscriptionFixture({ price = 25, active = true, discountCreatorId = creatorId, existing = null, readinessFailure = null } = {}) {
   const writes = []
   const checkouts = []
+  const checkoutOptions = []
+  const orders = []
+  const registrations = []
   const notified = []
+  const readinessChecks = []
   const tier = {
     id: tierId, creator_id: creatorId, name: 'Coach-controlled offer',
     price_monthly: price, is_active: active, stripe_price_id: 'price_untrusted_cache', creator: null,
@@ -67,18 +72,27 @@ function subscriptionFixture({ price = 25, active = true, discountCreatorId = cr
   }
   const route = load('../src/app/api/stripe/subscription/route.ts', {
     '@/lib/supabase/server': { createClient: async () => client, createServiceClient: async () => service },
-    '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async input => {
-      checkouts.push(input); return { url: 'https://checkout.stripe.com/synthetic' }
+    '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (input, options) => {
+      checkouts.push(input); checkoutOptions.push(options)
+      return { id: 'cs_synthetic', url: 'https://checkout.stripe.com/synthetic', subscription: null }
     } } } } },
+    '@/lib/stripe/settlement': {
+      isRetiredStripeTestEvent: async () => false,
+      async createSettlementOrder(input) { assert.equal(input.service, service); orders.push(input); return { id: 'synthetic-order' } },
+      async registerSettlementCheckout(input) { assert.equal(input.service, service); registrations.push(input) },
+    },
     '@/lib/stripe/platformFee': { ARDORE_PLATFORM_FEE_PERCENT: 10 },
     '@/app/api/webhooks/stripe/route': { notifyNewSubscriber: async (database, buyer, creator, selectedTier) => {
       assert.equal(database, service); notified.push({ buyer, creator, tier: selectedTier })
     } },
     '@/lib/app-url': { appOrigin: () => 'https://www.ardore-health.com' },
     '@/lib/subscription-entitlement': entitlement,
+    '@/lib/stripe/connect-readiness': connectReadinessFixture({ failure: readinessFailure, onCheck(database, coach) {
+      assert.equal(database, service); readinessChecks.push(coach)
+    } }),
   })
   return {
-    writes, checkouts, notified,
+    writes, checkouts, checkoutOptions, orders, registrations, notified, readinessChecks,
     run: input => route.POST(new Request('https://www.ardore-health.com/api/stripe/subscription', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tierId, creatorId, ...input }),
@@ -101,6 +115,39 @@ test('a legitimate coach-controlled free tier issues only server-scoped entitlem
   assert.equal(state.checkouts.length, 0)
 })
 
+test('paid subscription freezes the coach price and settlement owner without automatic destination charges', async () => {
+  const state = subscriptionFixture()
+  assert.equal((await state.run({ stripe_account_id: 'acct_attacker', application_fee_percent: 0 })).status, 200)
+  assert.deepEqual(state.readinessChecks, [creatorId])
+  assert.deepEqual(state.checkouts[0].subscription_data, {
+    metadata: { ardore_order_id: 'synthetic-order', tier_id: tierId, buyer_id: buyerId, creator_id: creatorId },
+  })
+  assert.deepEqual(state.orders.map(input => ({ ...input, service: 'service' })), [{
+    service: 'service',
+    kind: 'subscription', buyerId, creatorId, accountId: 'acct_syntheticReady',
+    grossCents: 2500, livemode: false, reference: { tierId },
+  }])
+  assert.deepEqual(state.checkoutOptions, [{ idempotencyKey: 'ardore-order-checkout-synthetic-order-v1' }])
+  assert.deepEqual(state.registrations.map(input => ({ orderId: input.orderId, sessionId: input.sessionId, subscriptionId: input.subscriptionId })), [{ orderId: 'synthetic-order', sessionId: 'cs_synthetic', subscriptionId: undefined }])
+})
+
+for (const failure of [
+  { code: 'connect_account_missing', status: 409 },
+  { code: 'connect_account_not_ready', status: 409 },
+  { code: 'connect_mode_mismatch', status: 409 },
+  { code: 'connect_provider_unavailable', status: 503 },
+]) {
+  test(`subscription checkout blocks ${failure.code}, while legitimate free tiers remain available`, async () => {
+    const paid = subscriptionFixture({ readinessFailure: failure })
+    assert.equal((await paid.run()).status, failure.status)
+    assert.deepEqual(paid.writes, []); assert.deepEqual(paid.checkouts, [])
+    const free = subscriptionFixture({ price: 0, readinessFailure: failure })
+    assert.equal((await free.run()).status, 200)
+    assert.equal(free.writes.length, 1); assert.deepEqual(free.checkouts, [])
+    assert.deepEqual(free.readinessChecks, [])
+  })
+}
+
 test('free tier from another coach and disabled tiers cannot issue entitlement', async () => {
   for (const [state, input] of [
     [subscriptionFixture({ price: 0 }), { creatorId: otherId }],
@@ -120,7 +167,7 @@ test('checkout honors each current coach price and name without trusting or chan
     assert.equal(state.checkouts[0].line_items[0].price_data.unit_amount, Math.round(price * 100))
     assert.equal(state.checkouts[0].line_items[0].price_data.product_data.name, 'Coach-controlled offer')
     assert.equal(state.checkouts[0].line_items[0].price, undefined)
-    assert.deepEqual(state.checkouts[0].metadata, { tier_id: tierId, buyer_id: buyerId, creator_id: creatorId })
+    assert.deepEqual(state.checkouts[0].metadata, { ardore_order_id: 'synthetic-order', tier_id: tierId, buyer_id: buyerId, creator_id: creatorId })
     assert.deepEqual(state.writes, [])
   }
 })
@@ -161,18 +208,22 @@ test('only future active live-paid or server-free subscriptions with matching ti
   assert.equal(entitlement.hasActiveSubscriptionEntitlement({ ...row, tier: undefined, subscription_tiers: [{ creator_id: creatorId }] }, now), true)
 })
 
-function webhookFixture({ type = 'checkout.session.completed', mismatch = false, updateError = false, status = 'active' } = {}) {
+function webhookFixture({ type = 'checkout.session.completed', mismatch = false, updateError = false, status = 'active', freshStatus = status, settlementResult = null } = {}) {
   const saved = []
+  const reconciliations = []
+  const creatorReads = []
   const releasedEvents = []
   const completedEvents = []
   let claimToken
   const period = Math.floor(Date.now() / 1000) + 3600
   const subscription = { id: 'sub_synthetic', status, livemode: false, items: { data: [{ current_period_end: period }] } }
+  const freshSubscription = { ...subscription, status: freshStatus }
   const event = {
     id: 'evt_synthetic', livemode: false, type,
     data: { object: type.startsWith('customer.subscription.') ? subscription : {
-      mode: 'subscription', subscription: subscription.id,
-      metadata: { tier_id: tierId, creator_id: creatorId, buyer_id: buyerId },
+      id: type.startsWith('invoice.') ? 'in_synthetic' : 'cs_synthetic', mode: 'subscription', subscription: subscription.id,
+      metadata: { tier_id: tierId, creator_id: creatorId, buyer_id: buyerId,
+        ...(settlementResult ? { ardore_order_id: 'synthetic-order' } : {}) },
     } },
   }
   const service = {
@@ -189,6 +240,7 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     },
     auth: { admin: { getUserById: async () => ({ data: { user: null } }) } },
     from(table) {
+      if (table === 'creator_profiles') creatorReads.push(table)
       const query = {
         action: 'select', select() { return this }, eq() { return this },
         async insert() { assert.equal(table, 'stripe_webhook_events'); return { error: null } },
@@ -208,7 +260,7 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
   const route = load('../src/app/api/webhooks/stripe/route.ts', {
     '@/lib/supabase/server': { createServiceClient: async () => service },
     '@/lib/stripe/server': { stripe: {
-      webhooks: { constructEvent: () => event }, subscriptions: { retrieve: async () => subscription },
+      webhooks: { constructEvent: () => event }, subscriptions: { retrieve: async () => freshSubscription },
     } },
     '@/lib/email/send': { sendPurchaseReceipt() { throw new Error('Unexpected receipt') }, sendNewSubscriberNotification() { throw new Error('Unexpected email') } },
     '@/lib/notifications': { createNotification() { throw new Error('Unexpected notification') } },
@@ -216,9 +268,24 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     '@/lib/coaching-refund': { reconcileCoachingRefund() { throw new Error('Unexpected coaching refund') } },
     '@/lib/coaching-payment-reconciliation': { reconcileCoachingPaymentReconciliation() { throw new Error('Unexpected payment reconciliation') } },
     '@/lib/coaching-payment-lifecycle': { reconcileCoachingCheckout() { throw new Error('Unexpected coaching lifecycle') } },
+    '@/lib/stripe/settlement': {
+      isRetiredStripeTestEvent: async () => false,
+      async reconcileSettlementCheckout(input) {
+        assert.equal(input.service, service); assert.equal(input.sessionId, 'cs_synthetic')
+        reconciliations.push('checkout'); return settlementResult ?? { handled: false }
+      },
+      async reconcileSettlementInvoice(input) {
+        assert.equal(input.service, service); assert.equal(input.invoiceId, 'in_synthetic')
+        reconciliations.push('invoice'); return settlementResult ?? { handled: false }
+      },
+      async reconcileSettlementProviderEvent(input) {
+        assert.equal(input.service, service); assert.equal(input.event, event)
+        reconciliations.push('provider'); return settlementResult ?? { handled: false }
+      },
+    },
   }, { STRIPE_SECRET_KEY: 'sk_test_synthetic' })
   return {
-    saved, releasedEvents, completedEvents, period,
+    saved, releasedEvents, completedEvents, period, reconciliations, creatorReads,
     run: () => route.POST({ text: async () => '{}', headers: new Headers({ 'stripe-signature': 'synthetic' }) }),
   }
 }
@@ -253,5 +320,43 @@ test('failed Stripe lifecycle updates release the event for retry instead of sil
     assert.equal((await state.run()).status, 500)
     assert.deepEqual(state.releasedEvents, ['evt_synthetic'])
     assert.deepEqual(state.completedEvents, [])
+  }
+})
+
+test('historical subscription lifecycle uses fresh Stripe state rather than delayed event payloads', async () => {
+  const state = webhookFixture({ type: 'customer.subscription.updated', status: 'active', freshStatus: 'canceled' })
+  assert.equal((await state.run()).status, 200)
+  assert.equal(state.saved[0].status, 'canceled')
+})
+
+test('owned subscription checkouts and paid invoices delegate entitlement and settlement to the trusted ledger', async () => {
+  for (const type of ['checkout.session.completed', 'invoice.paid', 'invoice.payment_succeeded']) {
+    const state = webhookFixture({ type, settlementResult: {
+      handled: true, newlyFulfilled: true, kind: 'subscription', buyerId, creatorId, tierId, notifySubscriber: true,
+    } })
+    assert.equal((await state.run()).status, 200)
+    assert.deepEqual(state.reconciliations, [type.startsWith('invoice.') ? 'invoice' : 'checkout'])
+    assert.deepEqual(state.saved, [])
+    assert.equal(state.creatorReads.length, 1)
+  }
+})
+
+test('subscription renewals and duplicate ledger observations never repeat new-subscriber notifications', async () => {
+  for (const changes of [{ newlyFulfilled: false, notifySubscriber: true }, { newlyFulfilled: true, notifySubscriber: false }]) {
+    const state = webhookFixture({ type: 'invoice.paid', settlementResult: {
+      handled: true, kind: 'subscription', buyerId, creatorId, tierId, ...changes,
+    } })
+    assert.equal((await state.run()).status, 200)
+    assert.deepEqual(state.saved, [])
+    assert.deepEqual(state.creatorReads, [])
+  }
+})
+
+test('owned subscription status events do not overwrite paid invoice periods with stale event snapshots', async () => {
+  for (const type of ['customer.subscription.updated', 'customer.subscription.deleted', 'invoice.payment_failed']) {
+    const state = webhookFixture({ type, settlementResult: { handled: true } })
+    assert.equal((await state.run()).status, 200)
+    assert.deepEqual(state.reconciliations, ['provider'])
+    assert.deepEqual(state.saved, [])
   }
 })

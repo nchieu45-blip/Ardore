@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import ts from 'typescript'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { connectReadinessFixture } from './fixtures/connect-readiness.mjs'
 
 const require = createRequire(import.meta.url)
 process.env.STRIPE_SECRET_KEY = 'sk_test_synthetic'
@@ -21,7 +22,7 @@ function load(path, overrides, globals = {}) {
 
 const future = hours => new Date(Date.now() + hours * 3_600_000).toISOString()
 function fixture({ existing = false, sessionStatus = 'open', intentStatus = null, bookingChanges = {}, attemptChanges = {},
-  createError = null, registerError = false, claimError = null, reconcileConflict = false } = {}) {
+  createError = null, registerError = false, claimError = null, reconcileConflict = false, readinessFailure = null } = {}) {
   const booking = { id: 'booking-synthetic', buyer_id: 'buyer-synthetic', creator_id: 'coach-synthetic',
     buyer_email: 'delivered@resend.dev', scheduled_at: future(72), duration_minutes: 60, price_cents: 500,
     status: 'pending_payment', payment_status: 'pending', cancellation_policy_hours: 24, stripe_livemode: false,
@@ -31,10 +32,11 @@ function fixture({ existing = false, sessionStatus = 'open', intentStatus = null
   const makeAttempt = id => ({ id, booking_id: booking.id, provider_state: 'creating',
     stripe_checkout_session_id: null, stripe_payment_intent_id: null, checkout_url: null, stripe_livemode: false,
     checkout_idempotency_key: `ardore-coaching-checkout-${id}-v1`, reservation_expires_at: future(0.52), created_at: new Date().toISOString(),
-    price_cents: 500, destination_account_id: null, application_fee_cents: 0 })
+    price_cents: 500, destination_account_id: 'acct_syntheticReady', application_fee_cents: 50 })
   const providerSessions = new Map()
   const intents = new Map()
   const createCalls = []; const effects = []; const providerKeys = new Map()
+  const settlementOrders = new Map(); const settlementCheckouts = new Map()
   if (existing) {
     attempts.push({ ...makeAttempt('attempt-old'), provider_state: 'open', stripe_checkout_session_id: 'cs_old', ...attemptChanges })
     providerSessions.set('cs_old', { id: 'cs_old', status: sessionStatus, payment_status: intentStatus === 'succeeded' ? 'paid' : 'unpaid',
@@ -87,7 +89,9 @@ function fixture({ existing = false, sessionStatus = 'open', intentStatus = null
         const existingAttempt = attempts.find(row => row.id === booking.current_payment_attempt_id)
         if (existingAttempt && ['creating', 'open', 'processing'].includes(existingAttempt.provider_state)) return { data: { booking: structuredClone(booking), attempt: structuredClone(existingAttempt), created: false } }
         if (existingAttempt) assert.equal(args.p_replace_attempt_id, existingAttempt.id)
-        const attempt = { ...makeAttempt(`attempt-${attempts.length + 1}`), reservation_expires_at: args.p_expires_at }
+        const attempt = { ...makeAttempt(`attempt-${attempts.length + 1}`), reservation_expires_at: args.p_expires_at,
+          destination_account_id: args.p_destination_account_id, application_fee_cents: args.p_application_fee_cents,
+          charge_architecture: args.p_charge_architecture }
         attempts.push(attempt); booking.current_payment_attempt_id = attempt.id; booking.status = 'pending_payment'; booking.payment_status = 'pending'
         return { data: { booking: structuredClone(booking), attempt: structuredClone(attempt), created: true } }
       }
@@ -126,8 +130,24 @@ function fixture({ existing = false, sessionStatus = 'open', intentStatus = null
     '@/lib/stripe/server': { stripe: provider }, '@/lib/stripe/platformFee': { calculateArdorePlatformFee: cents => Math.round(cents / 10) },
     '@/lib/coaching-payment-lifecycle': { reconcileCoachingCheckout: reconcile },
     '@/lib/coaching-checkout-recovery': load('src/lib/coaching-checkout-recovery.ts', { '@/lib/stripe/server': { stripe: provider } }),
+    '@/lib/stripe/connect-readiness': connectReadinessFixture({ failure: readinessFailure }),
+    '@/lib/stripe/settlement': {
+      isRetiredStripeTestEvent: async () => false,
+      async createSettlementOrder(parameters) {
+        assert.equal(parameters.service, service)
+        const order = { ...parameters }; delete order.service
+        if (settlementOrders.has(order.id)) assert.deepEqual(order, settlementOrders.get(order.id))
+        settlementOrders.set(order.id, order); effects.push('settlement-order')
+        return order
+      },
+      async registerSettlementCheckout({ service: database, orderId, sessionId }) {
+        assert.equal(database, service); assert.ok(settlementOrders.has(orderId))
+        if (settlementCheckouts.has(orderId)) assert.equal(settlementCheckouts.get(orderId), sessionId)
+        settlementCheckouts.set(orderId, sessionId); effects.push('settlement-checkout')
+      },
+    },
   })
-  return { booking, attempts, providerSessions, intents, createCalls, effects, providerKeys,
+  return { booking, attempts, providerSessions, intents, createCalls, effects, providerKeys, settlementOrders, settlementCheckouts,
     run: (buyerId = booking.buyer_id) => helper.startOrResumeCoachingCheckout({ service, provider, bookingId: booking.id, buyerId }) }
 }
 
@@ -140,7 +160,17 @@ test('checkout uses agreed booking amount, cutoff and attempt idempotency withou
   assert.equal(params.metadata.payment_attempt_id, state.attempts[0].id)
   assert.equal(params.payment_intent_data.metadata.payment_attempt_id, state.attempts[0].id)
   assert.equal(options.idempotencyKey, state.attempts[0].checkout_idempotency_key)
-  assert.equal(params.payment_intent_data.transfer_data, undefined, 'test funds never route to a stored live Connect account')
+  assert.equal(params.payment_intent_data.transfer_data, undefined, 'No transfer occurs before captured payment and fulfillment')
+  assert.equal(params.payment_intent_data.application_fee_amount, undefined)
+  assert.equal(params.metadata.ardore_order_id, state.attempts[0].id)
+  assert.equal(params.payment_intent_data.transfer_group, `ardore-order-${state.attempts[0].id}`)
+  assert.equal(state.attempts[0].destination_account_id, 'acct_syntheticReady')
+  assert.equal(state.attempts[0].application_fee_cents, 50)
+  const order = state.settlementOrders.get(state.attempts[0].id)
+  assert.equal(order.grossCents, 500); assert.equal(order.accountId, 'acct_syntheticReady')
+  assert.deepEqual(order.reference, { bookingId: state.booking.id, attemptId: state.attempts[0].id })
+  assert.ok(state.effects.indexOf('settlement-order') < state.effects.indexOf('create'))
+  assert.equal(state.settlementCheckouts.get(state.attempts[0].id), 'cs_new_0')
   assert.equal(state.booking.price_cents, 500); assert.equal(state.booking.cancellation_policy_hours, 24)
 })
 
@@ -261,6 +291,42 @@ test('historical unknown creation result is not recreated after provider idempot
   assert.equal(state.booking.status, 'pending_payment')
 })
 
+for (const failure of [
+  { code: 'connect_account_missing', status: 409 },
+  { code: 'connect_account_not_ready', status: 409 },
+  { code: 'connect_mode_mismatch', status: 409 },
+  { code: 'connect_provider_unavailable', status: 503 },
+]) {
+  test(`new and open coaching checkouts fail closed for ${failure.code}`, async () => {
+    for (const existing of [false, true]) {
+      const state = fixture({ existing, readinessFailure: failure })
+      assert.equal((await state.run()).status, failure.status)
+      assert.equal(state.createCalls.length, 0)
+      assert.ok(!state.effects.includes('begin_coaching_payment_attempt'))
+    }
+  })
+}
+
+test('reassigned Connect account cannot redirect an existing creating or open coaching attempt', async () => {
+  for (const attemptChanges of [
+    { destination_account_id: 'acct_previousCoach' },
+    { destination_account_id: 'acct_previousCoach', stripe_checkout_session_id: null, provider_state: 'creating' },
+  ]) {
+    const state = fixture({ existing: true, attemptChanges })
+    assert.equal((await state.run()).status, 409)
+    assert.equal(state.createCalls.length, 0)
+    assert.equal(state.attempts[0].destination_account_id, 'acct_previousCoach')
+  }
+})
+
+test('a previously successful provider payment can still reconcile if the coach is now restricted', async () => {
+  const state = fixture({ existing: true, intentStatus: 'succeeded', sessionStatus: 'complete',
+    readinessFailure: { code: 'connect_account_not_ready', status: 409 } })
+  assert.equal((await state.run()).confirmed, true)
+  assert.equal(state.createCalls.length, 0)
+  assert.equal(state.booking.payment_status, 'paid')
+})
+
 function clientHarness(response) {
   const state = []; const refs = []; let index = 0; let refIndex = 0; let requests = 0; let refreshes = 0; let assigned = null
   const Client = load('src/components/BookingPaymentActions.tsx', {
@@ -339,6 +405,7 @@ function requestFixture(existing = null) {
     '@/lib/coaching-booking': { isValidCoachingDuration: () => true, validateCoachingSlot: async () => ({ ok: true, scheduledAt: '2027-01-05T12:00:00.000Z', bufferMinutes: 0 }) },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async () => { provisions++ } },
     '@/lib/subscription-entitlement': { hasActiveSubscriptionEntitlement: () => false },
+    '@/lib/stripe/connect-readiness': connectReadinessFixture(),
     '@/lib/coaching-checkout': { COACHING_RESERVATION_MINUTES: 31, startOrResumeCoachingCheckout: async ({ bookingId, buyerId }) => {
       assert.equal(buyerId, 'buyer-synthetic'); resumed++; return { status: 200, bookingId, checkoutUrl: 'https://checkout.stripe.com/synthetic' }
     } },
