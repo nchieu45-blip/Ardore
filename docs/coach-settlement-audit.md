@@ -88,6 +88,14 @@ cycles and dispute recovery. The opt-in synthetic harness creates only owned
 GoTrue accounts and Stripe TEST fixtures, tests real transfers/refunds/invoices,
 and removes functional fixtures afterward.
 
+Real Stripe TEST validation passed 16 financial groups, including historical
+destination-charge refunds and an actually payout-disabled account. Five final
+groups also passed through the deployed authenticated Hostinger application and
+genuine signed provider webhooks: product purchase, booking, full cancellation
+refund/reversal, owner settlement recovery and the initial subscription invoice.
+No production customer/coaching data was used. Mutable fixtures were removed;
+pre-cleanup checks found no unexpected third-party interactions.
+
 Minimal private retired TEST object IDs allow already queued signed TEST
 webhooks to be acknowledged after fixture removal. They cannot bypass live
 webhooks and retain no credentials or customer data. Immutable Stripe TEST

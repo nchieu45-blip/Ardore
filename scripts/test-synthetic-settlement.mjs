@@ -33,6 +33,7 @@ const users = [], actors = [], orders = new Set(), intents = new Set(), sessions
 const bookings = new Set(), products = new Set(), tiers = new Set(), subscriptions = new Set(), stripeProducts = new Set(), stripePrices = new Set()
 const restrictedFixtures = []
 const testClocks = new Set(), invoices = new Set(), ownedReversals = new Set(), ownedRefunds = new Set()
+const immutableCatalogIds = new Set()
 const ownedTransfers = new Set(), ownedCharges = new Set(), settlements = new Set(), results = []
 let coach, fixture, library
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -76,13 +77,19 @@ async function adoptCheckoutCatalog(sessionId) {
   for (const line of lines.data) {
     const price = line.price
     if (!price) continue
-    assert.equal(price.livemode, false); assert.ok(price.created >= startedAt)
+    assert.equal(price.livemode, false)
     const productId = objectId(price.product)
     const product = await stripe.products.retrieve(productId)
-    assert.equal(product.livemode, false); assert.ok(product.created >= startedAt)
-    await stripe.prices.update(price.id, { metadata: { ardore_synthetic_run: run } })
-    await stripe.products.update(productId, { metadata: { ardore_synthetic_run: run } })
-    stripePrices.add(price.id); stripeProducts.add(productId)
+    assert.equal(product.livemode, false)
+    // The owned Session -> line_items chain proves these immutable catalog IDs.
+    // Inline objects can have no normal created timestamp and reject updates.
+    // Archive only explicitly created fixtures already tagged by this run.
+    if (price.metadata?.ardore_synthetic_run === run) {
+      stripePrices.add(price.id)
+    } else immutableCatalogIds.add(price.id)
+    if (product.metadata?.ardore_synthetic_run === run) {
+      stripeProducts.add(productId)
+    } else immutableCatalogIds.add(productId)
   }
 }
 
@@ -829,8 +836,68 @@ async function tests(buyer) {
   await restrictedCoachTest(buyer)
 }
 
+async function assertNoUnexpectedInteractions() {
+  if (!coach) return
+  const ownedUsers = new Set(users)
+  const profiles = await check(service.from('creator_profiles').select('id,user_id').eq('id', coach.id))
+  assert.equal(profiles.length, 1)
+  assert.ok(ownedUsers.has(profiles[0].user_id), 'Synthetic coach owner must remain owned')
+  for (const [table, expected] of [['products', products], ['subscription_tiers', tiers], ['bookings', bookings],
+    ['payment_orders', orders], ['payment_settlements', settlements]]) {
+    const rows = await check(service.from(table).select(table === 'products' || table === 'subscription_tiers'
+      ? 'id' : table === 'payment_settlements' ? 'id,buyer_id,order_id' : 'id,buyer_id').eq('creator_id', coach.id))
+    assert.ok(rows.every(row => expected.has(row.id)), 'Preserve untracked synthetic-coach commerce records')
+    assert.ok(rows.every(row => !('buyer_id' in row) || ownedUsers.has(row.buyer_id)), 'Preserve any outside buyer interaction')
+    if (table === 'payment_settlements') assert.ok(rows.every(row => orders.has(row.order_id)), 'Preserve untracked financial orders')
+  }
+  for (const [table, userColumn] of [['subscriptions', 'buyer_id'], ['session_reviews', 'buyer_id'],
+    ['chat_conversations', 'buyer_id'], ['chat_last_read', 'buyer_id'], ['messages', 'sender_id']]) {
+    const rows = await check(service.from(table).select(userColumn).eq('creator_id', coach.id))
+    assert.ok(rows.every(row => ownedUsers.has(row[userColumn])), 'Preserve any outside coach interaction')
+  }
+  const conversations = await check(service.from('chat_conversations').select('id').eq('creator_id', coach.id))
+  if (conversations.length) {
+    const participants = await check(service.from('chat_conversation_participants').select('user_id')
+      .in('conversation_id', conversations.map(row => row.id)))
+    assert.ok(participants.every(row => ownedUsers.has(row.user_id)), 'Preserve any outside chat participant')
+  }
+  if (products.size) {
+    for (const table of ['purchases', 'reviews']) {
+      const rows = await check(service.from(table).select('buyer_id').in('product_id', [...products]))
+      assert.ok(rows.every(row => ownedUsers.has(row.buyer_id)), 'Preserve any outside product interaction')
+    }
+  }
+  if (tiers.size) {
+    const rows = await check(service.from('subscriptions').select('buyer_id').in('tier_id', [...tiers]))
+    assert.ok(rows.every(row => ownedUsers.has(row.buyer_id)), 'Preserve any outside tier subscription')
+  }
+  const favoriteRows = await check(service.from('favorites').select('user_id').in('item_id', [coach.id, ...products, ...tiers]))
+  assert.ok(favoriteRows.every(row => ownedUsers.has(row.user_id)), 'Preserve any outside favorite')
+  // This matrix never creates discounts, so any coach/product/tier discount is
+  // untracked and must not be removed through a commercial parent cascade.
+  const discounts = await check(service.from('discounts').select('id').eq('creator_id', coach.id))
+  assert.equal(discounts.length, 0, 'Preserve any untracked coach discount')
+  for (const [column, ids] of [['target_product_id', products], ['target_tier_id', tiers]]) {
+    if (ids.size) {
+      const rows = await check(service.from('discounts').select('id').in(column, [...ids]))
+      assert.equal(rows.length, 0, 'Preserve any untracked offer discount')
+    }
+  }
+}
+
 async function cleanup() {
   const errors = []
+  try { await assertNoUnexpectedInteractions() }
+  catch {
+    console.error(JSON.stringify({ cleanupPreservedForUnexpectedInteraction: true }))
+    return false
+  }
+  // Remove only this run's offers from discovery while financial cleanup runs.
+  // Existing outside references, if any, were preserved by the guard above.
+  if (coach && products.size) await check(service.from('products').update({ is_published: false })
+    .in('id', [...products]).eq('creator_id', coach.id))
+  if (coach && tiers.size) await check(service.from('subscription_tiers').update({ is_active: false })
+    .in('id', [...tiers]).eq('creator_id', coach.id))
   // Discover provider objects even when Checkout confirmation throws after
   // Stripe accepted payment, before allowing any functional fixture deletion.
   for (const sessionId of sessions) {
@@ -907,7 +974,7 @@ async function cleanup() {
   // IDs as a private tombstone so delayed signed events cannot recreate fixtures
   // or retry forever after GoTrue/commerce rows and clocks have been removed.
   const retiredIds = [...new Set([...sessions, ...intents, ...ownedCharges, ...subscriptions,
-    ...invoices, ...ownedTransfers, ...ownedReversals, ...ownedRefunds, ...customers])]
+    ...invoices, ...ownedTransfers, ...ownedReversals, ...ownedRefunds, ...customers, ...immutableCatalogIds])]
   if (retiredIds.length) await check(service.from('retired_stripe_test_runs').upsert({ id: run,
     object_ids: retiredIds }, { onConflict: 'id' }))
   for (const customerId of customers) {
@@ -926,6 +993,13 @@ async function cleanup() {
     await stripe.products.update(productId, { active: false, metadata: { ardore_synthetic_cleanup: 'completed' } })
   }
   for (const clockId of testClocks) await stripe.testHelpers.testClocks.del(clockId)
+  // Check again immediately before parent deletions can cascade. A real visitor
+  // might have interacted with a briefly published fixture during cleanup.
+  try { await assertNoUnexpectedInteractions() }
+  catch {
+    console.error(JSON.stringify({ cleanupPreservedForUnexpectedInteraction: true }))
+    return false
+  }
   // The exact ledger table names are derived only from the repository's owned
   // settlement migration. Child rows are removed before their synthetic order.
   const migrationNames = readdirSync(resolve(root, 'supabase/migrations')).filter(name => /settlement.*\.sql$/.test(name)).sort()
