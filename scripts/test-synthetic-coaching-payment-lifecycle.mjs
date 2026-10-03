@@ -97,6 +97,12 @@ async function confirm(saved, paymentMethod = 'pm_card_visa', expectedFailure = 
   else if (failure) throw failure
   const fresh = await stripe.checkout.sessions.retrieve(session.id)
   const pi = objectId(fresh.payment_intent); if (pi) intentIds.add(pi)
+  // Deliver the real provider event explicitly, so test timing does not depend
+  // on Stripe's normal queue/backoff. Stripe signs and sends it to the endpoint.
+  const eventType = expectedFailure ? 'payment_intent.payment_failed' : 'checkout.session.completed'
+  const generated = await stripe.events.list({ type: eventType, created: { gte: session.created }, limit: 100 })
+  const event = generated.data.find(item => item.data.object.id === (expectedFailure ? pi : session.id))
+  if (event) await replay(event)
   return fresh
 }
 async function paid(saved) {
@@ -252,6 +258,11 @@ async function tests() {
   pass('actual asynchronous late payment on an occupied slot receives full reconciliation without double booking')
   const bankFailed = await asyncCheckout(12, 'IT60X0542811101000000123456')
   await confirm(bankFailed.row, bankFailed.method)
+  await waitFor('async_provider_failure', async () => {
+    const pi = await trackIntent(bankFailed.row)
+    return pi && (await stripe.paymentIntents.retrieve(pi)).status === 'requires_payment_method'
+  }, 180000)
+  for (const event of await eventsFor(bankFailed.row, 'checkout.session.async_payment_failed')) await replay(event)
   await waitFor('async_bank_failed', async () => (await row(bankFailed.row.id)).status === 'payment_failed', 180000)
   const bankRetry = await api('/api/coaching/retry', buyer, { bookingId: bankFailed.row.id })
   assert.equal(bankRetry.status, 200); const bankRetryRow = await row(bankFailed.row.id); sessions.add(bankRetryRow.stripe_checkout_session_id)
@@ -277,7 +288,9 @@ async function cleanup() {
       const chargeId = objectId(intent.latest_charge)
       if (chargeId) {
         chargeIds.add(chargeId); const charge = await stripe.charges.retrieve(chargeId)
-        if (charge.paid && charge.amount_refunded < charge.amount_captured) await stripe.refunds.create({ payment_intent: pi,
+        const activeRefunds = await stripe.refunds.list({ payment_intent: pi, limit: 100 })
+        const reserved = activeRefunds.data.filter(item => !['failed', 'canceled'].includes(item.status)).reduce((sum, item) => sum + item.amount, 0)
+        if (charge.paid && reserved < charge.amount_captured) await stripe.refunds.create({ payment_intent: pi, amount: charge.amount_captured - reserved,
           ...(charge.transfer ? { reverse_transfer: true, refund_application_fee: Boolean(charge.application_fee) } : {}),
           metadata: { ardore_synthetic_run: run, cleanup: 'true' } }, { idempotencyKey: `${run}-${pi}-cleanup` })
       }

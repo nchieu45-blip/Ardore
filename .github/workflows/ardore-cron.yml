@@ -6,6 +6,14 @@ on:
     - cron: "0 8 * * *"
     - cron: "0 9 * * *"
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Run all jobs or only coaching payment recovery'
+        type: choice
+        default: all
+        options:
+          - all
+          - coaching-payments
 
 permissions:
   contents: read
@@ -29,7 +37,7 @@ jobs:
             "${base_url}/api/cron/coaching-payments"
 
       - name: Call session cron endpoints
-        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 8 * * *'
+        if: (github.event_name == 'workflow_dispatch' && inputs.target != 'coaching-payments') || github.event.schedule == '0 8 * * *'
         shell: bash
         run: |
           set -euo pipefail
@@ -42,7 +50,7 @@ jobs:
             "${base_url}/api/cron/session-review-prompts"
 
       - name: Call verification cleanup endpoint
-        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 9 * * *'
+        if: (github.event_name == 'workflow_dispatch' && inputs.target != 'coaching-payments') || github.event.schedule == '0 9 * * *'
         shell: bash
         run: |
           set -euo pipefail
