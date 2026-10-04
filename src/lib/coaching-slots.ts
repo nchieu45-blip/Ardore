@@ -107,6 +107,7 @@ export interface DateOverride {
 }
 
 export interface Booking {
+  buffer_minutes?: number
   scheduled_at: string
   duration_minutes: number
 }
@@ -176,7 +177,7 @@ export function generateSlots(
         const conflict = bookings.some(b => {
           const bStart = new Date(b.scheduled_at).getTime()
           const bEnd   = bStart + b.duration_minutes * 60_000
-          return slotStartMs < bEnd + bufferMin * 60_000
+          return slotStartMs < bEnd + Math.max(bufferMin, b.buffer_minutes ?? 0) * 60_000
               && slotEndMs   > bStart - bufferMin * 60_000
         })
         if (!conflict) slots.push(slotHHMM)

@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   let bookingsQuery = service
     .from('bookings')
-    .select('scheduled_at, duration_minutes')
+    .select('scheduled_at, duration_minutes, buffer_minutes')
     .eq('creator_id', creatorId)
     .in('status', ['pending_payment', 'confirmed'])
     .gte('scheduled_at', utcStart)

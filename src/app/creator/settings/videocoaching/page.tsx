@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { ChevronLeft, Video } from 'lucide-react'
 import type { Metadata } from 'next'
 import VideoCoachingForm from './VideoCoachingForm'
+import type { AvailabilitySnapshot } from '@/lib/coaching-availability'
 
 export const metadata: Metadata = { title: 'Videocoaching-Einstellungen' }
 
@@ -19,24 +20,15 @@ export default async function VideoCoachingSettingsPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
-  const [offerRes, slotsRes, overridesRes] = await Promise.all([
-    supabase
-      .from('coaching_offers')
-      .select('is_enabled, price_cents, duration_minutes, description, buffer_minutes, min_notice_hours, max_horizon_days, cancellation_policy_hours')
-      .eq('creator_id', creator.id)
-      .single(),
-    supabase
-      .from('availability_slots')
-      .select('day_of_week, start_time, end_time')
-      .eq('creator_id', creator.id)
-      .order('day_of_week')
-      .order('start_time'),
-    supabase
-      .from('date_overrides')
-      .select('date, type, start_time, end_time')
-      .eq('creator_id', creator.id)
-      .order('date'),
-  ])
+  const service = await createServiceClient()
+  const { data, error } = await service.rpc('get_coach_availability', { p_creator_id: creator.id, p_coach_user_id: user.id })
+  if (error || !data) return (
+    <div className="max-w-2xl mx-auto px-4 py-8" role="alert">
+      <p>Deine Einstellungen konnten nicht geladen werden. Deine gespeicherte Verfügbarkeit bleibt unverändert.</p>
+      <Link href="/creator/settings/videocoaching" className="inline-block mt-4 text-green-700 underline">Erneut laden</Link>
+    </div>
+  )
+  const snapshot = data as AvailabilitySnapshot
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -59,15 +51,10 @@ export default async function VideoCoachingSettingsPage() {
       </div>
 
       <VideoCoachingForm
-        initialOffer={(offerRes.data as {
-          is_enabled: boolean; price_cents: number; duration_minutes: number
-          description: string | null; buffer_minutes: number; min_notice_hours: number
-          max_horizon_days: number; cancellation_policy_hours: number
-        } | null) ?? null}
-        initialSlots={(slotsRes.data ?? []) as { day_of_week: number; start_time: string; end_time: string }[]}
-        initialDateOverrides={(overridesRes.data ?? []) as {
-          date: string; type: 'available' | 'unavailable'; start_time: string | null; end_time: string | null
-        }[]}
+        initialOffer={snapshot.offer}
+        initialSlots={snapshot.slots}
+        initialDateOverrides={snapshot.dateOverrides}
+        initialRevision={snapshot.revision}
       />
     </div>
   )

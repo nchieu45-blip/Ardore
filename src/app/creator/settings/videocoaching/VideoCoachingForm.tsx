@@ -72,6 +72,7 @@ interface DateOverride {
 }
 
 interface Props {
+  initialRevision: number
   initialOffer:         InitialOffer | null
   initialSlots:         RecurringSlot[]
   initialDateOverrides: DateOverride[]
@@ -99,9 +100,9 @@ function weeklyToSlots(weekly: WeeklyAvail): RecurringSlot[] {
   )
 }
 
-export default function VideoCoachingForm({ initialOffer, initialSlots, initialDateOverrides }: Props) {
+export default function VideoCoachingForm({ initialOffer, initialSlots, initialDateOverrides, initialRevision }: Props) {
   const [enabled,          setEnabled]         = useState(initialOffer?.is_enabled ?? false)
-  const [priceCents,       setPriceCents]      = useState(String(Math.round((initialOffer?.price_cents ?? 8000) / 100)))
+  const [priceCents,       setPriceCents]      = useState(String((initialOffer?.price_cents ?? 8000) / 100))
   const [duration,         setDuration]        = useState(initialOffer?.duration_minutes ?? 60)
   const [description,      setDescription]     = useState(initialOffer?.description ?? '')
   const [bufferMin,        setBufferMin]       = useState(initialOffer?.buffer_minutes ?? 0)
@@ -111,6 +112,9 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
   const [weekly,           setWeekly]          = useState<WeeklyAvail>(() => initWeekly(initialSlots))
   const [overrides,        setOverrides]       = useState<DateOverride[]>(initialDateOverrides)
   const [saving,           setSaving]          = useState(false)
+  const [revision, setRevision] = useState(initialRevision)
+  const [saveError, setSaveError] = useState('')
+  const [reloadRequired, setReloadRequired] = useState(false)
 
   // New override form state
   const [newDate,      setNewDate]      = useState('')
@@ -167,8 +171,8 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
     const override: DateOverride = {
       date:       newDate,
       type:       newType,
-      start_time: newAllDay ? null : newStart,
-      end_time:   newAllDay ? null : newEnd,
+      start_time: newType === 'unavailable' && newAllDay ? null : newStart,
+      end_time:   newType === 'unavailable' && newAllDay ? null : newEnd,
     }
     setOverrides(prev => [...prev.filter(o => o.date !== newDate || o.type !== newType), override])
     setNewDate('')
@@ -184,40 +188,34 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
     setSaving(true)
     try {
       const priceNum = parseFloat(priceCents.replace(',', '.'))
-      if (isNaN(priceNum) || priceNum < 0) { toast.error('Ungültiger Preis'); return }
+      if (!Number.isFinite(priceNum) || priceNum < 0) { setSaveError('Ungültiger Preis'); toast.error('Ungültiger Preis'); return }
 
-      const [offerRes, availRes] = await Promise.all([
-        fetch('/api/coaching/offer', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            is_enabled:                enabled,
-            price_cents:               Math.round(priceNum * 100),
-            duration_minutes:          duration,
-            description:               description.trim() || null,
-            buffer_minutes:            bufferMin,
-            min_notice_hours:          noticeHrs,
-            max_horizon_days:          horizonDays,
-            cancellation_policy_hours: cancelPolicyHrs,
-          }),
+      setSaveError('')
+      const response = await fetch('/api/coaching/availability', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expectedRevision: revision, slots: weeklyToSlots(weekly), dateOverrides: overrides,
+          offer: {
+            is_enabled: enabled, price_cents: Math.round(priceNum * 100), duration_minutes: duration,
+            description: description.trim() || null, buffer_minutes: bufferMin,
+            min_notice_hours: noticeHrs, max_horizon_days: horizonDays, cancellation_policy_hours: cancelPolicyHrs,
+          },
         }),
-        fetch('/api/coaching/availability', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slots:         weeklyToSlots(weekly),
-            dateOverrides: overrides,
-          }),
-        }),
-      ])
-
-      if (!offerRes.ok || !availRes.ok) {
-        const err = await offerRes.json().catch(() => ({})) as { error?: string }
-        throw new Error(err.error ?? 'Fehler beim Speichern')
+      })
+      const result = await response.json() as { error?: string; revision?: number; reloadRequired?: boolean }
+      if (!response.ok || typeof result.revision !== 'number') {
+        setReloadRequired(!!result.reloadRequired)
+        throw new Error(result.error ?? 'Speichern fehlgeschlagen. Bitte lade die Seite neu, um den gespeicherten Stand zu prüfen.')
       }
+      setRevision(result.revision)
       toast.success('Videocoaching-Einstellungen gespeichert')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Fehler beim Speichern')
+      const message = e instanceof TypeError || e instanceof SyntaxError
+        ? 'Speichern konnte nicht bestätigt werden. Bitte lade den gespeicherten Stand neu, bevor du es erneut versuchst.'
+        : e instanceof Error ? e.message : 'Fehler beim Speichern'
+      if (e instanceof TypeError || e instanceof SyntaxError) setReloadRequired(true)
+      setSaveError(message)
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -227,7 +225,7 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
   const selectClass = cn(inputClass, 'appearance-none pr-8')
 
   return (
-    <div className="space-y-6">
+    <fieldset disabled={saving} className="space-y-6 min-w-0">
       {/* ── Enable/disable ─────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 p-5 rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div>
@@ -484,7 +482,7 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
                   </div>
                 </div>
               </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+              {newType === 'unavailable' && <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={newAllDay}
@@ -492,8 +490,8 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
                   className="rounded border-gray-300 text-green-600 focus:ring-green-400"
                 />
                 Ganztägig
-              </label>
-              {!newAllDay && (
+              </label>}
+              {(newType === 'available' || !newAllDay) && (
                 <div className="flex items-center gap-2">
                   <input
                     type="time"
@@ -550,7 +548,7 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
                       )}
                     </div>
                     <button
-                      onClick={() => removeOverride(idx)}
+                      onClick={() => removeOverride(overrides.indexOf(ov))}
                       className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -562,11 +560,15 @@ export default function VideoCoachingForm({ initialOffer, initialSlots, initialD
         </div>
       </div>
 
+      {saveError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <p>{saveError}</p>
+        {reloadRequired && <button type="button" onClick={() => window.location.reload()} className="mt-2 underline font-medium">Gespeicherten Stand neu laden</button>}
+      </div>}
       <div className="flex justify-end pt-2">
-        <Button onClick={save} disabled={saving} className="min-w-32">
+        <Button onClick={save} disabled={saving || reloadRequired} className="min-w-32">
           {saving ? 'Speichere…' : 'Speichern'}
         </Button>
       </div>
-    </div>
+    </fieldset>
   )
 }
