@@ -1,3 +1,4 @@
+import { discountReservationFixture } from './fixtures/discount-reservation.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -71,6 +72,7 @@ function subscriptionFixture({ price = 25, active = true, discountCreatorId = cr
     },
   }
   const route = load('../src/app/api/stripe/subscription/route.ts', {
+    '@/lib/discounts': discountReservationFixture(discount),
     '@/lib/supabase/server': { createClient: async () => client, createServiceClient: async () => service },
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (input, options) => {
       checkouts.push(input); checkoutOptions.push(options)
@@ -124,6 +126,7 @@ test('paid subscription freezes the coach price and settlement owner without aut
   })
   assert.deepEqual(state.orders.map(input => ({ ...input, service: 'service' })), [{
     service: 'service',
+    id: state.orders[0].id,
     kind: 'subscription', buyerId, creatorId, accountId: 'acct_syntheticReady',
     grossCents: 2500, livemode: false, reference: { tierId },
   }])
@@ -177,8 +180,8 @@ test('only this coach’s eligible discount can reduce its checkout charge', asy
   assert.equal((await owned.run({ discountId: otherId })).status, 200)
   assert.equal(owned.checkouts[0].line_items[0].price_data.unit_amount, 2000)
   const foreign = subscriptionFixture({ discountCreatorId: buyerId })
-  assert.equal((await foreign.run({ discountId: otherId })).status, 200)
-  assert.equal(foreign.checkouts[0].line_items[0].price_data.unit_amount, 2500)
+  assert.equal((await foreign.run({ discountId: otherId })).status, 409)
+  assert.deepEqual(foreign.checkouts, [])
   assert.deepEqual(foreign.writes, [])
 })
 

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { DiscountError, reserveDiscount, releaseDiscount, requireStripeMinimum } from '@/lib/discounts'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
@@ -49,35 +51,31 @@ export async function POST(req: NextRequest) {
 
   const appUrl = appOrigin()
 
-  // Validate discount if provided
-  let discountSavingsCents = 0
-  let discountRowId: string | null = null
-
-  if (discountId && tier.price_monthly > 0) {
-    const { data: disc } = await supabase
-      .from('discounts')
-      .select('id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
-      .eq('id', discountId)
-      .eq('creator_id', tier.creator_id)
-      .single()
-
-    const now = new Date()
-    const tierTargetOk = !disc?.target_tier_id || disc.target_tier_id === tierId
-    const valid = disc &&
-      disc.active &&
-      !disc.target_product_id &&
-      (disc.target_tier_id ? tierTargetOk : (disc.applies_to === 'all' || disc.applies_to === 'subscriptions')) &&
-      (!disc.starts_at || new Date(disc.starts_at) <= now) &&
-      (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
-      (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
-
-    if (valid) {
-      discountRowId = disc.id
-      const priceCents = Math.round(tier.price_monthly * 100)
-      discountSavingsCents = disc.type === 'percent'
-        ? Math.round(priceCents * disc.value / 100)
-        : Math.min(disc.value, priceCents)
+  const service = await createServiceClient()
+  const orderId = randomUUID()
+  const originalPriceCents = Math.round(tier.price_monthly * 100)
+  let reservation
+  let finalPriceCents = originalPriceCents
+  try {
+    if (discountId && originalPriceCents > 0) {
+      reservation = await reserveDiscount(service, { id: orderId, discountId, buyerId: user.id,
+        creatorId: tier.creator_id, kind: 'subscriptions', originalCents: originalPriceCents, tierId })
+      finalPriceCents = reservation.final_cents
     }
+    requireStripeMinimum(finalPriceCents)
+  } catch (error) {
+    if (reservation) await releaseDiscount(service, reservation.id)
+    if (error instanceof DiscountError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Rabatt konnte nicht geprüft werden.' }, { status: 503 })
+  }
+  if (reservation && finalPriceCents === 0) {
+    const { data, error } = await service.rpc('complete_free_discount_subscription', { p_id: reservation.id })
+    if (error || !data) {
+      await releaseDiscount(service, reservation.id)
+      return NextResponse.json({ error: 'Das kostenlose Abo konnte nicht freigeschaltet werden. Bitte prüfe deinen Rabatt.' }, { status: 409 })
+    }
+    if (data.newly_created) notifyNewSubscriber(service, user.id, tier.creator_id, tier.id).catch(console.error)
+    return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
   }
 
   // Free tier — skip Stripe entirely and create the subscription directly
@@ -119,11 +117,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
   }
 
-  // Paid tier — go through Stripe checkout
-  const originalPriceCents = Math.round(tier.price_monthly * 100)
-  const finalPriceCents    = Math.max(50, originalPriceCents - discountSavingsCents)
-
-  const service = await createServiceClient()
+  // The existing discount reduces every monthly cycle; count the new Abo once.
   let accountId: string
   let livemode: boolean
   try {
@@ -131,25 +125,23 @@ export async function POST(req: NextRequest) {
     accountId = readiness.accountId
     livemode = readiness.livemode
   } catch (error) {
+    if (reservation) await releaseDiscount(service, reservation.id)
     if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
     return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
   }
   const order = await createSettlementOrder({
     service,
+    id: orderId,
     kind: 'subscription',
     buyerId: user.id,
     creatorId: tier.creator_id,
     accountId,
     grossCents: finalPriceCents,
     livemode,
-    reference: { tierId: tier.id },
+    reference: { tierId: tier.id, ...(reservation ? { discountRedemptionId: reservation.id } : {}) },
   })
   const metadata = { ardore_order_id: order.id, tier_id: tier.id, buyer_id: user.id, creator_id: tier.creator_id }
 
-  // TODO: When Stripe Connect is active, replace the manual price reduction below
-  // with a Stripe Coupon object attached via `discounts: [{ coupon: couponId }]`
-  // so the discount appears natively in Stripe and subscription invoices reflect it.
-  // The coupon should be created once per discount row and cached on the discount record.
   // Always derive a new checkout price from the coach's current offer. A
   // client-editable or stale Stripe price ID must not determine the charge.
   const session = await stripe.checkout.sessions.create({
@@ -167,6 +159,7 @@ export async function POST(req: NextRequest) {
       quantity: 1,
     }],
     metadata,
+    ...(reservation ? { expires_at: Math.floor(new Date(reservation.expires_at).getTime() / 1000) } : {}),
     success_url: `${appUrl}/buyer?subscribed=1`,
     cancel_url: `${appUrl}/creators`,
     subscription_data: {
@@ -175,23 +168,6 @@ export async function POST(req: NextRequest) {
   }, { idempotencyKey: `ardore-order-checkout-${order.id}-v1` })
   await registerSettlementCheckout({ service, orderId: order.id, sessionId: session.id,
     subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id })
-
-  // Increment redemption count (best-effort)
-  if (discountRowId) {
-    const { data: latest } = await supabase
-      .from('discounts')
-      .select('redemption_count')
-      .eq('id', discountRowId)
-      .single()
-    if (latest) {
-      const service = await createServiceClient()
-      await service
-        .from('discounts')
-        .update({ redemption_count: latest.redemption_count + 1 })
-        .eq('id', discountRowId)
-        .eq('redemption_count', latest.redemption_count)
-    }
-  }
 
   return NextResponse.json({ url: session.url })
 }

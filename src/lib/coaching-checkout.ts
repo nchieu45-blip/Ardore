@@ -14,6 +14,7 @@ type Booking = {
   duration_minutes: number; price_cents: number; status: string; payment_status: string;
   cancellation_policy_hours: number | null; stripe_livemode: boolean | null; refund_status: string;
   current_payment_attempt_id: string | null; is_subscription_session: boolean; stripe_checkout_session_id: string | null;
+  discount_id?: string | null; booking_request_key?: string | null;
 }
 
 type Attempt = {
@@ -160,6 +161,18 @@ export async function startOrResumeCoachingCheckout({
       }
     }
 
+    if (booking.discount_id && booking.booking_request_key) {
+      const { data: snapshot, error } = await service.from('discount_redemptions').select('*').eq('id', booking.booking_request_key).single()
+      if (error || !snapshot) throw new Error('Discount reservation unavailable')
+      const { data: renewed, error: renewalError } = await service.rpc('reserve_discount_redemption', {
+        p_id: snapshot.id, p_discount_id: booking.discount_id, p_buyer_id: buyerId, p_creator_id: booking.creator_id,
+        p_kind: 'sessions', p_original_cents: snapshot.original_cents, p_product_ids: [], p_tier_id: null,
+      })
+      if (renewalError) throw new Error('Discount reservation unavailable')
+      if (!renewed || renewed.error || renewed.final_cents !== booking.price_cents) {
+        return { status: 409, error: 'Der Rabatt ist für einen erneuten Zahlungsversuch nicht mehr verfügbar. Bitte kontaktiere den Support.' }
+      }
+    }
     const readyCoach = await requirePayoutReadyCoach(service, booking.creator_id, provider)
     const reservationExpiresAt = new Date(Date.now() + COACHING_RESERVATION_MINUTES * 60_000).toISOString()
     const { data: claimData, error: claimError } = await service.rpc('begin_coaching_payment_attempt', {

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (!expected.length || expected.some((id: unknown) => typeof id !== 'string')) throw new Error('Invalid item snapshot')
     const result: PurchaseStatus = { state: 'processing', productIds: [], testMode: !order.stripe_livemode }
     if (order.state === 'refunded') result.state = 'refunded'
-    else if (order.state === 'refund_required') result.state = 'refund_pending'
+    else if (order.state === 'refund_required') result.state = order.gross_cents === 0 ? 'unavailable' : 'refund_pending'
     else if (order.state === 'fulfilled') {
       const { data: purchases, error: purchaseError } = await client.from('purchases').select('product_id')
         .eq('buyer_id', user.id).eq('stripe_checkout_session_id', sessionId)

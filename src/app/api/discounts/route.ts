@@ -58,8 +58,13 @@ export async function POST(req: NextRequest) {
   const creatorId = await getCreatorId(supabase)
   if (!creatorId) return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 })
 
-  const body = await req.json()
-  const { code, type, value, applies_to, starts_at, ends_at, max_redemptions, target_product_id, target_tier_id } = body
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Ungültige Rabatt-Anfrage' }, { status: 400 })
+  const { code, type, value, applies_to, starts_at, ends_at, max_redemptions, max_redemptions_per_user, target_product_id, target_tier_id } = body
+
+  if (!Number.isSafeInteger(value) || [max_redemptions, max_redemptions_per_user].some(limit => limit != null && (!Number.isSafeInteger(limit) || limit <= 0))) {
+    return NextResponse.json({ error: 'Rabattwert und Einlösungslimits müssen gültige positive ganze Zahlen sein.' }, { status: 400 })
+  }
 
   if (!['percent', 'fixed'].includes(type)) {
     return NextResponse.json({ error: 'Ungültiger Rabatttyp' }, { status: 400 })
@@ -82,6 +87,7 @@ export async function POST(req: NextRequest) {
       starts_at:         starts_at         ?? null,
       ends_at:           ends_at           ?? null,
       max_redemptions:   max_redemptions   ? Number(max_redemptions) : null,
+      max_redemptions_per_user: max_redemptions_per_user ?? null,
       target_product_id: target_product_id ?? null,
       target_tier_id:    target_tier_id    ?? null,
       active:            true,
@@ -89,6 +95,6 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Rabatt konnte nicht gespeichert werden. Bitte prüfe Wert, Geltungsbereich, Code und Einlösungslimits.' }, { status: 400 })
   return NextResponse.json({ discount: data })
 }

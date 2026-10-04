@@ -35,6 +35,7 @@ const restrictedFixtures = []
 const testClocks = new Set(), invoices = new Set(), ownedReversals = new Set(), ownedRefunds = new Set()
 const immutableCatalogIds = new Set()
 const ownedTransfers = new Set(), ownedCharges = new Set(), settlements = new Set(), results = []
+const discounts = new Set(), freeSubscriptions = new Set()
 let coach, fixture, library
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const objectId = value => typeof value === 'string' ? value : value?.id
@@ -359,12 +360,15 @@ async function waitFor(label, operation, timeoutMs = 120_000) {
   throw Object.assign(new Error('Synthetic provider verification timed out'), { code: label })
 }
 
-async function recurringTest(buyer) {
+async function recurringTest(buyer, coupon = null) {
+  const expectedCents = coupon ? 400 : 500
   const tier = await check(service.from('subscription_tiers').insert({ creator_id: coach.id,
     name: 'Synthetic settlement subscription', description: 'Disposable TEST fixture', price_monthly: 5,
     is_active: false }).select('id').single())
   tiers.add(tier.id)
-  const ownedOrder = await order('subscription', buyer, { tierId: tier.id })
+  let claim
+  if (coupon) claim = await reserveCoupon(coupon, buyer, 'subscriptions', tier)
+  const ownedOrder = await order('subscription', buyer, { tierId: tier.id, ...(claim ? {discountRedemptionId:claim.id} : {}) }, expectedCents)
   const clock = await stripe.testHelpers.testClocks.create({ frozen_time: Math.floor(Date.now() / 1000), name: tag })
   testClocks.add(clock.id)
   const customer = await stripe.customers.create({ test_clock: clock.id, email: buyer.email,
@@ -372,7 +376,7 @@ async function recurringTest(buyer) {
   customers.add(customer.id)
   const product = await stripe.products.create({ name: 'Synthetic settlement subscription', metadata: { ardore_synthetic_run: run } })
   stripeProducts.add(product.id)
-  const price = await stripe.prices.create({ product: product.id, unit_amount: 500, currency: 'eur',
+  const price = await stripe.prices.create({ product: product.id, unit_amount: expectedCents, currency: 'eur',
     recurring: { interval: 'month' }, metadata: { ardore_synthetic_run: run } })
   stripePrices.add(price.id)
   const metadata = { ardore_order_id: ownedOrder.id, ardore_synthetic_run: run,
@@ -387,7 +391,7 @@ async function recurringTest(buyer) {
     billing_details: { name: 'Synthetic settlement verification', email: buyer.email } })
   await stripe.rawRequest('GET', `/v1/payment_pages/${session.id}`)
   await stripe.rawRequest('POST', `/v1/payment_pages/${session.id}/confirm`, {
-    payment_method: method.id, expected_amount: 500,
+    payment_method: method.id, expected_amount: expectedCents,
   })
   const completed = await stripe.checkout.sessions.retrieve(session.id)
   assert.equal(completed.livemode, false); assert.equal(completed.payment_status, 'paid')
@@ -402,7 +406,7 @@ async function recurringTest(buyer) {
   const invoicePayments = []
   async function reconcileInvoice(invoiceId) {
     const invoice = await stripe.invoices.retrieve(invoiceId)
-    assert.equal(invoice.livemode, false); assert.equal(invoice.status, 'paid'); assert.equal(invoice.amount_paid, 500)
+    assert.equal(invoice.livemode, false); assert.equal(invoice.status, 'paid'); assert.equal(invoice.amount_paid, expectedCents)
     assert.equal(objectId(invoice.customer), customer.id)
     invoices.add(invoice.id)
     const paymentRows = await stripe.invoicePayments.list({ invoice: invoice.id, status: 'paid', limit: 100 })
@@ -427,7 +431,7 @@ async function recurringTest(buyer) {
     assert.equal(ledger.stripe_invoice_id, invoice.id)
     settlements.add(ledger.id)
     const transfers = await transferFor(paymentRow)
-    assert.equal(transfers.length, 1); assert.equal(transfers[0].amount, 450)
+    assert.equal(transfers.length, 1); assert.equal(transfers[0].amount, expectedCents-Math.round(expectedCents/10))
     invoicePayments.push(paymentRow)
     return invoice
   }
@@ -441,6 +445,7 @@ async function recurringTest(buyer) {
     return list.data.find(value => value.billing_reason === 'subscription_cycle' && value.status === 'paid')
   })
   await reconcileInvoice(recurring.id)
+  if(coupon) assert.equal(await discountCount(coupon),1)
   const ledgerRows = await check(service.from('payment_settlements').select('id,stripe_invoice_id').eq('order_id', ownedOrder.id))
   assert.equal(ledgerRows.length, 2)
   assert.equal(new Set(ledgerRows.map(value => value.stripe_invoice_id)).size, 2)
@@ -468,7 +473,7 @@ async function productionRequest(actor, path, body, method = 'POST') {
   return value
 }
 
-async function completeProductionCheckout(url, buyer) {
+async function completeProductionCheckout(url, buyer, expectedCents = 500) {
   const address = new URL(url)
   assert.equal(address.hostname, 'checkout.stripe.com')
   const sessionId = address.pathname.split('/').at(-1)
@@ -479,7 +484,7 @@ async function completeProductionCheckout(url, buyer) {
   assert.equal(session.metadata.buyer_id, buyer.id)
   const row = await check(service.from('payment_orders').select('*').eq('id', session.metadata.ardore_order_id).single())
   assert.equal(row.creator_id, coach.id); assert.equal(row.buyer_id, buyer.id); assert.equal(row.stripe_livemode, false)
-  assert.equal(row.gross_cents, 500); assert.equal(row.account_id, fixture.accountId)
+  assert.equal(row.gross_cents, expectedCents); assert.equal(row.account_id, fixture.accountId)
   orders.add(row.id); sessions.add(sessionId)
   await stripe.checkout.sessions.update(sessionId, { metadata: { ardore_synthetic_run: run } })
   await adoptCheckoutCatalog(sessionId)
@@ -487,7 +492,7 @@ async function completeProductionCheckout(url, buyer) {
     billing_details: { name: 'Synthetic settlement verification', email: buyer.email } })
   try {
     await stripe.rawRequest('GET', `/v1/payment_pages/${sessionId}`)
-    await stripe.rawRequest('POST', `/v1/payment_pages/${sessionId}/confirm`, { payment_method: method.id, expected_amount: 500 })
+    await stripe.rawRequest('POST', `/v1/payment_pages/${sessionId}/confirm`, { payment_method: method.id, expected_amount: expectedCents })
   } finally { await discoverCheckoutObjects(sessionId) }
   const completed = await stripe.checkout.sessions.retrieve(sessionId)
   assert.equal(completed.payment_status, 'paid')
@@ -512,9 +517,248 @@ async function completeProductionCheckout(url, buyer) {
     return rows[0]?.state === 'settled' && rows[0]?.fulfillment_state === 'fulfilled' ? rows[0] : null
   }, 240_000)
   const transfer = await transferFor(paid)
-  assert.equal(transfer.length, 1); assert.equal(transfer[0].amount, 450)
+  assert.equal(transfer.length, 1); assert.equal(transfer[0].amount, expectedCents - Math.round(expectedCents / 10))
   assert.equal(saved.stripe_transfer_id, transfer[0].id)
   return { row, paid, saved }
+}
+
+
+async function discountFixture(options = {}) {
+  const row = await check(service.from('discounts').insert({ creator_id: coach.id,
+    code: `D${randomBytes(8).toString('hex').toUpperCase()}`, type: 'percent', value: 20,
+    applies_to: 'all', active: true, ...options }).select('*').single())
+  discounts.add(row.id)
+  return row
+}
+async function discountProduct() {
+  const row = await check(service.from('products').insert({ creator_id: coach.id, title: 'Synthetic discount lifecycle',
+    description: 'Disposable Stripe TEST fixture', type: 'pdf', price: 5, is_published: true }).select('id').single())
+  products.add(row.id); return row
+}
+async function discountTier() {
+  const row = await check(service.from('subscription_tiers').insert({ creator_id: coach.id, name: 'Synthetic monthly discount',
+    description: 'Disposable Stripe TEST fixture', price_monthly: 5, is_active: true }).select('id').single())
+  tiers.add(row.id); return row
+}
+async function reserveCoupon(coupon, who, kind = 'products', item, id = randomUUID(), override = {}) {
+  return check(service.rpc('reserve_discount_redemption', { p_id: id, p_discount_id: coupon.id, p_buyer_id: who.id,
+    p_creator_id: coach.id, p_kind: kind, p_original_cents: 500, p_product_ids: kind === 'products' ? [item.id] : [],
+    p_tier_id: kind === 'subscriptions' ? item.id : null, ...override }))
+}
+async function discountCount(coupon) {
+  return (await check(service.from('discounts').select('redemption_count').eq('id', coupon.id).single())).redemption_count
+}
+async function consumeCoupon(claim) {
+  return check(service.rpc('consume_discount_redemption', { p_id: claim.id, p_buyer_id: claim.buyer_id,
+    p_creator_id: coach.id, p_kind: claim.kind, p_final_cents: claim.final_cents }))
+}
+async function discountDatabaseTests(buyer) {
+  const other = await actor('buyer'), product = await discountProduct(), tier = await discountTier()
+  const last = await discountFixture({ max_redemptions: 1 })
+  const race = await Promise.all([reserveCoupon(last,buyer,'products',product), reserveCoupon(last,other,'products',product)])
+  const winners = race.filter(value => value.id), losers = race.filter(value => value.error)
+  assert.equal(winners.length,1); assert.equal(losers.length,1); assert.equal(losers[0].error,'discount_limit_reached')
+  assert.equal(await discountCount(last),0)
+  await check(service.rpc('release_discount_redemption',{p_id:winners[0].id}))
+  const next = await reserveCoupon(last,buyer,'products',product)
+  assert.equal(await consumeCoupon(next),true); assert.equal(await consumeCoupon(next),true)
+  assert.equal(await discountCount(last),1)
+  pass('real database last-redemption concurrency admits one hold; release preserves quota; duplicate consume counts once')
+  const perUser = await discountFixture({ max_redemptions_per_user:1 })
+  const first = await reserveCoupon(perUser,buyer,'products',product)
+  assert.equal(await consumeCoupon(first),true)
+  assert.equal((await reserveCoupon(perUser,buyer,'products',product)).error,'discount_limit_reached')
+  const second = await reserveCoupon(perUser,other,'products',product)
+  assert.ok(second.id); assert.equal(await consumeCoupon(second),true); assert.equal(await discountCount(perUser),2)
+  pass('real per-user limit excludes consumed and held duplicates without blocking other customers')
+  const expiring = await discountFixture({max_redemptions:1})
+  const stale = await reserveCoupon(expiring,buyer,'products',product)
+  await check(service.from('discount_redemptions').update({expires_at:new Date(Date.now()-1000).toISOString()}).eq('id',stale.id).eq('creator_id',coach.id))
+  const reclaimed = await reserveCoupon(expiring,other,'products',product)
+  assert.ok(reclaimed.id); assert.equal(await consumeCoupon(stale),false); assert.equal(await consumeCoupon(reclaimed),true)
+  pass('expired claim releases capacity; late success cannot steal another held last redemption')
+  const targeted = await discountFixture({target_product_id:product.id})
+  assert.equal((await reserveCoupon(targeted,buyer,'subscriptions',tier)).error,'wrong_discount_scope')
+  assert.equal((await reserveCoupon(targeted,buyer,'products',{id:randomUUID()})).error,'wrong_discount_scope')
+  assert.equal((await reserveCoupon(targeted,buyer,'products',product,randomUUID(),{p_creator_id:randomUUID()})).error,'invalid_discount')
+  const tierTarget = await discountFixture({target_tier_id:tier.id})
+  assert.equal((await reserveCoupon(tierTarget,buyer,'subscriptions',{id:randomUUID()})).error,'wrong_discount_scope')
+  assert.equal((await reserveCoupon(tierTarget,buyer,'products',product)).error,'wrong_discount_scope')
+  pass('real private RPC enforces coach, product and subscription tier targeting')
+  const fixed = await discountFixture({type:'fixed',value:900})
+  const capped = await reserveCoupon(fixed,buyer,'products',product)
+  assert.equal(capped.final_cents,0); assert.equal(capped.savings_cents,500)
+  const free = await discountFixture({value:100,applies_to:'subscriptions'})
+  const a = await reserveCoupon(free,buyer,'subscriptions',tier)
+  const completed = await Promise.all([check(service.rpc('complete_free_discount_subscription',{p_id:a.id})),check(service.rpc('complete_free_discount_subscription',{p_id:a.id}))])
+  for(const value of completed)freeSubscriptions.add(value.subscription_id)
+  assert.equal(new Set(completed.map(value=>value.subscription_id)).size,1);assert.equal(await discountCount(free),1)
+  pass('capped fixed discount never negative; concurrent free subscription creates one entitlement and one redemption without Stripe')
+  const freeBook = await discountFixture({value:100,applies_to:'sessions'})
+  const b = await reserveCoupon(freeBook,buyer,'sessions',null)
+  const booking = await check(service.from('bookings').insert({creator_id:coach.id,buyer_id:buyer.id,buyer_email:buyer.email,
+    buyer_name:'Synthetic discount',scheduled_at:new Date(Date.now()+12*86400000).toISOString(),duration_minutes:60,
+    price_cents:0,status:'confirmed',payment_status:'not_required',discount_id:freeBook.id,booking_request_key:b.id,
+    cancellation_policy_hours:24}).select('*').single())
+  bookings.add(booking.id);assert.ok(booking.discount_redeemed_at);assert.equal(await discountCount(freeBook),1)
+  pass('free booking entitlement and successful redemption commit atomically with no payment or settlement')
+  const coachActor=actors.find(value=>value.id!==buyer.id&&value.id!==other.id)
+  const denied=await coachActor.client.from('discounts').update({redemption_count:999}).eq('id',freeBook.id)
+  assert.equal(denied.error?.code,'42501')
+  const editable=await coachActor.client.from('discounts').update({value:90}).eq('id',freeBook.id).select('value')
+  assert.equal(editable.error,null);assert.equal(editable.data[0].value,90)
+  for(const client of [buyer.client,coachActor.client]) {
+    assert.equal((await client.from('discount_redemptions').select('id')).error?.code,'42501')
+    assert.equal((await client.rpc('consume_discount_redemption',{p_id:a.id,p_buyer_id:buyer.id,p_creator_id:coach.id,p_kind:'subscriptions',p_final_cents:0})).error?.code,'42501')
+  }
+  pass('authenticated clients cannot read private claims or alter consumption; own coach commercial discount remains editable')
+}
+async function trackDiscountCheckout(url, buyer) {
+  const id=new URL(url).pathname.split('/').at(-1)
+  const session=await stripe.checkout.sessions.retrieve(id)
+  assert.equal(session.livemode,false);assert.equal(session.metadata.creator_id,coach.id);assert.equal(session.metadata.buyer_id,buyer.id)
+  sessions.add(id);orders.add(session.metadata.ardore_order_id)
+  await stripe.checkout.sessions.update(id,{metadata:{ardore_synthetic_run:run}});await adoptCheckoutCatalog(id)
+  return session
+}
+async function discountDeployedTests(buyer) {
+  const product=await discountProduct(),percent=await discountFixture()
+  const opened=await productionRequest(buyer,'/api/stripe/checkout',{productId:product.id,discountId:percent.id,withdrawalConsent:true})
+  const session=await trackDiscountCheckout(opened.url,buyer)
+  assert.equal(await discountCount(percent),0)
+  const paid=await completeProductionCheckout(opened.url,buyer,400)
+  assert.equal(await discountCount(percent),1)
+  await library.reconcileSettlementCheckout({service,sessionId:session.id});await library.reconcileSettlementCheckout({service,sessionId:session.id})
+  assert.equal(await discountCount(percent),1)
+  assert.equal((await check(service.from('purchases').select('id').eq('product_id',product.id).eq('buyer_id',buyer.id))).length,1)
+  assert.equal((await transferFor(paid.paid)).length,1)
+  pass('deployed percent product payment counts only genuine successful fulfillment; duplicated observations grant once and transfer 90 percent of actual payment')
+  await fullRefund(paid.paid);await fullRefund(paid.paid)
+  assert.equal(await discountCount(percent),1)
+  pass('discounted purchase full refund reverses exact coach transfer once; refund does not restore consumed coupon')
+  const fixedProduct=await discountProduct(),fixed=await discountFixture({type:'fixed',value:150})
+  const fixedCheckout=await productionRequest(buyer,'/api/stripe/checkout',{productId:fixedProduct.id,discountId:fixed.id,withdrawalConsent:true})
+  await completeProductionCheckout(fixedCheckout.url,buyer,350);assert.equal(await discountCount(fixed),1)
+  pass('deployed fixed discount charges exact capped amount with unchanged platform fee and settlement architecture')
+  const freeProduct=await discountProduct(),free=await discountFixture({value:100})
+  const zero=await productionRequest(buyer,'/api/stripe/checkout',{productId:freeProduct.id,discountId:free.id,withdrawalConsent:true})
+  const zeroSession=await trackDiscountCheckout(zero.url,buyer)
+  await stripe.rawRequest('GET',`/v1/payment_pages/${zeroSession.id}`)
+  await stripe.rawRequest('POST',`/v1/payment_pages/${zeroSession.id}/confirm`,{expected_amount:0})
+  await discoverCheckoutObjects(zeroSession.id)
+  await waitFor('free_discount_fulfillment',async()=>{
+    const rows=await check(service.from('purchases').select('id').eq('product_id',freeProduct.id).eq('buyer_id',buyer.id));assert.ok(rows.length<=1);return rows.length===1
+  })
+  const zeroCompleted=await stripe.checkout.sessions.retrieve(zeroSession.id)
+  assert.equal(zeroCompleted.payment_status,'no_payment_required');assert.equal(zeroCompleted.payment_intent,null)
+  assert.equal(await discountCount(free),1)
+  assert.equal((await check(service.from('payment_settlements').select('id').eq('order_id',zeroSession.metadata.ardore_order_id))).length,0)
+  pass('genuine free product checkout creates one entitlement and redemption, with no charge, settlement or transfer')
+  const minimumProduct=await discountProduct(),minimum=await discountFixture({type:'fixed',value:475})
+  const rejected=await fetch(`${base}/api/stripe/checkout`,{method:'POST',headers:{Cookie:buyer.cookie(),'Content-Type':'application/json'},body:JSON.stringify({productId:minimumProduct.id,discountId:minimum.id,withdrawalConsent:true})})
+  assert.equal(rejected.status,400);const message=await rejected.json();assert.match(message.error,/0,50/);assert.equal(await discountCount(minimum),0)
+  assert.equal((await check(service.from('discount_redemptions').select('state').eq('discount_id',minimum.id))).every(row=>row.state==='released'),true)
+  pass('deployed 25-cent purchase is rejected explicitly without changing price, consuming discount or creating Stripe charge')
+  const expiredProduct=await discountProduct(),expired=await discountFixture({max_redemptions:1})
+  const exp=await productionRequest(buyer,'/api/stripe/checkout',{productId:expiredProduct.id,discountId:expired.id,withdrawalConsent:true})
+  const expSession=await trackDiscountCheckout(exp.url,buyer);await stripe.checkout.sessions.expire(expSession.id)
+  await library.reconcileSettlementCheckout({service,sessionId:expSession.id})
+  assert.equal(await discountCount(expired),0)
+  assert.equal((await check(service.from('discount_redemptions').select('state').eq('discount_id',expired.id).single())).state,'released')
+  pass('expired and canceled deployed checkout releases its hold without consumption or entitlement')
+  const failedProduct=await discountProduct(),failed=await discountFixture()
+  const fail=await productionRequest(buyer,'/api/stripe/checkout',{productId:failedProduct.id,discountId:failed.id,withdrawalConsent:true})
+  const failSession=await trackDiscountCheckout(fail.url,buyer)
+  const card=await stripe.paymentMethods.create({type:'card',card:{token:'tok_chargeDeclined'},billing_details:{email:buyer.email}})
+  try{await stripe.rawRequest('GET',`/v1/payment_pages/${failSession.id}`);await stripe.rawRequest('POST',`/v1/payment_pages/${failSession.id}/confirm`,{payment_method:card.id,expected_amount:400});assert.fail('Must decline')}
+  catch(error){assert.ok(error.type==='StripeCardError'||error.code==='card_declined')}
+  await discoverCheckoutObjects(failSession.id);assert.equal(await discountCount(failed),0)
+  assert.equal((await check(service.from('purchases').select('id').eq('product_id',failedProduct.id).eq('buyer_id',buyer.id))).length,0)
+  pass('genuine declined TEST payment grants no product entitlement and consumes no discount')
+  const tier=await discountTier(),subscriptionCoupon=await discountFixture({applies_to:'subscriptions'})
+  const recurring=await productionRequest(buyer,'/api/stripe/subscription',{tierId:tier.id,creatorId:coach.id,discountId:subscriptionCoupon.id})
+  assert.equal(await discountCount(subscriptionCoupon),0)
+  const cycle=await completeProductionCheckout(recurring.url,buyer,400)
+  const subscription=await stripe.subscriptions.retrieve(cycle.saved.stripe_subscription_id)
+  assert.equal(subscription.items.data[0].price.unit_amount,400);assert.equal(subscription.items.data[0].price.recurring.interval,'month')
+  assert.equal(await discountCount(subscriptionCoupon),1)
+  await library.reconcileSettlementCheckout({service,sessionId:new URL(recurring.url).pathname.split('/').at(-1)})
+  assert.equal(await discountCount(subscriptionCoupon),1)
+  pass('deployed monthly subscription retains ongoing discounted recurring price; initial paid subscription consumes one redemption')
+  await stripe.subscriptions.cancel(subscription.id);await fullRefund(cycle.paid)
+  const bookingCoupon=await discountFixture({applies_to:'sessions'}),key=randomUUID()
+  const bookingClaim=await reserveCoupon(bookingCoupon,buyer,'sessions',null,key)
+  const booking=await check(service.from('bookings').insert({creator_id:coach.id,buyer_id:buyer.id,buyer_email:buyer.email,buyer_name:'Synthetic discount',
+    scheduled_at:new Date(Date.now()+15*86400000).toISOString(),duration_minutes:60,price_cents:bookingClaim.final_cents,
+    status:'pending_payment',payment_status:'pending',stripe_livemode:false,cancellation_policy_hours:24,
+    reservation_expires_at:new Date(Date.now()+1860000).toISOString(),discount_id:bookingCoupon.id,booking_request_key:key}).select('id').single())
+  bookings.add(booking.id)
+  const bookingCheckout=await productionRequest(buyer,'/api/coaching/retry',{bookingId:booking.id})
+  const bookingPayment=await completeProductionCheckout(bookingCheckout.checkoutUrl,buyer,400)
+  assert.equal(await discountCount(bookingCoupon),1)
+  const booked=await check(service.from('bookings').select('status,discount_redeemed_at').eq('id',booking.id).single())
+  assert.equal(booked.status,'confirmed');assert.ok(booked.discount_redeemed_at)
+  await productionRequest(buyer,'/api/coaching/cancel',{bookingId:booking.id})
+  await waitFor('discount_booking_refund',async()=>{const row=await check(service.from('bookings').select('refund_status').eq('id',booking.id).single());return row.refund_status==='succeeded'})
+  assert.equal(await discountCount(bookingCoupon),1);assert.equal((await transferFor(bookingPayment.paid))[0].amount_reversed,360)
+  pass('deployed discounted booking payment consumes exactly once; full cancellation preserves policy and reverses actual 90 percent transfer')
+
+  const freeBuyer=await actor('buyer'),freeTier=await discountTier(),freeCoupon=await discountFixture({value:100,applies_to:'subscriptions'})
+  for(let i=0;i<2;i++){
+    const response=await productionRequest(freeBuyer,'/api/stripe/subscription',{tierId:freeTier.id,creatorId:coach.id,discountId:freeCoupon.id})
+    assert.equal(new URL(response.url).hostname,'www.ardore-health.com')
+    const rows=await check(service.from('subscriptions').select('*').eq('buyer_id',freeBuyer.id).eq('creator_id',coach.id))
+    rows.forEach(row=>freeSubscriptions.add(row.id));assert.equal(rows.length,1);assert.match(rows[0].stripe_subscription_id,/^free_discount_/)
+    assert.equal(rows[0].stripe_livemode,null);assert.equal(await discountCount(freeCoupon),1)
+  }
+  pass('deployed 100-percent monthly discount creates one free subscription without Checkout, payment or coach transfer')
+  const recurringCoupon=await discountFixture({applies_to:'subscriptions'})
+  await recurringTest(buyer,recurringCoupon)
+  assert.equal(await discountCount(recurringCoupon),1)
+  pass('real Stripe TEST-clock recurring discounted cycles keep monthly price and consume one subscription redemption in total')
+  const lateBuyer=await actor('buyer'),lateProduct=await discountProduct(),lateCoupon=await discountFixture({max_redemptions:1})
+  const late=await productionRequest(lateBuyer,'/api/stripe/checkout',{productId:lateProduct.id,discountId:lateCoupon.id,withdrawalConsent:true})
+  const lateSession=await trackDiscountCheckout(late.url,lateBuyer)
+  await check(service.from('discount_redemptions').update({expires_at:new Date(Date.now()-1000).toISOString()}).eq('id',lateSession.metadata.ardore_order_id).eq('creator_id',coach.id))
+  const rival=await reserveCoupon(lateCoupon,buyer,'products',lateProduct)
+  assert.ok(rival.id)
+  const method=await stripe.paymentMethods.create({type:'card',card:{token:'tok_visa'},billing_details:{email:lateBuyer.email}})
+  await stripe.rawRequest('GET',`/v1/payment_pages/${lateSession.id}`)
+  await stripe.rawRequest('POST',`/v1/payment_pages/${lateSession.id}/confirm`,{payment_method:method.id,expected_amount:400})
+  const lateCompleted=await discoverCheckoutObjects(lateSession.id)
+  const latePaymentId=objectId(lateCompleted.payment_intent)
+  await waitFor('late_discount_payment_refund',async()=>{
+    const ledger=await check(service.from('payment_settlements').select('*').eq('stripe_payment_intent_id',latePaymentId))
+    ledger.forEach(row=>settlements.add(row.id));return ledger[0]?.state==='refunded'
+  })
+  const lateRefunds=await stripe.refunds.list({payment_intent:latePaymentId,limit:100})
+  lateRefunds.data.forEach(row=>ownedRefunds.add(row.id));assert.equal(lateRefunds.data.length,1);assert.equal(lateRefunds.data[0].amount,400)
+  assert.equal((await check(service.from('purchases').select('id').eq('buyer_id',lateBuyer.id).eq('product_id',lateProduct.id))).length,0)
+  assert.equal(await discountCount(lateCoupon),0)
+  pass('late genuine successful payment without discount capacity rolls back entitlement and receives one full automatic refund')
+  const playwrightPath=process.env.ARDORE_PLAYWRIGHT_MODULE
+  assert.ok(playwrightPath,'Installed Playwright module is required for mobile discount verification')
+  const {chromium}=require(playwrightPath)
+  const browser=await chromium.launch({headless:true,...(process.env.ARDORE_CHROME_EXECUTABLE?{executablePath:process.env.ARDORE_CHROME_EXECUTABLE}:{})})
+  try{
+    for(const width of [375,390]){
+      for(const [who,path] of [[buyer,`/creators/${tag}`],[actors[1],'/creator/settings/discounts']]){
+        const context=await browser.newContext({viewport:{width,height:844}})
+        const page=await context.newPage()
+        await page.goto(`${base}/login`)
+        await who.loginPage(page)
+        await page.waitForURL(url=>!url.pathname.startsWith('/login'))
+        await page.goto(`${base}${path}`)
+        if(who===actors[1]){
+          await page.getByRole('button',{name:/Neuer Rabatt/}).click()
+          await page.getByLabel(/Einlösungen pro Kunde/).waitFor()
+        }
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true)
+        await context.close()
+      }
+    }
+  }finally{await browser.close()}
+  pass('production discount setup and coach offer display fit mobile 375 and 390 pixels')
 }
 
 async function deployedTests(buyer) {
@@ -1003,12 +1247,16 @@ async function assertNoUnexpectedInteractions() {
   assert.ok(favoriteRows.every(row => ownedUsers.has(row.user_id)), 'Preserve any outside favorite')
   // This matrix never creates discounts, so any coach/product/tier discount is
   // untracked and must not be removed through a commercial parent cascade.
-  const discounts = await check(service.from('discounts').select('id').eq('creator_id', coach.id))
-  assert.equal(discounts.length, 0, 'Preserve any untracked coach discount')
+  const discountRows = await check(service.from('discounts').select('id').eq('creator_id', coach.id))
+  assert.ok(discountRows.every(row => discounts.has(row.id)), 'Preserve any untracked coach discount')
+  if (discounts.size) {
+    const claims = await check(service.from('discount_redemptions').select('buyer_id,discount_id').eq('creator_id', coach.id))
+    assert.ok(claims.every(row => users.includes(row.buyer_id) && discounts.has(row.discount_id)), 'Preserve outside discount use')
+  }
   for (const [column, ids] of [['target_product_id', products], ['target_tier_id', tiers]]) {
     if (ids.size) {
       const rows = await check(service.from('discounts').select('id').in(column, [...ids]))
-      assert.equal(rows.length, 0, 'Preserve any untracked offer discount')
+      assert.ok(rows.every(row => discounts.has(row.id)), 'Preserve any untracked offer discount')
     }
   }
 }
@@ -1146,6 +1394,11 @@ async function cleanup() {
     onProgress: value => console.log(JSON.stringify({ phase: 'fixture_cleanup', ...value })) })
   for (const restricted of restrictedFixtures) await cleanupSyntheticConnectFixture({ stripe, ...restricted })
   if (coach) {
+    if (discounts.size) {
+      await check(service.from('discount_redemptions').delete().in('discount_id', [...discounts]).eq('creator_id', coach.id).in('buyer_id', users))
+      await check(service.from('discounts').delete().in('id', [...discounts]).eq('creator_id', coach.id))
+    }
+    if (freeSubscriptions.size) await check(service.from('subscriptions').delete().in('id', [...freeSubscriptions]).eq('creator_id', coach.id).in('buyer_id', users))
     if (bookings.size) {
       await check(service.from('booking_refunds').delete().in('booking_id', [...bookings]))
       await check(service.from('bookings').delete().in('id', [...bookings]).eq('creator_id', coach.id))
@@ -1180,6 +1433,7 @@ try {
   const buyer = await actor('buyer'), coachActor = await actor('creator')
   coach = await check(service.from('creator_profiles').insert({ user_id: coachActor.id,
     display_name: 'Synthetic settlement verification', slug: tag, categories: ['yoga'], category: 'yoga', is_published: true, onboarding_step: 5 }).select('id').single())
+  if (!process.argv.includes('--discount-database-only')) {
   fixture = await createSyntheticConnectFixture({ stripe, testRun: run,
     onProgress: value => console.log(JSON.stringify({ phase: 'readiness', ...value })) })
   const ownedAccount = await stripe.v2.core.accounts.retrieve(fixture.accountId)
@@ -1187,7 +1441,10 @@ try {
   await stripe.v2.core.accounts.update(fixture.accountId, { metadata: { ...ownedAccount.metadata, ardore_creator_id: coach.id } },
     { idempotencyKey: `${tag}-coach-owner-v1` })
   await check(service.from('creator_profiles').update({ stripe_account_id: fixture.accountId }).eq('id', coach.id).eq('user_id', coachActor.id))
-  if (process.argv.includes('--purchase-lifecycle-only')) await purchaseLifecycleTests(buyer)
+  }
+  if (process.argv.includes('--discount-database-only')) await discountDatabaseTests(buyer)
+  else if (process.argv.includes('--discount-lifecycle-only')) { await discountDatabaseTests(buyer); await discountDeployedTests(buyer) }
+  else if (process.argv.includes('--purchase-lifecycle-only')) await purchaseLifecycleTests(buyer)
   else if (process.argv.includes('--deployed-flow')) await deployedTests(buyer)
   else if (process.argv.includes('--partial-only')) await partialRefundTests(buyer)
   else if (process.argv.includes('--compatibility-only')) await historicalDestinationTest(buyer)

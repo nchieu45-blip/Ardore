@@ -191,7 +191,8 @@ export default function CartDrawer() {
   // The withdrawal-right checkbox is required whenever the cart is non-empty.
   const DIGITAL_TYPES     = new Set(['pdf', 'video', 'course', 'image'])
   const hasDigital        = items.some(i => DIGITAL_TYPES.has(i.type))
-  const checkoutDisabled  = loading || (hasDigital && !withdrawalConsent)
+  const belowMinimum = totalCents > 0 && totalCents < 50
+  const checkoutDisabled  = loading || (hasDigital && !withdrawalConsent) || belowMinimum
 
   async function handleCheckout() {
     setLoading(true)
@@ -426,6 +427,7 @@ export default function CartDrawer() {
               </label>
             )}
 
+            {belowMinimum && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">Der Betrag nach Rabatt muss 0 € oder mindestens 0,50 € betragen. Bitte ändere deinen Warenkorb oder wähle einen anderen Rabatt.</p>}
             {checkoutError && (
               <div role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />

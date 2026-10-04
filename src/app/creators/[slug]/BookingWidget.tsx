@@ -497,9 +497,10 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
               {' '}Bei rechtzeitiger Stornierung wird der tatsächlich bezahlte Betrag vollständig erstattet.
               {' '}Diese Frist wird mit deiner Buchung vereinbart; spätere Coach-Änderungen gelten nur für neue Buchungen.
             </p>
+            {!useSubscription && finalPriceCents > 0 && finalPriceCents < 50 && <p role="alert" className="text-sm text-red-700">Der Betrag nach Rabatt muss 0 € oder mindestens 0,50 € betragen. Bitte entferne den Rabatt oder wähle ein anderes Angebot.</p>}
             <Button
               onClick={book}
-              disabled={booking || !name.trim() || !email.trim()}
+              disabled={booking || !name.trim() || !email.trim() || (!useSubscription && finalPriceCents > 0 && finalPriceCents < 50)}
               className="w-full gap-2"
             >
               {booking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}

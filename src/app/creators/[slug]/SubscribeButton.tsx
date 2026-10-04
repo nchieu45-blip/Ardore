@@ -101,7 +101,9 @@ export default function SubscribeButton({ tierId, creatorId, priceMonthly, autoD
         </div>
       )}
 
-      <Button size="sm" className="w-full" onClick={handleSubscribe} loading={loading}>
+      {finalCents > 0 && finalCents < 50 && <p role="alert" className="text-sm text-red-700">Der Betrag nach Rabatt muss 0 € oder mindestens 0,50 € sein. Bitte entferne den Rabatt oder wähle ein anderes Angebot.</p>}
+      <p className="text-xs text-gray-500">Ein Abo-Rabatt gilt für den monatlichen Preis während der gesamten Abo-Laufzeit.</p>
+      <Button size="sm" className="w-full" onClick={handleSubscribe} loading={loading} disabled={finalCents > 0 && finalCents < 50}>
         {hasDiscount ? (
           <>
             Jetzt für{' '}

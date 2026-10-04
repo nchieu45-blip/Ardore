@@ -18,9 +18,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const creatorId = await getCreatorId(supabase)
   if (!creatorId) return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Ungültige Rabatt-Anfrage' }, { status: 400 })
   const allowed: Record<string, unknown> = {}
-  const allowedKeys = ['code', 'type', 'value', 'applies_to', 'starts_at', 'ends_at', 'max_redemptions', 'active', 'target_product_id', 'target_tier_id']
+  const allowedKeys = ['code', 'type', 'value', 'applies_to', 'starts_at', 'ends_at', 'max_redemptions', 'max_redemptions_per_user', 'active', 'target_product_id', 'target_tier_id']
   for (const key of allowedKeys) {
     if (key in body) allowed[key] = body[key]
   }
@@ -36,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Rabatt konnte nicht geändert werden. Bitte prüfe Wert, Geltungsbereich und Einlösungslimits.' }, { status: 400 })
   return NextResponse.json({ discount: data })
 }
 
@@ -52,6 +53,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     .eq('id', id)
     .eq('creator_id', creatorId)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Ein bereits verwendeter oder reservierter Rabatt muss deaktiviert werden und bleibt für die Kaufhistorie gespeichert.' }, { status: 409 })
   return NextResponse.json({ success: true })
 }

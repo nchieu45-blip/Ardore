@@ -1,3 +1,4 @@
+import { discountReservationFixture } from './fixtures/discount-reservation.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -400,6 +401,7 @@ function requestFixture(existing = null) {
     },
   }
   const route = load('src/app/api/coaching/book/route.ts', {
+    '@/lib/discounts': discountReservationFixture(null),
     '@/lib/supabase/server': { createClient: async () => service, createServiceClient: async () => service },
     '@/lib/coaching-slots': { berlinDateTimeToIso: () => '2027-01-05T12:00:00.000Z' },
     '@/lib/coaching-booking': { isValidCoachingDuration: () => true, validateCoachingSlot: async () => ({ ok: true, scheduledAt: '2027-01-05T12:00:00.000Z', bufferMinutes: 0 }) },

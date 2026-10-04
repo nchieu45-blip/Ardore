@@ -1,3 +1,4 @@
+import { discountReservationFixture } from './fixtures/discount-reservation.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -58,6 +59,7 @@ function productFixture(products, discount = null, readinessFailure = null, owne
     },
   }
   const route = loadRoute('../src/app/api/stripe/checkout/route.ts', {
+    '@/lib/discounts': discountReservationFixture(discount),
     '@/lib/supabase/server': { createClient: async () => database, createServiceClient: async () => database },
     '@/lib/purchases': loadRoute('../src/lib/purchases.ts', {}),
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (data, options) => {
@@ -125,8 +127,8 @@ test('valid checkout bills each metadata product using its current coach-control
 
 test('another coach discount cannot reduce product checkout price', async () => {
   const state = productFixture([makeProduct('visible', 'coach-a', 29)], makeDiscount('coach-b'))
-  assert.equal((await state.run({ productId: 'visible', discountId: 'synthetic-discount' })).status, 200)
-  assert.equal(state.sessions[0].line_items[0].price_data.unit_amount, 2900)
+  assert.equal((await state.run({ productId: 'visible', discountId: 'synthetic-discount' })).status, 409)
+  assert.deepEqual(state.sessions, [])
 })
 
 test('mixed-coach cart cannot collect a platform-only payment with no coach settlement', async () => {
@@ -169,6 +171,7 @@ function coachingFixture(discount, priceCents = 8000, subscription = null, readi
     },
   }
   const route = loadRoute('../src/app/api/coaching/book/route.ts', {
+    '@/lib/discounts': discountReservationFixture(discount),
     '@/lib/supabase/server': { createClient: async () => database, createServiceClient: async () => database },
     '@/lib/coaching-booking': {
       isValidCoachingDuration: minutes => minutes === 60,
@@ -194,11 +197,9 @@ function coachingFixture(discount, priceCents = 8000, subscription = null, readi
 
 test('foreign 100 percent session discount cannot grant unpaid coaching entitlement', async () => {
   const state = coachingFixture(makeDiscount('coach-b'))
-  assert.equal((await state.run()).status, 200)
-  assert.equal(state.bookings[0].price_cents, 8000)
-  assert.equal(state.bookings[0].status, 'pending_payment')
-  assert.equal(state.bookings[0].payment_status, 'pending')
-  assert.equal(state.sessions[0].line_items[0].price_data.unit_amount, 8000)
+  assert.equal((await state.run()).status, 409)
+  assert.deepEqual(state.bookings, [])
+  assert.deepEqual(state.sessions, [])
   assert.deepEqual(state.confirmations, [])
 })
 
@@ -213,7 +214,7 @@ test('paid product checkout freezes commercial amounts and settles separately to
   assert.equal(state.sessions[0].payment_intent_data.transfer_group, 'ardore-order-synthetic-order')
   assert.deepEqual(state.sessionOptions, [{ idempotencyKey: 'ardore-order-checkout-synthetic-order-v1' }])
   assert.deepEqual({ ...state.orders[0], service: 'service', reference: { ...state.orders[0].reference, withdrawalConsentAt: 'timestamp' } }, {
-    service: 'service', kind: 'products', buyerId: buyer.id, creatorId: 'coach-a',
+    service: 'service', id: state.orders[0].id, kind: 'products', buyerId: buyer.id, creatorId: 'coach-a',
     accountId: 'acct_syntheticReady', grossCents: 2749, livemode: false,
     reference: { items: [{ productId: 'visible', amountCents: 2749 }], withdrawalConsentAt: 'timestamp', withdrawalConsentVersion: 'widerruf-v1' },
   })
@@ -264,9 +265,8 @@ test('coach can still legitimately offer 100 percent discount on their own servi
 test('product or subscription-targeted discount cannot grant free coaching entitlement', async () => {
   for (const target of [{ target_product_id: 'synthetic-product' }, { target_tier_id: 'synthetic-tier' }]) {
     const state = coachingFixture({ ...makeDiscount('coach-a'), ...target })
-    assert.equal((await state.run()).status, 200)
-    assert.equal(state.bookings[0].price_cents, 8000)
-    assert.equal(state.bookings[0].payment_status, 'pending')
+    assert.equal((await state.run()).status, 409)
+    assert.deepEqual(state.bookings, [])
     assert.deepEqual(state.confirmations, [])
   }
 })

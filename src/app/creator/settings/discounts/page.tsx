@@ -25,6 +25,7 @@ interface Discount {
   ends_at: string | null
   active: boolean
   max_redemptions: number | null
+  max_redemptions_per_user: number | null
   redemption_count: number
   created_at: string
 }
@@ -96,12 +97,13 @@ interface FormState {
   starts_at: string
   ends_at: string
   maxRedemptionsStr: string
+  perUserStr: string
 }
 
 const INITIAL_FORM: FormState = {
   mode: 'code', code: '', type: 'percent', valueStr: '',
   appliesTo: 'all', targetProductId: '', targetTierId: '',
-  starts_at: '', ends_at: '', maxRedemptionsStr: '',
+  starts_at: '', ends_at: '', maxRedemptionsStr: '', perUserStr: '',
 }
 
 export default function DiscountsPage() {
@@ -167,6 +169,7 @@ export default function DiscountsPage() {
           starts_at:        form.starts_at || null,
           ends_at:          form.ends_at   || null,
           max_redemptions:  form.maxRedemptionsStr ? parseInt(form.maxRedemptionsStr, 10) : null,
+          max_redemptions_per_user: form.perUserStr ? Number(form.perUserStr) : null,
         }),
       })
       const data = await res.json() as { discount?: Discount; error?: string }
@@ -207,7 +210,12 @@ export default function DiscountsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Rabatt wirklich löschen?')) return
-    await fetch(`/api/discounts/${id}`, { method: 'DELETE' })
+    const response = await fetch(`/api/discounts/${id}`, { method: 'DELETE' })
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}))
+      setFormError(result.error ?? 'Rabatt konnte nicht gelöscht werden. Bitte deaktiviere ihn stattdessen.')
+      return
+    }
     setDiscounts(prev => prev.filter(d => d.id !== id))
   }
 
@@ -223,7 +231,7 @@ export default function DiscountsPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Rabatte & Gutscheine</h1>
           <p className="text-sm text-gray-500 mt-0.5">Rabattcodes und automatische Rabatte für deine Kunden</p>
@@ -233,6 +241,9 @@ export default function DiscountsPage() {
           Neuer Rabatt
         </Button>
       </div>
+
+      {formError && !showForm && <p role="alert" className="mb-4 text-sm text-red-700">{formError}</p>}
+      <p className="mb-4 text-sm text-gray-500">Einlösungen zählen erst nach erfolgreichem Kauf. Bei Abos gilt der rabattierte Monatspreis für die gesamte Abo-Laufzeit; eine Einlösung zählt pro neuem Abo.</p>
 
       {/* Create form */}
       {showForm && (
@@ -407,7 +418,7 @@ export default function DiscountsPage() {
             {/* Max redemptions */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
-                Max. Einlösungen <span className="text-gray-400">(leer = unbegrenzt)</span>
+                Max. erfolgreiche Einlösungen <span className="text-gray-400">(leer = unbegrenzt)</span>
               </label>
               <input
                 type="number"
@@ -417,6 +428,8 @@ export default function DiscountsPage() {
                 placeholder="z. B. 50"
                 className={cn(inputCls, 'w-40')}
               />
+              <label htmlFor="discount-per-user" className="mt-3 block text-xs font-medium text-gray-600 mb-1">Max. Einlösungen pro Kunde (leer = unbegrenzt)</label>
+              <input id="discount-per-user" type="number" min="1" value={form.perUserStr} onChange={e => setField('perUserStr', e.target.value)} className={cn(inputCls, 'w-40')} />
             </div>
 
             {formError && (

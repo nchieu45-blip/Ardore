@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+import { DiscountError, reserveDiscount, releaseDiscount, allocateDiscount, requireStripeMinimum } from '@/lib/discounts'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
@@ -114,53 +116,25 @@ export async function POST(req: NextRequest) {
 
   const totalCents = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount, 0)
 
-  // Apply discount if provided
-  let discountSavingsCents = 0
-  let discountRowId: string | null = null
-
-  if (discountId) {
-    const { data: disc } = await supabase
-      .from('discounts')
-      .select('id, creator_id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
-      .eq('id', discountId)
-      .single()
-
-    const now = new Date()
-    // When targeting a specific product, it must be the only item in the cart
-    const targetProductOk = !disc?.target_product_id ||
-      (productIds.length === 1 && productIds[0] === disc.target_product_id)
-    const valid = disc &&
-      disc.active &&
-      creatorIds.length === 1 && disc.creator_id === creatorIds[0] &&
-      (disc.target_product_id ? targetProductOk : (disc.applies_to === 'all' || disc.applies_to === 'products')) &&
-      !disc.target_tier_id &&
-      (!disc.starts_at || new Date(disc.starts_at) <= now) &&
-      (!disc.ends_at   || new Date(disc.ends_at)   >= now) &&
-      (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
-
-    if (valid) {
-      discountRowId = disc.id
-      discountSavingsCents = disc.type === 'percent'
-        ? Math.round(totalCents * disc.value / 100)
-        : Math.min(disc.value, totalCents)
-    }
-  }
-
-  // Distribute discount proportionally across line items
-  // TODO: When Stripe Connect is active, replace this with a Stripe Coupon object
-  // and attach it to the checkout session via `discounts: [{ coupon: couponId }]`
-  // so the discount appears natively in the Stripe UI and is recorded properly.
-  const finalLineItems = discountSavingsCents > 0
-    ? lineItems.map(li => ({
-        ...li,
-        price_data: {
-          ...li.price_data,
-          unit_amount: Math.max(50, li.price_data.unit_amount - Math.round(discountSavingsCents * li.price_data.unit_amount / totalCents)),
-        },
-      }))
-    : lineItems
-  const finalTotalCents = finalLineItems.reduce((sum, item) => sum + item.price_data.unit_amount, 0)
   const service = await createServiceClient()
+  const orderId = randomUUID()
+  let reservation
+  let finalLineItems = lineItems
+  let finalTotalCents = totalCents
+  try {
+    if (discountId) {
+      reservation = await reserveDiscount(service, { id: orderId, discountId, buyerId: user.id,
+        creatorId: creatorIds[0], kind: 'products', originalCents: totalCents, productIds })
+      const amounts = allocateDiscount(lineItems.map(item => item.price_data.unit_amount), reservation.savings_cents)
+      finalLineItems = lineItems.map((item, index) => ({ ...item, price_data: { ...item.price_data, unit_amount: amounts[index] } }))
+      finalTotalCents = reservation.final_cents
+    }
+    requireStripeMinimum(finalTotalCents)
+  } catch (error) {
+    if (reservation) await releaseDiscount(service, reservation.id)
+    if (error instanceof DiscountError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Rabatt konnte nicht geprüft werden.' }, { status: 503 })
+  }
   let accountId: string | null = null
   let livemode = configuredStripeLivemode()
   if (finalTotalCents > 0) {
@@ -169,12 +143,14 @@ export async function POST(req: NextRequest) {
       accountId = readiness.accountId
       livemode = readiness.livemode
     } catch (error) {
+      if (reservation) await releaseDiscount(service, reservation.id)
       if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
       return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
     }
   }
   const order = await createSettlementOrder({
     service,
+    id: orderId,
     kind: 'products',
     buyerId: user.id,
     creatorId: creatorIds[0],
@@ -182,6 +158,7 @@ export async function POST(req: NextRequest) {
     grossCents: finalTotalCents,
     livemode,
     reference: {
+      ...(reservation ? { discountRedemptionId: reservation.id } : {}),
       items: productIds.map((productId, index) => ({
         productId, amountCents: finalLineItems[index].price_data.unit_amount,
       })),
@@ -207,6 +184,7 @@ export async function POST(req: NextRequest) {
     customer_email: user.email,
     line_items: finalLineItems,
     metadata,
+    ...(reservation ? { expires_at: Math.floor(new Date(reservation.expires_at).getTime() / 1000) } : {}),
     success_url: `${appUrl}/buyer/library?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/buyer/library?checkout=cancel`,
     ...(finalTotalCents > 0 ? { payment_intent_data: {
@@ -215,23 +193,6 @@ export async function POST(req: NextRequest) {
     } } : {}),
   }, { idempotencyKey: `ardore-order-checkout-${order.id}-v1` })
   await registerSettlementCheckout({ service, orderId: order.id, sessionId: session.id })
-
-  // Increment redemption count (best-effort; TODO: move to webhook handler
-  // checkout.session.completed for guaranteed once-per-payment increment)
-  if (discountRowId) {
-    const { data: latest } = await supabase
-      .from('discounts')
-      .select('redemption_count')
-      .eq('id', discountRowId)
-      .single()
-    if (latest) {
-      await supabase
-        .from('discounts')
-        .update({ redemption_count: latest.redemption_count + 1 })
-        .eq('id', discountRowId)
-        .eq('redemption_count', latest.redemption_count) // optimistic lock
-    }
-  }
 
   return NextResponse.json({ url: session.url })
 }

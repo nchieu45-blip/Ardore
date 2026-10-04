@@ -1,3 +1,4 @@
+import { DiscountError, reserveDiscount, releaseDiscount, requireStripeMinimum } from '@/lib/discounts'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { isValidCoachingDuration, validateCoachingSlot } from '@/lib/coaching-booking'
@@ -94,23 +95,19 @@ export async function POST(req: NextRequest) {
 
   let discountedPriceCents = offer.price_cents
   let discountRowId: string | null = null
-  if (!isSubscriptionSession && discountId) {
-    const { data: disc } = await supabase.from('discounts')
-      .select('id, creator_id, type, value, active, starts_at, ends_at, max_redemptions, redemption_count, applies_to, target_product_id, target_tier_id')
-      .eq('id', discountId).single()
-    const now = new Date()
-    const valid = disc && disc.creator_id === creatorId && disc.active && (disc.applies_to === 'all' || disc.applies_to === 'sessions')
-      && !disc.target_product_id && !disc.target_tier_id
-      && (!disc.starts_at || new Date(disc.starts_at) <= now) && (!disc.ends_at || new Date(disc.ends_at) >= now)
-      && (disc.max_redemptions === null || disc.redemption_count < disc.max_redemptions)
-    if (valid) {
-      discountRowId = disc.id
-      const savings = disc.type === 'percent' ? Math.round(offer.price_cents * disc.value / 100) : Math.min(disc.value, offer.price_cents)
-      discountedPriceCents = Math.max(0, offer.price_cents - savings)
+  let reservation
+  try {
+    if (!isSubscriptionSession && discountId) {
+      reservation = await reserveDiscount(service, { id: bookingRequestKey, discountId, buyerId: user.id,
+        creatorId, kind: 'sessions', originalCents: offer.price_cents })
+      discountRowId = reservation.discount_id
+      discountedPriceCents = reservation.final_cents
     }
-  }
-  if (!isSubscriptionSession && discountedPriceCents > 0 && discountedPriceCents < 50) {
-    return NextResponse.json({ error: 'Der Buchungsbetrag liegt unter dem Stripe-Mindestbetrag.' }, { status: 400 })
+    if (!isSubscriptionSession) requireStripeMinimum(discountedPriceCents)
+  } catch (error) {
+    if (reservation) await releaseDiscount(service, reservation.id)
+    if (error instanceof DiscountError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Rabatt konnte nicht geprüft werden.' }, { status: 503 })
   }
 
   const slotValidation = await validateCoachingSlot({ creatorId, date, time, durationMinutes: effectiveDuration })
@@ -119,6 +116,7 @@ export async function POST(req: NextRequest) {
       const concurrentRequest = await resumeRequest()
       if (concurrentRequest) return concurrentRequest
     }
+    if (reservation) await releaseDiscount(service, reservation.id)
     return NextResponse.json({ error: slotValidation.error }, { status: slotValidation.status })
   }
 
@@ -128,6 +126,7 @@ export async function POST(req: NextRequest) {
     try {
       stripeLivemode = (await requirePayoutReadyCoach(service, creatorId)).livemode
     } catch (error) {
+      if (reservation) await releaseDiscount(service, reservation.id)
       if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
       return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
     }
@@ -149,6 +148,8 @@ export async function POST(req: NextRequest) {
     const duplicate = await resumeRequest()
     if (duplicate) return duplicate
   }
+  if (error && reservation) await releaseDiscount(service, reservation.id)
+  if (error?.code === 'P0003') return NextResponse.json({ error: 'Dieser Rabatt ist bereits vollständig eingelöst.' }, { status: 409 })
   if (error?.code === '40001') return NextResponse.json({ error: 'Die Stornierungsfrist wurde geändert. Bitte lade die Buchung neu.', policyChanged: true }, { status: 409 })
   if (error?.code === '23P01') return NextResponse.json({ error: 'Dieser Zeitslot wurde gerade vergeben.' }, { status: 409 })
   if (error || !booking) return NextResponse.json({ error: 'Buchung konnte nicht erstellt werden.' }, { status: 500 })
