@@ -504,8 +504,9 @@ export async function reconcileSettlementCheckout({ service, sessionId, provider
   const order = await readOrder(service, session.metadata.ardore_order_id)
   await registerSettlementCheckout({ service, orderId: order.id, sessionId, provider })
   assert(order.kind !== 'booking', 'booking_requires_lifecycle_fulfillment')
-  if (session.status === 'expired' && session.payment_status !== 'paid' && order.reference.discountRedemptionId) {
-    await rpc(service, 'release_discount_redemption', { p_id: order.reference.discountRedemptionId })
+  if (session.status === 'expired' && session.payment_status !== 'paid') {
+    if (order.reference.discountRedemptionId) await rpc(service, 'release_discount_redemption', { p_id: order.reference.discountRedemptionId })
+    return { handled: true }
   }
   if (order.kind === 'subscription') {
     const invoiceId = idOf(session.invoice)

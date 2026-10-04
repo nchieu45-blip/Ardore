@@ -621,6 +621,31 @@ async function trackDiscountCheckout(url, buyer) {
   await stripe.checkout.sessions.update(id,{metadata:{ardore_synthetic_run:run}});await adoptCheckoutCatalog(id)
   return session
 }
+async function freeProductDiscountTest(buyer) {
+  const freeProduct=await discountProduct(),free=await discountFixture({value:100})
+  const zero=await productionRequest(buyer,'/api/stripe/checkout',{productId:freeProduct.id,discountId:free.id,withdrawalConsent:true})
+  const zeroSession=await trackDiscountCheckout(zero.url,buyer)
+  const {chromium}=require(process.env.ARDORE_PLAYWRIGHT_MODULE)
+  const browser=await chromium.launch({headless:true,executablePath:process.env.ARDORE_CHROME_EXECUTABLE})
+  try {
+    const page=await browser.newPage()
+    await page.goto(zero.url)
+    await page.getByRole('button',{name:/Bestellen|Abschließen|Complete order|Pay|Zahlen|Buchen|Kostenlos/i}).last().click()
+    await page.waitForURL(url=>url.hostname==='www.ardore-health.com',{timeout:60000})
+  }finally{await browser.close()}
+  await discoverCheckoutObjects(zeroSession.id)
+  await waitFor('free_discount_fulfillment',async()=>{
+    const rows=await check(service.from('purchases').select('id').eq('product_id',freeProduct.id).eq('buyer_id',buyer.id));assert.ok(rows.length<=1);return rows.length===1
+  })
+  const zeroCompleted=await stripe.checkout.sessions.retrieve(zeroSession.id)
+  assert.ok(['paid','no_payment_required'].includes(zeroCompleted.payment_status));assert.equal(zeroCompleted.amount_total,0);assert.equal(zeroCompleted.payment_intent,null)
+  await library.reconcileSettlementCheckout({service,sessionId:zeroSession.id})
+  await library.reconcileSettlementCheckout({service,sessionId:zeroSession.id})
+  assert.equal(await discountCount(free),1)
+  assert.equal((await check(service.from('payment_settlements').select('id').eq('order_id',zeroSession.metadata.ardore_order_id))).length,0)
+  pass('genuine free product checkout creates one entitlement and redemption, with no charge, settlement or transfer')
+}
+
 async function discountDeployedTests(buyer) {
   const product=await discountProduct(),percent=await discountFixture()
   const opened=await productionRequest(buyer,'/api/stripe/checkout',{productId:product.id,discountId:percent.id,withdrawalConsent:true})
@@ -640,20 +665,7 @@ async function discountDeployedTests(buyer) {
   const fixedCheckout=await productionRequest(buyer,'/api/stripe/checkout',{productId:fixedProduct.id,discountId:fixed.id,withdrawalConsent:true})
   await completeProductionCheckout(fixedCheckout.url,buyer,350);assert.equal(await discountCount(fixed),1)
   pass('deployed fixed discount charges exact capped amount with unchanged platform fee and settlement architecture')
-  const freeProduct=await discountProduct(),free=await discountFixture({value:100})
-  const zero=await productionRequest(buyer,'/api/stripe/checkout',{productId:freeProduct.id,discountId:free.id,withdrawalConsent:true})
-  const zeroSession=await trackDiscountCheckout(zero.url,buyer)
-  await stripe.rawRequest('GET',`/v1/payment_pages/${zeroSession.id}`)
-  await stripe.rawRequest('POST',`/v1/payment_pages/${zeroSession.id}/confirm`,{expected_amount:0})
-  await discoverCheckoutObjects(zeroSession.id)
-  await waitFor('free_discount_fulfillment',async()=>{
-    const rows=await check(service.from('purchases').select('id').eq('product_id',freeProduct.id).eq('buyer_id',buyer.id));assert.ok(rows.length<=1);return rows.length===1
-  })
-  const zeroCompleted=await stripe.checkout.sessions.retrieve(zeroSession.id)
-  assert.equal(zeroCompleted.payment_status,'no_payment_required');assert.equal(zeroCompleted.payment_intent,null)
-  assert.equal(await discountCount(free),1)
-  assert.equal((await check(service.from('payment_settlements').select('id').eq('order_id',zeroSession.metadata.ardore_order_id))).length,0)
-  pass('genuine free product checkout creates one entitlement and redemption, with no charge, settlement or transfer')
+  await freeProductDiscountTest(buyer)
   const minimumProduct=await discountProduct(),minimum=await discountFixture({type:'fixed',value:475})
   const rejected=await fetch(`${base}/api/stripe/checkout`,{method:'POST',headers:{Cookie:buyer.cookie(),'Content-Type':'application/json'},body:JSON.stringify({productId:minimumProduct.id,discountId:minimum.id,withdrawalConsent:true})})
   assert.equal(rejected.status,400);const message=await rejected.json();assert.match(message.error,/0,50/);assert.equal(await discountCount(minimum),0)
@@ -1434,7 +1446,7 @@ try {
   const buyer = await actor('buyer'), coachActor = await actor('creator')
   coach = await check(service.from('creator_profiles').insert({ user_id: coachActor.id,
     display_name: 'Synthetic settlement verification', slug: tag, categories: ['yoga'], category: 'yoga', is_published: true, onboarding_step: 5 }).select('id').single())
-  if (!process.argv.includes('--discount-database-only')) {
+  if (!process.argv.includes('--discount-database-only') && !process.argv.includes('--discount-zero-only')) {
   fixture = await createSyntheticConnectFixture({ stripe, testRun: run,
     onProgress: value => console.log(JSON.stringify({ phase: 'readiness', ...value })) })
   const ownedAccount = await stripe.v2.core.accounts.retrieve(fixture.accountId)
@@ -1444,6 +1456,7 @@ try {
   await check(service.from('creator_profiles').update({ stripe_account_id: fixture.accountId }).eq('id', coach.id).eq('user_id', coachActor.id))
   }
   if (process.argv.includes('--discount-database-only')) await discountDatabaseTests(buyer)
+  else if (process.argv.includes('--discount-zero-only')) await freeProductDiscountTest(buyer)
   else if (process.argv.includes('--discount-lifecycle-only')) { await discountDatabaseTests(buyer); await discountDeployedTests(buyer) }
   else if (process.argv.includes('--purchase-lifecycle-only')) await purchaseLifecycleTests(buyer)
   else if (process.argv.includes('--deployed-flow')) await deployedTests(buyer)
@@ -1457,6 +1470,7 @@ try {
   else await tests(buyer)
 } catch (error) {
   console.error(JSON.stringify({ failedAfter: results.at(-1) ?? 'setup', code: code(error),
+    providerType: error.type, providerParam: error.param, providerStatus: error.statusCode,
     location: error.stack?.split('\n').find(line => line.includes('test-synthetic-settlement.mjs:'))?.trim() }))
   process.exitCode = 1
 } finally {

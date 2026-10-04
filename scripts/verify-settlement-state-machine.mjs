@@ -67,6 +67,7 @@ function fixture(options = {}) {
         assert.equal(params.p_order_id, order.id); assert.equal(params.p_session_id, session.id)
         return { data: clone(order), error: null }
       }
+      if (name === 'release_discount_redemption') return {data:{released:true},error:null}
       if (name === 'record_payment_settlement') {
         assert.equal(params.p_order_id, order.id)
         const s = params.p_snapshot
@@ -672,3 +673,17 @@ for (const kind of ['products', 'subscription']) {
     assert.equal(f.calls.entitlements, 1); assert.equal(f.calls.transferPosts.length, 1)
   })
 }
+
+for (const cents of [0, 400]) test(`expired ${cents}-cent coupon checkout releases the hold without fulfillment or charge`, async () => {
+  const f = fixture({kind:'products'})
+  f.order.gross_cents = cents
+  f.order.reference.discountRedemptionId = ids.order
+  f.session.amount_total = cents
+  f.session.status = 'expired'
+  f.session.payment_status = 'unpaid'
+  f.session.payment_intent = null
+  assert.deepEqual(await f.checkout(), {handled:true})
+  assert.equal(f.calls.entitlements,0)
+  assert.equal(f.calls.transferPosts.length,0)
+  assert.equal(f.calls.rpcs.filter(row=>row.name==='release_discount_redemption').length,1)
+})
