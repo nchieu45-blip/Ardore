@@ -529,7 +529,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                 <p className="text-blue-100/80 text-sm leading-relaxed mb-6">
                   {VIDEO_CALLS_ENABLED
                     ? 'Buche eine 1:1 Video-Session mit deinem Wunsch-Coach. Wähle Datum und Uhrzeit, und der Videoraum wird automatisch erstellt.'
-                    : 'Buche weiterhin eine 1:1 Session mit deinem Wunsch-Coach. Die Video-Call-Funktion wird bald verfügbar sein.'}
+                    : 'Buche eine 1:1 Session mit deinem Wunsch-Coach. Den privaten Meeting-Link findest du anschließend auf deiner geschützten Session-Seite.'}
                 </p>
                 <Link href="/coaches">
                   <button className="inline-flex items-center gap-2 bg-white text-blue-700 font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-colors">

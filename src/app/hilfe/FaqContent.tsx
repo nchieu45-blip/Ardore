@@ -35,7 +35,7 @@ const SECTIONS: FAQSection[] = [
         q: 'Wie buche ich ein 1:1-Videocoaching?',
         a: VIDEO_CALLS_ENABLED
           ? 'Öffne das Profil des gewünschten Coaches und scrolle zum Bereich „1:1 Videocoaching". Wähle dort einen freien Tag und eine Uhrzeit aus dem Kalender. Fülle dann deine Angaben (Name, E-Mail, optionale Notizen) aus und bestätige die Buchung. Beide Seiten erhalten eine Bestätigungs-E-Mail mit dem Link zum Videoraum. Hast du ein Abo mit inkludierten Sessions, ist die Buchung für dich kostenlos.'
-          : 'Öffne das Profil des gewünschten Coaches und wähle im Bereich „1:1 Videocoaching" einen freien Termin. Buchungen und Zahlungen funktionieren weiterhin; die Video-Call-Funktion wird bald verfügbar sein.',
+          : 'Öffne das Profil des gewünschten Coaches und wähle im Bereich „1:1 Videocoaching" einen freien Termin. Nach der Bestätigung hinterlegt dein Coach einen privaten Meeting-Link, zum Beispiel für Google Meet, Zoom oder Microsoft Teams. Öffne unter „Meine Sessions" deinen Termin und melde dich mit deinem Ardore-Konto an. Dort findest du den aktuellen Link; fehlt er, kannst du ihn beim Coach anfragen. Alle angezeigten Terminzeiten gelten für Europe/Berlin.',
       },
       {
         q: 'Was passiert, wenn ein Coach eine Session absagt?',
@@ -68,7 +68,7 @@ const SECTIONS: FAQSection[] = [
         q: 'Wie biete ich 1:1-Coaching an?',
         a: VIDEO_CALLS_ENABLED
           ? 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer (30–90 Min.), Pufferzeit, Buchungsvorlaufzeit und deine wöchentliche Verfügbarkeit fest. Du kannst auch einzelne Tage als Ausnahme blockieren oder freigeben. Die Sessions finden per verschlüsseltem Video über Daily.co statt – kein separates Tool nötig.'
-          : 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer, Pufferzeit, Buchungsvorlaufzeit und Verfügbarkeit fest. Buchungen bleiben möglich; die Video-Call-Funktion wird bald verfügbar sein.',
+          : 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer, Pufferzeit, Buchungsvorlaufzeit und Verfügbarkeit fest. Öffne nach einer bestätigten Buchung unter „Meine Buchungen" die Sessiondetails und hinterlege vor dem Termin einen HTTPS-Meeting-Link, zum Beispiel für Google Meet, Zoom oder Microsoft Teams. Du kannst den Link dort aktualisieren; nur du und dein Kunde können darauf zugreifen. Prüfe auch die Zugangseinstellungen beim Meeting-Dienst.',
       },
       {
         q: 'Wie funktionieren Auszahlungen?',

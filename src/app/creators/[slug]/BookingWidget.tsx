@@ -260,7 +260,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
             <p className="text-sm text-gray-500">
               {VIDEO_CALLS_ENABLED
                 ? 'Der Videoraum-Link wird kurz vor der Session per E-Mail zugesendet.'
-                : 'Video-Call-Funktion wird bald verfügbar sein.'}
+                : 'Dein Coach hinterlegt den privaten Meeting-Link auf deiner Session-Seite. Dort findest du immer den aktuellen Link.'}
             </p>
             <p className="mt-3 text-xs text-gray-600">Vereinbarte Stornierungsfrist: {agreedPolicyHours ?? offer.cancellation_policy_hours} Stunden vor dem Termin. Spätere Coach-Änderungen ändern diese Frist nicht.</p>
             {bookingId && (
