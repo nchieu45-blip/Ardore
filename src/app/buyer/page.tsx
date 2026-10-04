@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { subscriptionPriceLabels } from '@/lib/subscription-price'
 import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -62,6 +63,7 @@ export default async function BuyerDashboardPage() {
 
   const purchases = purchasesRes.data ?? []
   const subscriptions = subscriptionsRes.data ?? []
+  const priceLabels = await subscriptionPriceLabels(await createServiceClient(), user.id, subscriptions)
 
   // Compute remaining sessions for subscriptions that include video sessions
   const now = new Date()
@@ -193,7 +195,7 @@ export default async function BuyerDashboardPage() {
                           <p className="font-semibold text-gray-900 truncate">{sub.creator?.display_name}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
                             {sub.tier?.name}
-                            {sub.tier?.price_monthly ? ` · ${formatCurrency(sub.tier.price_monthly)}/Mo` : ' · Kostenlos'}
+                            {' · '}{priceLabels[sub.id]}
                             {' · bis '}{formatDate(sub.current_period_end)}
                           </p>
                           {sessions && (

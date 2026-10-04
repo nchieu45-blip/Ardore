@@ -646,7 +646,8 @@ async function freeProductDiscountTest(buyer) {
   pass('genuine free product checkout creates one entitlement and redemption, with no charge, settlement or transfer')
 }
 
-async function discountDeployedTests(buyer) {
+async function discountDeployedTests(buyer, {remainder = false} = {}) {
+  if (!remainder) {
   const product=await discountProduct(),percent=await discountFixture()
   const opened=await productionRequest(buyer,'/api/stripe/checkout',{productId:product.id,discountId:percent.id,withdrawalConsent:true})
   const session=await trackDiscountCheckout(opened.url,buyer)
@@ -678,13 +679,21 @@ async function discountDeployedTests(buyer) {
   assert.equal(await discountCount(expired),0)
   assert.equal((await check(service.from('discount_redemptions').select('state').eq('discount_id',expired.id).single())).state,'released')
   pass('expired and canceled deployed checkout releases its hold without consumption or entitlement')
+  }
   const failedProduct=await discountProduct(),failed=await discountFixture()
   const fail=await productionRequest(buyer,'/api/stripe/checkout',{productId:failedProduct.id,discountId:failed.id,withdrawalConsent:true})
   const failSession=await trackDiscountCheckout(fail.url,buyer)
-  const card=await stripe.paymentMethods.create({type:'card',card:{token:'tok_chargeDeclined'},billing_details:{email:buyer.email}})
-  try{await stripe.rawRequest('GET',`/v1/payment_pages/${failSession.id}`);await stripe.rawRequest('POST',`/v1/payment_pages/${failSession.id}/confirm`,{payment_method:card.id,expected_amount:400});assert.fail('Must decline')}
-  catch(error){assert.ok(error.type==='StripeCardError'||error.code==='card_declined')}
-  await discoverCheckoutObjects(failSession.id);assert.equal(await discountCount(failed),0)
+  const card=await stripe.paymentMethods.create({type:'card',card:{token:'tok_chargeDeclined'},billing_details:{name:'Synthetic discount verification',email:buyer.email}})
+  await stripe.rawRequest('GET',`/v1/payment_pages/${failSession.id}`)
+  const initialized=await discoverCheckoutObjects(failSession.id)
+  const failedIntentId=objectId(initialized.payment_intent)
+  assert.ok(intents.has(failedIntentId),'Only this synthetic Checkout intent may be confirmed')
+  try{await stripe.paymentIntents.confirm(failedIntentId,{payment_method:card.id})}
+  catch(error){if(error.type!=='StripeCardError'&&error.code!=='card_declined')throw error}
+  const failedIntent=await stripe.paymentIntents.retrieve(failedIntentId)
+  console.log(JSON.stringify({syntheticDeclineStatus:failedIntent.status,syntheticDeclineCode:failedIntent.last_payment_error?.code}))
+  assert.equal(failedIntent.status,'requires_payment_method');assert.equal(failedIntent.last_payment_error?.code,'card_declined')
+  assert.equal(await discountCount(failed),0)
   assert.equal((await check(service.from('purchases').select('id').eq('product_id',failedProduct.id).eq('buyer_id',buyer.id))).length,0)
   pass('genuine declined TEST payment grants no product entitlement and consumes no discount')
   const tier=await discountTier(),subscriptionCoupon=await discountFixture({applies_to:'subscriptions'})
@@ -754,7 +763,7 @@ async function discountDeployedTests(buyer) {
   const browser=await chromium.launch({headless:true,...(process.env.ARDORE_CHROME_EXECUTABLE?{executablePath:process.env.ARDORE_CHROME_EXECUTABLE}:{})})
   try{
     for(const width of [375,390]){
-      for(const [who,path] of [[buyer,`/creators/${tag}`],[actors[1],'/creator/settings/discounts']]){
+      for(const [who,path] of [[buyer,`/creators/${tag}`],[buyer,'/buyer/subscriptions'],[freeBuyer,'/buyer/subscriptions'],[actors[1],'/creator/settings/discounts']]){
         const context=await browser.newContext({viewport:{width,height:844}})
         await who.refreshLogin()
         await context.addCookies(who.cookie().split('; ').map(pair=>{const i=pair.indexOf('=');return {name:pair.slice(0,i),value:pair.slice(i+1),domain:'www.ardore-health.com',path:'/',secure:true,sameSite:'Lax'}}))
@@ -762,6 +771,10 @@ async function discountDeployedTests(buyer) {
         await page.goto(`${base}${path}`)
         const consent=page.getByRole('button',{name:'Nur notwendige',exact:true})
         if(await consent.count()) await consent.click()
+        if(path==='/buyer/subscriptions') {
+          if(who===freeBuyer) await page.getByText('Kostenlos',{exact:true}).waitFor()
+          else await page.getByText(/4,00.*Mo/).first().waitFor()
+        }
         if(who===actors[1]){
           await page.getByRole('button',{name:/Neuer Rabatt/}).click()
           await page.getByLabel(/Einlösungen pro Kunde/).waitFor()
@@ -1457,6 +1470,7 @@ try {
   }
   if (process.argv.includes('--discount-database-only')) await discountDatabaseTests(buyer)
   else if (process.argv.includes('--discount-zero-only')) await freeProductDiscountTest(buyer)
+  else if (process.argv.includes('--discount-remainder-only')) await discountDeployedTests(buyer,{remainder:true})
   else if (process.argv.includes('--discount-lifecycle-only')) { await discountDatabaseTests(buyer); await discountDeployedTests(buyer) }
   else if (process.argv.includes('--purchase-lifecycle-only')) await purchaseLifecycleTests(buyer)
   else if (process.argv.includes('--deployed-flow')) await deployedTests(buyer)

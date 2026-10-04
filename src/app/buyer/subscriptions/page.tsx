@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { subscriptionPriceLabels } from '@/lib/subscription-price'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { MessageCircle, Video } from 'lucide-react'
 
 export default async function SubscriptionsPage() {
@@ -20,6 +21,7 @@ export default async function SubscriptionsPage() {
     .order('created_at', { ascending: false })
 
   const subList = subscriptions ?? []
+  const priceLabels = await subscriptionPriceLabels(await createServiceClient(), user.id, subList)
 
   // Compute remaining sessions for active subs that include video sessions
   const now = new Date()
@@ -126,7 +128,7 @@ export default async function SubscriptionsPage() {
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">{formatCurrency(sub.tier?.price_monthly ?? 0)}/Mo.</p>
+                      <p className="font-semibold text-gray-900">{priceLabels[sub.id]}</p>
                       <Badge variant={sub.status === 'active' ? 'success' : sub.status === 'past_due' ? 'warning' : 'default'}>
                         {sub.status === 'active' ? 'Aktiv' : sub.status === 'past_due' ? 'Zahlung ausstehend' : 'Gekündigt'}
                       </Badge>
