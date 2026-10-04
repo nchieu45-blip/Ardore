@@ -189,7 +189,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
             <p className="text-xs text-gray-400 mt-2 italic line-clamp-2">{'„'}{b.notes}{'"'}</p>
           )}
           {!VIDEO_CALLS_ENABLED && b.status === 'confirmed' && (
-            <p className="text-xs text-gray-500 mt-2">Video-Call-Funktion wird bald verfügbar sein.</p>
+            <p className="text-xs text-gray-500 mt-2">Öffne die Sessiondetails, um den privaten Meeting-Link zu hinterlegen oder zu ändern.</p>
           )}
           {isAboSession ? (
             <span className="inline-flex items-center gap-1 mt-1 bg-purple-50 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">

@@ -174,6 +174,15 @@ export interface BookingConfirmationData {
   durationMinutes: number
   sessionUrl: string
   role: 'buyer' | 'creator'
+  meetingReady?: boolean
+}
+
+function sessionAccessCopy(role: 'buyer' | 'creator', meetingReady?: boolean) {
+  if (meetingReady) return 'Der Meeting-Link ist auf deiner geschützten Session-Seite verfügbar. Melde dich mit deinem Ardore-Konto an. Dort findest du immer den aktuellen Link.'
+  if (VIDEO_CALLS_ENABLED) return 'Öffne deine geschützte Session-Seite und melde dich mit deinem Ardore-Konto an, um am Termin teilzunehmen.'
+  return role === 'creator'
+    ? 'Bitte hinterlege vor dem Termin einen HTTPS-Meeting-Link in den Sessiondetails, damit dein Kunde teilnehmen kann.'
+    : 'Dein Coach hinterlegt den Meeting-Link in den Sessiondetails. Melde dich mit deinem Ardore-Konto an und prüfe die Seite vor dem Termin. Fehlt der Link, kannst du ihn dort beim Coach anfragen.'
 }
 
 export function bookingConfirmationHtml(d: BookingConfirmationData) {
@@ -199,7 +208,7 @@ export function bookingConfirmationHtml(d: BookingConfirmationData) {
       </tr>
       <tr>
         <td style="font-size:13px;color:#6b7280;padding-bottom:8px;">Uhrzeit</td>
-        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:8px;">${d.scheduledTime} Uhr</td>
+        <td style="font-size:13px;font-weight:600;color:#111827;text-align:right;padding-bottom:8px;">${d.scheduledTime} Uhr (Europe/Berlin)</td>
       </tr>
       <tr>
         <td style="font-size:13px;color:#6b7280;">Dauer</td>
@@ -208,9 +217,7 @@ export function bookingConfirmationHtml(d: BookingConfirmationData) {
     </table>
     <p style="text-align:center;margin:0 0 16px;">${button(d.sessionUrl, 'Zur Session →')}</p>
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
-      ${VIDEO_CALLS_ENABLED
-        ? 'Du erhältst den Link zum Videoraum kurz vor der Session per E-Mail.'
-        : 'Die Video-Call-Funktion wird bald verfügbar sein.'}
+      ${sessionAccessCopy(d.role, d.meetingReady)}
     </p>
   `)
 }
@@ -218,7 +225,7 @@ export function bookingConfirmationHtml(d: BookingConfirmationData) {
 export function bookingConfirmationText(d: BookingConfirmationData) {
   const isBuyer = d.role === 'buyer'
   const other = isBuyer ? `Coach ${d.coachName}` : `Kunde ${d.coachName}`
-  return `Hey ${d.recipientName},\n\nDeine Session mit ${other} ist bestätigt.\n\nDatum: ${d.scheduledDate}\nUhrzeit: ${d.scheduledTime} Uhr\nDauer: ${d.durationMinutes} Minuten\n\nSession-Link: ${d.sessionUrl}\n\n– Das Ardore-Team`
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${other} ist bestätigt.\n\nDatum: ${d.scheduledDate}\nUhrzeit: ${d.scheduledTime} Uhr (Europe/Berlin)\nDauer: ${d.durationMinutes} Minuten\n\nSession-Link: ${d.sessionUrl}\n${sessionAccessCopy(d.role, d.meetingReady)}\n\n– Das Ardore-Team`
 }
 
 // ─── Session reminder ─────────────────────────────────────────────────────────
@@ -229,6 +236,9 @@ export interface SessionReminderData {
   scheduledTime: string
   minutesUntil: number
   sessionUrl: string
+  role?: 'buyer' | 'creator'
+  meetingReady?: boolean
+  scheduledDate?: string
 }
 
 export function sessionReminderHtml(d: SessionReminderData) {
@@ -236,19 +246,19 @@ export function sessionReminderHtml(d: SessionReminderData) {
   return layout(`
     <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Deine Session startet bald ⏰</h2>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
-      Hey ${d.recipientName}, deine Videocoaching-Session mit <strong>${d.coachName}</strong> beginnt ${timeLabel} um <strong>${d.scheduledTime} Uhr</strong>.
+      Hey ${d.recipientName}, deine Videocoaching-Session mit <strong>${d.coachName}</strong> beginnt ${timeLabel}${d.scheduledDate ? ` (${d.scheduledDate})` : ''} um <strong>${d.scheduledTime} Uhr (Europe/Berlin)</strong>.
     </p>
-    <p style="text-align:center;margin:0 0 20px;">${button(d.sessionUrl, VIDEO_CALLS_ENABLED ? 'Session beitreten →' : 'Sessiondetails öffnen →')}</p>
+    <p style="text-align:center;margin:0 0 20px;">${button(d.sessionUrl, d.meetingReady ? 'Meeting-Link öffnen →' : 'Sessiondetails öffnen →')}</p>
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
-      ${VIDEO_CALLS_ENABLED ? 'Teste dein Mikrofon und deine Kamera vor der Session.' : 'Die Video-Call-Funktion wird bald verfügbar sein.'}
+      ${sessionAccessCopy(d.role ?? 'buyer', d.meetingReady)}
     </p>
   `)
 }
 
 export function sessionReminderText(d: SessionReminderData) {
   const timeLabel = d.minutesUntil <= 60 ? `in ${d.minutesUntil} Minuten` : `in ${Math.round(d.minutesUntil / 60)} Stunden`
-  const sessionLabel = VIDEO_CALLS_ENABLED ? 'Jetzt beitreten' : 'Sessiondetails'
-  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel} um ${d.scheduledTime} Uhr.\n\n${sessionLabel}: ${d.sessionUrl}\n\n– Das Ardore-Team`
+  const sessionLabel = d.meetingReady ? 'Meeting-Link öffnen' : 'Sessiondetails'
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel}${d.scheduledDate ? ` (${d.scheduledDate})` : ''} um ${d.scheduledTime} Uhr (Europe/Berlin).\n\n${sessionLabel}: ${d.sessionUrl}\n${sessionAccessCopy(d.role ?? 'buyer', d.meetingReady)}\n\n– Das Ardore-Team`
 }
 
 // ─── Account deletion notices ─────────────────────────────────────────────────

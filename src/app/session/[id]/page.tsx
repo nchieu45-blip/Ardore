@@ -1,12 +1,15 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Video, Clock, Calendar, ArrowLeft, User } from 'lucide-react'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import VideoRoom from './VideoRoom'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
+import { VIDEO_CALLS_ENABLED } from '@/lib/features'
+import { canAccessSessionMeeting, normalizeMeetingUrl } from '@/lib/session-meeting'
+import MeetingAccess from './MeetingAccess'
 
-export const metadata: Metadata = { title: 'Video-Session' }
+export const metadata: Metadata = { title: 'Coaching-Session', robots: { index: false, follow: false } }
 
 interface BookingRow {
   id: string
@@ -33,6 +36,7 @@ export default async function SessionPage({
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect(`/login?redirect=${encodeURIComponent(`/session/${id}`)}`)
 
   const { data: booking } = await supabase
     .from('bookings')
@@ -49,22 +53,24 @@ export default async function SessionPage({
   const isCreator = user && creator && user.id === creator.user_id
   const isBuyer   = user && b.buyer_id && user.id === b.buyer_id
 
-  if (!isCreator && !isBuyer) {
-    // Allow public viewing of confirmed upcoming sessions — just no video
-    // (email link without account → let them see details but no video)
-    if (b.status === 'cancelled') notFound()
-  }
+  if (!isCreator && !isBuyer) notFound()
 
   const scheduledAt = new Date(b.scheduled_at)
   const endAt       = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
   // eslint-disable-next-line react-hooks/purity
   const now         = Date.now()
   const msUntil     = scheduledAt.getTime() - now
-  const isConfirmed = ['confirmed', 'completed'].includes(b.status)
-  const isLive      = isConfirmed && hasValidCoachingPayment(b) && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isConfirmed = b.status === 'confirmed'
   const hasValidPayment = hasValidCoachingPayment(b)
   const isOver      = now > endAt.getTime()
   const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
+  const canAttend = canAccessSessionMeeting(b, now)
+  const { data: meeting, error: meetingError } = canAttend
+    ? await supabase.from('booking_meeting_links').select('meeting_url').eq('booking_id', b.id).maybeSingle()
+    : { data: null, error: null }
+  const meetingUrl = normalizeMeetingUrl(meeting?.meeting_url)
+  const hasDaily = VIDEO_CALLS_ENABLED && Boolean(b.daily_room_url)
+  const isLive = canAttend && Boolean(meetingUrl || hasDaily) && now >= scheduledAt.getTime() - 15 * 60_000
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -97,7 +103,7 @@ export default async function SessionPage({
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
-                {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} – {endAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr
+                {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} – {endAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr (Europe/Berlin)
               </span>
             </div>
             {b.notes && isCreator && (
@@ -115,24 +121,25 @@ export default async function SessionPage({
           {isLive && (
             <span className="inline-flex items-center gap-1.5 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">
               <span className="h-1.5 w-1.5 bg-white rounded-full animate-pulse" />
-              Live jetzt
+              Teilnahme möglich
             </span>
           )}
           {isConfirmed && !isLive && !isOver && (
             <span className="inline-flex items-center bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium px-3 py-1 rounded-full">
-              Startet {msUntil > 3_600_000
-                ? `in ${Math.round(msUntil / 3_600_000)} Std.`
+              {msUntil <= 0 ? 'Terminzeit läuft' : msUntil > 3_600_000
+                ? `Startet in ${Math.round(msUntil / 3_600_000)} Std.`
                 : msUntil > 60_000
-                ? `in ${Math.round(msUntil / 60_000)} Min.`
-                : 'gleich'}
+                ? `Startet in ${Math.round(msUntil / 60_000)} Min.`
+                : 'Startet gleich'}
             </span>
           )}
           {isConfirmed && isOver && (
             <span className="inline-flex items-center bg-gray-50 text-gray-500 border border-gray-200 text-xs font-medium px-3 py-1 rounded-full">
-              Session beendet
+              Terminzeit vorbei – noch nicht als abgeschlossen markiert
             </span>
           )}
-          {!isConfirmed && b.status !== 'cancelled' && (
+          {b.status === 'completed' && <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">Abgeschlossen</span>}
+          {!isConfirmed && !['cancelled', 'completed'].includes(b.status) && (
             <span role="status" className="inline-flex items-center bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium px-3 py-1 rounded-full">
               {b.status === 'payment_failed' ? 'Zahlung fehlgeschlagen – Session nicht bestätigt' : b.status === 'expired' ? 'Reservierung abgelaufen – Session nicht bestätigt' : b.status === 'refunded' ? 'Zahlung erstattet' : b.status === 'reversed' ? 'Zahlung rückgängig' : 'Zahlung ausstehend – Session nicht bestätigt'}
             </span>
@@ -145,8 +152,12 @@ export default async function SessionPage({
         </div>
       </div>
 
-      {/* Video room */}
-      {['confirmed', 'completed'].includes(b.status) && hasValidPayment && (
+      {canAttend && <MeetingAccess key={meetingUrl ?? 'no-meeting'} bookingId={b.id} meetingUrl={meetingUrl} isCoach={Boolean(isCreator)} loadFailed={Boolean(meetingError)} />}
+      {isConfirmed && !hasValidPayment && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Der Session-Zugang ist erst nach einer gültigen Zahlung verfügbar.</p>}
+      {['cancelled', 'completed'].includes(b.status) || isOver ? <p className="mt-4 text-sm text-gray-600">Für diesen Termin ist kein Meeting-Zugang mehr verfügbar.</p> : null}
+      {isCreator && b.status === 'cancelled' && <p className="mt-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Bitte beende oder lösche das externe Meeting auch beim Anbieter. Bereits kopierte Anbieter-Links kann Ardore dort nicht widerrufen.</p>}
+      {/* Preserve Daily for a future explicit feature activation. */}
+      {VIDEO_CALLS_ENABLED && isConfirmed && hasValidPayment && !meetingUrl && (
         <VideoRoom
           roomUrl={b.daily_room_url}
           isLive={isLive}

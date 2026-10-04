@@ -29,6 +29,10 @@ export async function GET(req: NextRequest) {
     .lte('scheduled_at', windowEnd)
 
   if (!bookings?.length) return NextResponse.json({ sent: 0 })
+  const { data: meetings, error: meetingError } = await service.from('booking_meeting_links')
+    .select('booking_id').in('booking_id', bookings.map(booking => booking.id))
+  if (meetingError) return NextResponse.json({ error: 'Session information unavailable' }, { status: 503 })
+  const readyBookings = new Set(meetings?.map(meeting => meeting.booking_id))
 
   let sent = 0
 
@@ -53,6 +57,10 @@ export async function GET(req: NextRequest) {
     const sessionUrl   = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com'}${sessionLink}`
     const coachName    = cp?.display_name ?? 'Coach'
     const buyerName    = b.buyer_name ?? 'Teilnehmer'
+    const meetingReady = readyBookings.has(b.id)
+    const scheduledDate = new Date(b.scheduled_at).toLocaleDateString('de-DE', {
+      day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin',
+    })
 
     // Fetch emails for both parties in parallel
     const [coachEmailRes, buyerEmailRes] = await Promise.all([
@@ -85,6 +93,7 @@ export async function GET(req: NextRequest) {
           scheduledTime: sessionTime,
           minutesUntil,
           sessionUrl,
+          role: 'creator', meetingReady, scheduledDate,
         }))
       }
     }
@@ -110,6 +119,7 @@ export async function GET(req: NextRequest) {
           scheduledTime: sessionTime,
           minutesUntil,
           sessionUrl,
+          role: 'buyer', meetingReady, scheduledDate,
         }))
       }
     }

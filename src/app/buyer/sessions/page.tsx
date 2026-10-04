@@ -229,7 +229,7 @@ function SessionCard({
             <p className="text-sm text-gray-400 mt-1">{price} €</p>
           )}
           {!VIDEO_CALLS_ENABLED && b.status === 'confirmed' && (
-            <p className="text-xs text-gray-500 mt-2">Video-Call-Funktion wird bald verfügbar sein.</p>
+            <p className="text-xs text-gray-500 mt-2">Den privaten Meeting-Link deines Coaches findest du in den Sessiondetails.</p>
           )}
         </div>
         <Link

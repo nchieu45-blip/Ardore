@@ -71,6 +71,9 @@ export async function provisionConfirmedCoachingBooking(bookingId: string) {
   }
 
   try {
+    const { data: meeting } = await service.from('booking_meeting_links')
+      .select('booking_id').eq('booking_id', booking.id).maybeSingle()
+    const meetingReady = Boolean(meeting)
     const [{ sendBookingConfirmation }, creatorUser] = await Promise.all([
       import('@/lib/email/send'),
       service.auth.admin.getUserById(creator.user_id),
@@ -78,12 +81,12 @@ export async function provisionConfirmedCoachingBooking(bookingId: string) {
     await Promise.allSettled([
       sendBookingConfirmation(booking.buyer_email, {
         recipientName: booking.buyer_name, coachName: creator.display_name,
-        scheduledDate, scheduledTime, durationMinutes: booking.duration_minutes, sessionUrl, role: 'buyer',
+        scheduledDate, scheduledTime, durationMinutes: booking.duration_minutes, sessionUrl, role: 'buyer', meetingReady,
       }),
       creatorUser.data.user?.email
         ? sendBookingConfirmation(creatorUser.data.user.email, {
             recipientName: creator.display_name, coachName: booking.buyer_name,
-            scheduledDate, scheduledTime, durationMinutes: booking.duration_minutes, sessionUrl, role: 'creator',
+            scheduledDate, scheduledTime, durationMinutes: booking.duration_minutes, sessionUrl, role: 'creator', meetingReady,
           })
         : Promise.resolve(),
     ])
