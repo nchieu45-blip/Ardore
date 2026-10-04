@@ -45,6 +45,7 @@ export default function BookingActions({
   const [showCancel, setShowCancel] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rescheduleConfirmation, setRescheduleConfirmation] = useState<string | null>(null)
   const cancelDialogRef = useRef<HTMLDivElement>(null)
   const cancelTriggerRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
@@ -123,7 +124,7 @@ export default function BookingActions({
       <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
         {!refundRetry && canReschedule && (
           <button
-            onClick={() => { setError(null); setShowReschedule(true) }}
+            onClick={() => { setError(null); setRescheduleConfirmation(null); setShowReschedule(true) }}
             disabled={rescheduleBlocked}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
           >
@@ -151,6 +152,7 @@ export default function BookingActions({
         </p>
       )}
       {error && !showCancel && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+      {rescheduleConfirmation && <p role="status" aria-live="polite" className="mt-3 text-sm text-green-700">{rescheduleConfirmation}</p>}
 
       {showCancel && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget && !cancelling) setShowCancel(false) }}>
@@ -191,7 +193,7 @@ export default function BookingActions({
           creatorId={creatorId}
           coachName={coachName}
           onClose={() => setShowReschedule(false)}
-          onSuccess={() => { setShowReschedule(false); router.refresh() }}
+          onSuccess={() => { setRescheduleConfirmation('Dein Termin wurde erfolgreich verschoben.'); setShowReschedule(false); router.refresh() }}
         />
       )}
     </>
