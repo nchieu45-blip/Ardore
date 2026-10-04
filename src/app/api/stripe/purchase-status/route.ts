@@ -39,10 +39,12 @@ export async function GET(req: NextRequest) {
       if (session.id !== sessionId || session.metadata?.ardore_order_id !== order.id
         || session.metadata?.buyer_id !== user.id || session.livemode !== order.stripe_livemode
         || session.mode !== 'payment' || session.amount_total !== order.gross_cents || session.currency !== 'eur') throw new Error('Invalid checkout identity')
-      if (session.payment_status === 'paid' || session.payment_status === 'no_payment_required' || session.status === 'complete') result.state = 'processing'
+      if (session.payment_status === 'paid' || session.payment_status === 'no_payment_required') result.state = 'processing'
       else if (session.status === 'expired') result.state = 'canceled'
       else {
-        result.state = 'awaiting_payment'
+        // A completed Checkout can still have a pending or failed asynchronous
+        // payment. Its verified intent determines those terminal states.
+        result.state = session.status === 'complete' ? 'processing' : 'awaiting_payment'
         const paymentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id
         if (paymentId) {
           const intent = await stripe.paymentIntents.retrieve(paymentId)

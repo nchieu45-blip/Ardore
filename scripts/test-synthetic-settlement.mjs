@@ -187,6 +187,15 @@ async function actor(role) {
   const login = await client.auth.signInWithPassword({ email, password })
   if (login.error) throw Object.assign(new Error('Synthetic login failed'), { code: login.error.code })
   const value = { id: created.data.user.id, email, client,
+    refreshLogin: async () => {
+      const result = await client.auth.signInWithPassword({ email, password })
+      assert.equal(result.error, null, 'Synthetic session refresh must succeed')
+    },
+    loginPage: async page => {
+      await page.getByLabel('E-Mail-Adresse').fill(email)
+      await page.getByLabel('Passwort', { exact: true }).fill(password)
+      await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
+    },
     cookie: () => [...cookies].map(([name, item]) => `${name}=${item}`).join('; ') }
   actors.push(value)
   return value
@@ -608,12 +617,18 @@ async function purchaseLifecycleTests(buyer) {
   assert.equal((await check(service.from('purchases').select('id').eq('buyer_id', buyer.id).eq('product_id', canceled.id))).length, 0)
   pass('expired/canceled TEST checkout never grants a library item')
   const rejected = await checkout(failed.id)
-  const decline = await stripe.paymentMethods.create({ type: 'card', card: { token: 'tok_chargeDeclined' } })
+  const decline = await stripe.paymentMethods.create({ type: 'card', card: { token: 'tok_chargeDeclined' },
+    billing_details: { name: 'Synthetic settlement verification', email: buyer.email } })
   try {
     await stripe.rawRequest('GET', `/v1/payment_pages/${rejected.id}`)
     await stripe.rawRequest('POST', `/v1/payment_pages/${rejected.id}/confirm`, { payment_method: decline.id, expected_amount: 500 })
     assert.fail('Declining TEST card must not complete payment')
-  } catch (error) { assert.equal(error.type, 'StripeCardError') }
+  } catch (error) {
+    if (error.type !== 'StripeCardError' && error.code !== 'card_declined') {
+      console.error(JSON.stringify({ syntheticDeclineType: error.type ?? 'unknown', syntheticDeclineCode: code(error) }))
+      throw new Error('Expected an actual TEST card decline')
+    }
+  }
   await discoverCheckoutObjects(rejected.id)
   assert.ok(['payment_failed', 'awaiting_payment'].includes((await status(rejected.id)).state))
   assert.equal((await check(service.from('purchases').select('id').eq('buyer_id', buyer.id).eq('product_id', failed.id))).length, 0)
@@ -625,6 +640,7 @@ async function purchaseLifecycleTests(buyer) {
   const browser = await chromium.launch({ headless: true, ...(process.env.ARDORE_CHROME_EXECUTABLE ? { executablePath: process.env.ARDORE_CHROME_EXECUTABLE } : {}) })
   try {
     for (const width of [375, 390]) {
+      await buyer.refreshLogin()
       const context = await browser.newContext({ viewport: { width, height: 844 } })
       await context.addCookies(buyer.cookie().split('; ').map(pair => { const i = pair.indexOf('='); return { name: pair.slice(0, i), value: pair.slice(i + 1), domain: 'www.ardore-health.com', path: '/', secure: true, sameSite: 'Lax' } }))
       await context.addInitScript(({ owned, extra, coachId, slug }) => {
@@ -640,9 +656,10 @@ async function purchaseLifecycleTests(buyer) {
         if (probes <= 2) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'processing', productIds: [], testMode: true }) })
         await route.continue()
       })
-      await page.goto(`${base}/buyer/library?session_id=${purchase.id}`, { waitUntil: 'networkidle' })
+      await page.goto(`${base}/buyer/library?session_id=${purchase.id}`, { waitUntil: 'domcontentloaded' })
       await page.getByRole('heading', { name: 'Kauf wird verarbeitet' }).waitFor()
       await page.getByRole('heading', { name: 'Kauf bestätigt' }).waitFor({ timeout: 30_000 })
+      await page.getByRole('button', { name: 'Nur notwendige', exact: true }).click()
       assert.equal(await page.getByRole('heading', { name: product.title, exact: true }).count(), 1)
       assert.equal(await page.getByText('Testkauf', { exact: true }).count(), 1)
       assert.equal(await page.getByRole('button', { name: 'Herunterladen' }).count(), 0)
@@ -650,14 +667,24 @@ async function purchaseLifecycleTests(buyer) {
       const cart = await page.evaluate(() => JSON.parse(localStorage.getItem('ardore_cart')))
       assert.deepEqual(cart.map(item => item.id), [unrelated.id])
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      await page.reload({ waitUntil: 'networkidle' })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.getByRole('heading', { name: 'Kauf bestätigt' }).waitFor()
+      await page.getByRole('heading', { name: product.title, exact: true }).waitFor()
       assert.deepEqual((await page.evaluate(() => JSON.parse(localStorage.getItem('ardore_cart')))).map(item => item.id), [unrelated.id])
-      // A logout must remove access; restored synthetic session must reload the
-      // same library while browser cart storage survives the account round-trip.
-      await context.clearCookies()
-      await page.goto(`${base}/buyer/library`, { waitUntil: 'networkidle' }); assert.ok(new URL(page.url()).pathname === '/login')
-      await context.addCookies(buyer.cookie().split('; ').map(pair => { const i = pair.indexOf('='); return { name: pair.slice(0, i), value: pair.slice(i + 1), domain: 'www.ardore-health.com', path: '/', secure: true, sameSite: 'Lax' } }))
-      await page.goto(`${base}/buyer/library`, { waitUntil: 'networkidle' })
+      pass(`production verified purchase, delayed-status UI, library refresh and cart at ${width}px`)
+      // Use the real logout and login UI; unrelated cart storage must survive.
+      // Leave the return URL first so its asynchronous router.refresh cannot
+      // race the navbar interaction under test.
+      await page.goto(`${base}/buyer/library`, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('heading', { name: product.title, exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Menü öffnen', exact: true }).click()
+      await page.getByRole('button', { name: 'Abmelden', exact: true }).click()
+      await page.waitForURL(`${base}/`, { waitUntil: 'domcontentloaded' })
+      await page.goto(`${base}/buyer/library`, { waitUntil: 'domcontentloaded' })
+      assert.equal(new URL(page.url()).pathname, '/login')
+      await buyer.loginPage(page)
+      await page.waitForURL(`${base}/buyer/library`, { waitUntil: 'domcontentloaded' })
+      await page.getByRole('heading', { name: product.title, exact: true }).waitFor()
       assert.equal(await page.getByRole('heading', { name: product.title, exact: true }).count(), 1)
       assert.deepEqual((await page.evaluate(() => JSON.parse(localStorage.getItem('ardore_cart')))).map(item => item.id), [unrelated.id])
       await context.close()

@@ -76,6 +76,8 @@ for (const [label, paymentStatus, sessionStatus, expected, intentStatus] of [
   ['canceled', 'unpaid', 'expired', 'canceled', null], ['unpaid', 'unpaid', 'open', 'awaiting_payment', null],
   ['async pending', 'unpaid', 'complete', 'processing', null], ['delayed success after expired session', 'paid', 'expired', 'processing', null],
   ['failed card', 'unpaid', 'open', 'payment_failed', 'requires_payment_method'],
+  ['failed asynchronous payment', 'unpaid', 'complete', 'payment_failed', 'requires_payment_method'],
+  ['canceled asynchronous payment', 'unpaid', 'complete', 'canceled', 'canceled'],
   ['intent succeeded before session observation', 'unpaid', 'open', 'processing', 'succeeded'],
 ]) {
   test(`${label} cannot grant an entitlement`, async () => {
