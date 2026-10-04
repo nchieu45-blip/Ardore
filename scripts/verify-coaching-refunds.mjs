@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import ts from 'typescript'
+import { runRecovery } from './run-coaching-recovery.mjs'
 
 const source = readFileSync(new URL('../src/lib/coaching-refund.ts', import.meta.url), 'utf8')
 const compiled = ts.transpileModule(source, {
@@ -203,6 +204,27 @@ test('repeated cancellations and webhook retries never POST another refund', asy
   assert.equal(f.refunds.length, 1)
   assert.equal(f.posts[0].requestOptions.idempotencyKey, 'ardore-booking-refund-synthetic-booking-v1')
   assert.equal(f.request().stripe_refund_id, f.refunds[0].id)
+})
+
+test('recovery HTTP response loss retries the real refund engine without a second refund or reversal', async () => {
+  const f = fixture({ separate: true, actor: 'system', target: { attemptId: 'synthetic-recovery-attempt', legacyCheckout: false } })
+  let attempts = 0
+  const success = await runRecovery({ baseUrl: 'https://www.ardore-health.com', secret: 'synthetic-cron', log() {}, pause: async () => {},
+    attempt: async () => {
+      const result = await f.process()
+      assert.equal(result.state, 'succeeded')
+      attempts += 1
+      // The first HTTP caller times out after the financial work has succeeded.
+      if (attempts === 1) return { exitCode: 28, body: '', metrics: { http_code: 0 } }
+      return { exitCode: 0, metrics: { http_code: 200 }, body: JSON.stringify({
+        reservations: { checked: 0, released: 0, confirmed: 0, reconciliation: 0, unresolved: 0, failed: 0 },
+        reconciled: 1, pending: 0, failed: 0,
+      }) }
+    } })
+  assert.equal(success, true); assert.equal(attempts, 2)
+  assert.equal(f.posts.length, 1); assert.equal(f.refunds.length, 1); assert.equal(f.reversalIds.length, 1)
+  assert.equal(f.posts[0].requestOptions.idempotencyKey, 'ardore-coaching-reconciliation-synthetic-recovery-attempt-v1')
+  assert.equal(f.transfer.amount_reversed, 4050); assert.equal(f.booking.amount_refunded_cents, 4500)
 })
 
 test('metadata discovers accepted refund even after missing DB response and Stripe key expiry', async () => {
