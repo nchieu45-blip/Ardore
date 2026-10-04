@@ -744,11 +744,12 @@ async function discountDeployedTests(buyer) {
     for(const width of [375,390]){
       for(const [who,path] of [[buyer,`/creators/${tag}`],[actors[1],'/creator/settings/discounts']]){
         const context=await browser.newContext({viewport:{width,height:844}})
+        await who.refreshLogin()
+        await context.addCookies(who.cookie().split('; ').map(pair=>{const i=pair.indexOf('=');return {name:pair.slice(0,i),value:pair.slice(i+1),domain:'www.ardore-health.com',path:'/',secure:true,sameSite:'Lax'}}))
         const page=await context.newPage()
-        await page.goto(`${base}/login`)
-        await who.loginPage(page)
-        await page.waitForURL(url=>!url.pathname.startsWith('/login'))
         await page.goto(`${base}${path}`)
+        const consent=page.getByRole('button',{name:'Nur notwendige',exact:true})
+        if(await consent.count()) await consent.click()
         if(who===actors[1]){
           await page.getByRole('button',{name:/Neuer Rabatt/}).click()
           await page.getByLabel(/Einlösungen pro Kunde/).waitFor()
