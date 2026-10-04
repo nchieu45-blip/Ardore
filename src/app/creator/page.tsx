@@ -1,14 +1,14 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
+import { createClient } from '@/lib/supabase/server'
+import { loadCoachEarnings } from '@/lib/coach-earnings-server'
+import EarningsSummary from '@/components/creator/EarningsSummary'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { TrendingUp, Users, ShoppingBag, Plus, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react'
+import { Users, ShoppingBag, Plus, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react'
 import { RevenueChart } from '@/components/creator/RevenueChart'
-import type { DayRevenue } from '@/components/creator/RevenueChart'
 
 export const metadata: Metadata = {
   title: 'Creator Dashboard',
@@ -27,51 +27,14 @@ export default async function CreatorDashboardPage() {
     .single()
   if (!creator) redirect('/creator/onboarding')
 
-  const service = await createServiceClient()
-  const [productsRes, subscriptionsRes, purchasesRes] = await Promise.all([
+  const [productsRes, subscriptionsRes, earnings] = await Promise.all([
     supabase.from('products').select('*').eq('creator_id', creator.id).order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('*, tier:subscription_tiers(price_monthly)').eq('creator_id', creator.id).eq('status', 'active'),
-    service.from('purchases').select('amount_paid, created_at, products!inner(creator_id)').eq('products.creator_id', creator.id).eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', true),
+    loadCoachEarnings(supabase, user.id).catch(() => null),
   ])
-
   const products = productsRes.data ?? []
   const subscriptions = subscriptionsRes.data ?? []
-  const purchases = purchasesRes.data ?? []
-  const purchaseError = !!purchasesRes.error
-
-  const monthlyRevenue = subscriptions.reduce(
-    (sum: number, s: { tier: { price_monthly: number } | null }) => sum + (s.tier?.price_monthly ?? 0),
-    0,
-  )
-  const totalRevenue = purchases.reduce(
-    (sum: number, p: { amount_paid: number }) => sum + p.amount_paid,
-    0,
-  ) + monthlyRevenue
-
-  // Header date label
-  const today = new Date()
-  const weekday = today.toLocaleDateString('de-DE', { weekday: 'long' })
-  const dayMonth = today.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })
-  const dateLabel = `${weekday}, ${dayMonth}`
-
-  // 7-day revenue chart
-  const sevenDaysAgo = new Date(today)
-  sevenDaysAgo.setDate(today.getDate() - 6)
-  const chartData: DayRevenue[] = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sevenDaysAgo)
-    d.setDate(sevenDaysAgo.getDate() + i)
-    return {
-      day: d.toLocaleDateString('de-DE', { weekday: 'short' }),
-      date: d.toISOString().split('T')[0],
-      revenue: 0,
-    }
-  })
-  purchases.forEach((p: { amount_paid: number; created_at: string }) => {
-    const pDate = (p.created_at ?? '').split('T')[0]
-    const slot = chartData.find(d => d.date === pDate)
-    if (slot) slot.revenue += p.amount_paid
-  })
-
+  const dateLabel = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Berlin' })
   const recentProducts = products.slice(0, 5)
 
   return (
@@ -114,34 +77,20 @@ export default async function CreatorDashboardPage() {
           </div>
         )}
 
-        {/* Stat tiles */}
-        {purchaseError && (
-          <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-            Kaufumsätze konnten nicht geladen werden. Bitte lade die Seite erneut.
-          </p>
-        )}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {earnings ? <EarningsSummary report={earnings} compact /> : <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">Einnahmen konnten nicht vollständig geladen werden. Bitte lade die Seite erneut; es werden keine unvollständigen Summen angezeigt.</p>}
+        <div className="grid grid-cols-2 gap-4">
           {[
-            { Icon: TrendingUp,  label: 'Gesamtumsatz', value: purchaseError ? '–' : formatCurrency(totalRevenue),                              sub: 'Alle Zeit' },
-            { Icon: TrendingUp,  label: 'Monatlich',    value: formatCurrency(monthlyRevenue),                                                   sub: 'Aus Abos' },
-            { Icon: Users,       label: 'Abonnenten',   value: subscriptions.length.toString(),                                                  sub: 'Aktiv' },
-            { Icon: ShoppingBag, label: 'Produkte',     value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
-          ].map(({ Icon, label, value, sub }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-                <Icon className="h-4 w-4 text-gray-300 flex-shrink-0" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 tracking-tight">{value}</p>
-              <p className="text-xs text-gray-400 mt-1">{sub}</p>
-            </div>
-          ))}
+            { Icon: Users, label: 'Abonnenten', value: subscriptions.length.toString(), sub: 'Aktiv – keine Umsatzprognose' },
+            { Icon: ShoppingBag, label: 'Produkte', value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
+          ].map(({ Icon, label, value, sub }) => <div key={label} className="rounded-xl border border-gray-100 bg-white p-5">
+            <Icon className="mb-2 h-4 w-4 text-gray-400" aria-hidden="true" />
+            <p className="text-sm text-gray-600">{label}</p><p className="text-2xl font-bold">{value}</p><p className="mt-1 text-xs text-gray-500">{sub}</p>
+          </div>)}
         </div>
-
-        {/* Revenue chart */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-5">Einnahmen – letzte 7 Tage</h2>
-          {!purchaseError && <RevenueChart data={chartData} />}
+        <div className="rounded-xl border border-gray-100 bg-white p-6">
+          <h2 className="mb-4 text-sm font-semibold">Bruttoumsatz nach Erstattungen – letzte 7 Tage</h2>
+          {earnings && <RevenueChart data={earnings.days} />}
+          <p className="mt-3 text-xs text-gray-500">Alle Zahlungsquellen im Ledger; Zuordnung nach Erfassungsdatum in Europe/Berlin.</p>
         </div>
 
         {/* Products + Subscribers */}
@@ -208,7 +157,7 @@ export default async function CreatorDashboardPage() {
                       <p className="text-xs text-gray-400 mt-0.5">bis {formatDate(sub.current_period_end)}</p>
                     </div>
                     <span className="text-sm font-semibold text-green-600">
-                      {formatCurrency(sub.tier?.price_monthly ?? 0)}/Mo.
+                      Tarifpreis: {formatCurrency(sub.tier?.price_monthly ?? 0)}/Mo.
                     </span>
                   </li>
                 ))}

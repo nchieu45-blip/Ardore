@@ -1,120 +1,30 @@
 import { redirect } from 'next/navigation'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
-import { Card, CardContent } from '@/components/ui/Card'
-import { formatCurrency } from '@/lib/utils'
-import { TrendingUp, Users, ShoppingBag } from 'lucide-react'
 import type { Metadata } from 'next'
-
+import { createClient } from '@/lib/supabase/server'
+import { loadCoachEarnings } from '@/lib/coach-earnings-server'
+import EarningsSummary from '@/components/creator/EarningsSummary'
 export const metadata: Metadata = { title: 'Einnahmen' }
-
+const money = (cents: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
 export default async function EarningsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const client = await createClient()
+  const { data: { user } } = await client.auth.getUser()
   if (!user) redirect('/login')
-
-  const { data: creator } = await supabase
-    .from('creator_profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .single()
-  if (!creator) redirect('/creator/onboarding')
-
-  const service = await createServiceClient()
-  const [subscriptionsRes, purchasesRes] = await Promise.all([
-    supabase
-      .from('subscriptions')
-      .select('*, tier:subscription_tiers(price_monthly)')
-      .eq('creator_id', creator.id)
-      .eq('status', 'active'),
-    service
-      .from('purchases')
-      .select('amount_paid, created_at, products!inner(creator_id)')
-      .eq('products.creator_id', creator.id)
-      .eq('payment_status', VALID_PURCHASE_STATUS)
-      .eq('stripe_livemode', true),
-  ])
-
-  const subscriptions = subscriptionsRes.data ?? []
-  const purchases = purchasesRes.data ?? []
-  const purchaseError = !!purchasesRes.error
-
-  const monthlyRevenue = subscriptions.reduce(
-    (sum: number, s: { tier: { price_monthly: number } | null }) =>
-      sum + (s.tier?.price_monthly ?? 0),
-    0,
-  )
-  const totalRevenue = purchases.reduce(
-    (sum: number, p: { amount_paid: number }) => sum + p.amount_paid,
-    0,
-  ) + monthlyRevenue
-
-  const stats = [
-    {
-      label: 'Gesamtumsatz',
-      value: purchaseError ? '–' : formatCurrency(totalRevenue),
-      sub: 'Alle Zeit',
-      icon: TrendingUp,
-      bg: 'bg-green-50',
-      color: 'text-green-600',
-    },
-    {
-      label: 'Monatlich (Abos)',
-      value: formatCurrency(monthlyRevenue),
-      sub: 'Aktive Abos',
-      icon: TrendingUp,
-      bg: 'bg-blue-50',
-      color: 'text-blue-600',
-    },
-    {
-      label: 'Abonnenten',
-      value: subscriptions.length.toString(),
-      sub: 'Aktiv',
-      icon: Users,
-      bg: 'bg-purple-50',
-      color: 'text-purple-600',
-    },
-    {
-      label: 'Einzelkäufe',
-      value: purchaseError ? '–' : purchases.length.toString(),
-      sub: 'Gesamt',
-      icon: ShoppingBag,
-      bg: 'bg-orange-50',
-      color: 'text-orange-600',
-    },
-  ]
-
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Einnahmen</h1>
-      <p className="text-sm text-gray-500 mb-8">Übersicht deiner Einnahmen auf Ardore</p>
-
-      {purchaseError && (
-        <p role="alert" className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Kaufumsätze konnten nicht geladen werden. Bitte lade die Seite erneut.
-        </p>
-      )}
-
-      <div className="grid grid-cols-2 gap-4 mb-10">
-        {stats.map(stat => (
-          <Card key={stat.label}>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-                <span className="text-xs text-gray-400 font-medium">{stat.sub}</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-0.5">{stat.value}</p>
-              <p className="text-sm text-gray-500">{stat.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <p className="text-xs text-gray-400 text-center">
-        Detaillierter Einnahmen-Report mit Zeitverlauf und Auszahlungshistorie folgt in Kürze.
-      </p>
-    </div>
-  )
+  const { data: coach } = await client.from('creator_profiles').select('id').eq('user_id', user.id).maybeSingle()
+  if (!coach) redirect('/creator/onboarding')
+  let report
+  try { report = await loadCoachEarnings(client, user.id) } catch { /* Fail closed: no incomplete/zero financial totals. */ }
+  return <div className="mx-auto max-w-5xl px-4 py-8">
+    <h1 className="mb-2 text-2xl font-bold">Einnahmen</h1>
+    <p className="mb-6 text-sm text-gray-600">Bezahlte Produkte, Coaching-Buchungen und Abo-Zyklen – ohne Vermischung mit aktuellen Tarifpreisen.</p>
+    {!report ? <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">Deine Einnahmen konnten nicht vollständig geladen werden. Es werden keine unvollständigen Summen angezeigt. <a href="/creator/earnings" className="underline">Erneut laden</a></div> : <>
+      <EarningsSummary report={report} />
+      <section className="mt-8"><h2 className="mb-3 font-semibold">Alle Zeit nach Quelle · Settlement-Ledger</h2>
+        <dl className="space-y-3">{([['products', 'Produktkäufe'], ['booking', 'Bezahlte Coaching-Buchungen'], ['subscription', 'Bezahlte Abo-Zyklen']] as const).map(([kind, label]) => <div key={kind} className="rounded-xl border border-gray-200 p-4">
+          <dt className="font-medium">{label} · {report.sources[kind].payments} {report.sources[kind].payments === 1 ? 'Zahlung' : 'Zahlungen'}</dt>
+          <dd className="mt-2 text-sm text-gray-600">Bruttoumsatz nach Erstattungen: {money(report.sources[kind].retained)} · Ardore-Gebühr: {money(report.sources[kind].fee)} · Coach-Nettoerlös: {money(report.sources[kind].net)}</dd>
+        </div>)}</dl>
+      </section>
+      {!report.all.payments && <p className="mt-6 text-sm text-gray-600">Noch keine bezahlten Transaktionen im Settlement-Ledger.</p>}
+    </>}
+  </div>
 }

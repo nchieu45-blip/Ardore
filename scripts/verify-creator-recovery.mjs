@@ -32,85 +32,34 @@ function loadPage(path, overrides, globals = {}) {
 }
 
 function creatorFixture({ signedIn = true, hasCreator = true, purchaseError = false } = {}) {
-  const queries = []
-  let ownerResolved = false
-  let serviceCalls = 0
+  let ownerResolved = false, calls = 0
   const creator = { id: 'verified-creator', display_name: 'Synthetic creator', slug: 'synthetic', stripe_account_active: true }
-  function query(role, table) {
-    if (role === 'user') assert.notEqual(table, 'purchases', 'Purchase reporting must use the server client')
-    if (role === 'service') assert.equal(table, 'purchases', 'Service access is limited to the purchase report')
-    const record = { role, table, selected: null, filters: [] }
-    queries.push(record)
-    return {
-      select(columns) { record.selected = columns; return this },
-      eq(column, value) { record.filters.push([column, value]); return this },
-      order() { return this },
-      async single() {
-        assert.equal(table, 'creator_profiles')
-        assert.deepEqual(record.filters, [['user_id', 'authenticated-owner']])
-        ownerResolved = hasCreator
-        return { data: hasCreator ? creator : null, error: null }
-      },
-      then(resolve, reject) {
-        const result = table === 'purchases'
-          ? purchaseError
-            ? { data: null, error: { message: 'Synthetic database failure' } }
-            : { data: [{ amount_paid: 42, created_at: new Date().toISOString(), products: { creator_id: creator.id } }], error: null }
-          : { data: [], error: null }
-        return Promise.resolve(result).then(resolve, reject)
-      },
-    }
-  }
-  return {
-    queries,
-    get serviceCalls() { return serviceCalls },
-    modules: {
-      '@/lib/supabase/server': {
-        createClient: async () => ({
-          auth: { getUser: async () => ({ data: { user: signedIn ? { id: 'authenticated-owner' } : null } }) },
-          from: table => query('user', table),
-        }),
-        createServiceClient: async () => {
-          assert.equal(ownerResolved, true, 'Service access must follow authenticated creator ownership lookup')
-          serviceCalls++
-          return { from: table => query('service', table) }
-        },
-      },
-      'next/navigation': { redirect: path => { throw new Error(`REDIRECT:${path}`) } },
-      '@/components/creator/RevenueChart': { RevenueChart: () => React.createElement('div', { 'data-testid': 'revenue-chart' }) },
-    },
-  }
+  const client = { auth: { getUser: async () => ({ data: { user: signedIn ? { id: 'authenticated-owner' } : null } }) }, from(table) {
+    const filters = []
+    const single = async () => { assert.equal(table, 'creator_profiles'); assert.deepEqual(filters, [['user_id', 'authenticated-owner']]); ownerResolved = hasCreator; return { data: hasCreator ? creator : null } }
+    return { select() { return this }, eq(k,v) { filters.push([k,v]); return this }, order() { return this }, single, maybeSingle: single, then(resolve) { resolve({ data: [] }) } }
+  } }
+  const totals = {payments:1,gross:4200,refunded:0,retained:4200,fee:420,net:3780,transferred:3780,pending:0,reversalPending:0,reversed:0,refundPending:0}
+  const report = {all:totals,month:totals,sources:{products:totals,booking:{...totals,payments:0},subscription:{...totals,payments:0}},days:[],testMode:true,legacy:{products:0,bookings:0,subscriptions:0,knownProductGross:0,knownBookingGross:0,unclear:0}}
+  return { get serviceCalls() { return calls }, modules: {
+    '@/lib/supabase/server': { createClient: async () => client },
+    '@/lib/coach-earnings-server': { loadCoachEarnings: async (passedClient, userId) => { assert.equal(passedClient,client); assert.equal(userId,'authenticated-owner'); assert.ok(ownerResolved); calls++; if(purchaseError)throw new Error('Private database failure'); return report } },
+    '@/components/creator/EarningsSummary': {__esModule:true,default:loadPage('src/components/creator/EarningsSummary.tsx',{})},
+    'next/navigation': { redirect: path => { throw new Error(`REDIRECT:${path}`) } },
+    '@/components/creator/RevenueChart': { RevenueChart: () => React.createElement('div', { 'data-testid': 'revenue-chart' }) },
+  } }
 }
-
 for (const path of ['src/app/creator/page.tsx', 'src/app/creator/earnings/page.tsx']) {
-  test(`${path}: purchase report is owner-scoped, server-only, paid and live`, async () => {
-    const fixture = creatorFixture()
-    const html = renderToStaticMarkup(await loadPage(path, fixture.modules)())
-    const purchaseQuery = fixture.queries.find(query => query.table === 'purchases')
-    assert.deepEqual(purchaseQuery, {
-      role: 'service', table: 'purchases',
-      selected: 'amount_paid, created_at, products!inner(creator_id)',
-      filters: [['products.creator_id', 'verified-creator'], ['payment_status', 'paid'], ['stripe_livemode', true]],
-    })
-    assert.match(html, /EUR-42/)
-    assert.doesNotMatch(html, /role="alert"/)
+  test(`${path}: uses the shared report only after authenticated ownership and never adds a monthly rate`, async () => {
+    const fixture = creatorFixture(), html = renderToStaticMarkup(await loadPage(path, fixture.modules)())
+    assert.equal(fixture.serviceCalls,1);assert.match(html,/42,00/);assert.match(html,/37,80/);assert.match(html,/Settlement-Ledger/);assert.match(html,/Stripe-Testmodus/);assert.doesNotMatch(html,/role="alert"|Gesamtumsatz|Monatlich \(Abos\)/)
   })
-
-  test(`${path}: report errors are visible and unknown amounts are not displayed as zero`, async () => {
-    const fixture = creatorFixture({ purchaseError: true })
-    const html = renderToStaticMarkup(await loadPage(path, fixture.modules)())
-    assert.match(html, /role="alert"/)
-    assert.match(html, /Kaufumsätze konnten nicht geladen werden/)
-    assert.match(html, /–/)
-    assert.doesNotMatch(html, /Synthetic database failure|data-testid="revenue-chart"/)
+  test(`${path}: financial read failures suppress all money values and show a clear recovery error`, async () => {
+    const fixture = creatorFixture({purchaseError:true}), html=renderToStaticMarkup(await loadPage(path,fixture.modules)())
+    assert.match(html,/role="alert"/);assert.match(html,/Einnahmen konnten nicht vollständig geladen werden/);assert.doesNotMatch(html,/42,00|37,80|0,00|Private database failure|data-testid="revenue-chart"/)
   })
-
   test(`${path}: unauthenticated and noncreator visitors never obtain service access`, async () => {
-    for (const [options, destination] of [[{ signedIn: false }, '/login'], [{ hasCreator: false }, '/creator/onboarding']]) {
-      const fixture = creatorFixture(options)
-      await assert.rejects(loadPage(path, fixture.modules)(), { message: `REDIRECT:${destination}` })
-      assert.equal(fixture.serviceCalls, 0)
-    }
+    for (const [options,destination] of [[{signedIn:false},'/login'],[{hasCreator:false},'/creator/onboarding']]) { const f=creatorFixture(options);await assert.rejects(loadPage(path,f.modules)(),{message:`REDIRECT:${destination}`});assert.equal(f.serviceCalls,0) }
   })
 }
 
