@@ -5,7 +5,7 @@ import { notifyNewSubscriber } from '@/app/api/webhooks/stripe/route'
 import { appOrigin } from '@/lib/app-url'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { z } from 'zod'
-import { ConnectReadinessError, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
+import { ConnectReadinessError, requirePublishedCoach, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
 
 const subscriptionRequest = z.object({
@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
 
   if (!tier) {
     return NextResponse.json({ error: 'Abo-Stufe nicht gefunden' }, { status: 404 })
+  }
+
+  try {
+    await requirePublishedCoach(await createServiceClient(), tier.creator_id)
+  } catch (error) {
+    if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Coach-Profil momentan nicht verfügbar.' }, { status: 503 })
   }
 
   const appUrl = appOrigin()

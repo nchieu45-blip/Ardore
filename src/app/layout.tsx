@@ -67,10 +67,10 @@ export default async function RootLayout({
       if (data?.role === 'creator') {
         const { data: cp } = await supabase
           .from('creator_profiles')
-          .select('slug')
+          .select('slug,is_published')
           .eq('user_id', user.id)
           .maybeSingle()
-        creatorSlug = cp?.slug ?? null
+        creatorSlug = cp?.is_published ? cp.slug : null
       }
     }
   } catch {

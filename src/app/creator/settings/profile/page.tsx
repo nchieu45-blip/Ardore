@@ -24,7 +24,7 @@ import {
 type AnyResolver = any
 
 const schema = z.object({
-  display_name: z.string().min(2, 'Mindestens 2 Zeichen').max(50, 'Maximal 50 Zeichen'),
+  display_name: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(50, 'Maximal 50 Zeichen'),
   bio: z.string().max(500, 'Maximal 500 Zeichen').optional(),
 })
 
@@ -225,7 +225,7 @@ export default function ProfileSettingsPage() {
       .eq('id', creatorId)
 
     if (updateError) {
-      toast.error('Speichern fehlgeschlagen. Bitte versuche es erneut.')
+      toast.error(updateError.code === '23514' ? 'Dein veröffentlichtes Profil benötigt einen gültigen Namen und mindestens eine Kategorie.' : 'Speichern fehlgeschlagen. Bitte versuche es erneut.')
       return
     }
 
@@ -239,6 +239,7 @@ export default function ProfileSettingsPage() {
     setYoutube(normYoutube)
     setWebsite(normWebsite)
     toast.success('Profil gespeichert')
+    router.refresh()
   }
 
   if (loading) {

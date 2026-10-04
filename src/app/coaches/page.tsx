@@ -36,6 +36,7 @@ export default async function CoachesPage() {
   const { data: creatorsData } = await supabase
     .from('creator_profiles')
     .select('id, slug, display_name, bio, category, categories, qualifications, languages, is_verified, avatar_url, created_at')
+    .eq('is_published', true)
     .order('created_at', { ascending: false })
 
   const creators = (creatorsData ?? []) as {

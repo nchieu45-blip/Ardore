@@ -117,3 +117,11 @@ export async function requirePayoutReadyCoach(
   }
   return { ...readiness, ready: true }
 }
+
+// Checkout only: historical payment fulfillment/settlement must not depend on
+// later profile visibility. Existing provider checks remain independently required.
+export async function requirePublishedCoach(service: SupabaseClient, creatorId: string): Promise<void> {
+  const { data, error } = await service.from('creator_profiles').select('id,is_published').eq('id', creatorId).maybeSingle()
+  if (error) throw new ConnectReadinessError('creator_unavailable', 503)
+  if (!data || data.is_published !== true) throw new ConnectReadinessError('creator_unavailable')
+}

@@ -7,12 +7,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import type { CoachSetupProfile } from '@/lib/coach-publication'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { CategoryPicker } from '@/components/ui/CategoryPicker'
-import { slugify, getInitials, cn } from '@/lib/utils'
+import { getInitials, cn } from '@/lib/utils'
 import {
-  Flame, Camera, Check, ChevronRight, Sparkles, Plus,
+  Flame, Camera, Check, ChevronRight, Sparkles,
   FileText, Video, BookOpen, Image as ImageIcon,
 } from 'lucide-react'
 
@@ -22,7 +23,7 @@ type AnyResolver = any
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const profileSchema = z.object({
-  display_name: z.string().min(2, 'Mindestens 2 Zeichen').max(50),
+  display_name: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(50),
   bio: z.string().max(500, 'Max. 500 Zeichen').optional(),
 })
 
@@ -114,20 +115,59 @@ export default function CreatorOnboardingPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [categoryError, setCategoryError] = useState('')
 
+  const [savingStep, setSavingStep] = useState(false)
+  const [setupError, setSetupError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [missing, setMissing] = useState<string[]>([])
+
+  function restore(profile: CoachSetupProfile) {
+    setCreatorId(profile.id)
+    setDisplayName(profile.display_name)
+    setStep(profile.onboarding_step)
+    setSelectedCategories(profile.categories.length ? profile.categories : profile.category ? [profile.category] : [])
+    profileForm.reset({ display_name: profile.display_name, bio: profile.bio ?? '' })
+    setAvatarPreview(profile.avatar_url)
+    setBannerPreview(profile.banner_url)
+  }
+
   useEffect(() => {
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser()
-      // Hard redirect — same race as buyer onboarding: router.push() after await
-      // while Supabase fires SIGNED_IN events breaks the Next.js 16 / React 19 router.
-      if (!user) { window.location.href = '/login'; return }
-      const { data: existing } = await supabase
-        .from('creator_profiles').select('id').eq('user_id', user.id).maybeSingle()
-      if (existing) { window.location.href = '/creator'; return }
-      setChecking(false)
+      try {
+        const response = await fetch('/api/creator/onboarding', { cache: 'no-store' })
+        if (response.status === 401) { window.location.href = '/login?redirect=/creator/onboarding'; return }
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error)
+        if (result.profile?.is_published) { window.location.href = '/creator'; return }
+        if (result.profile) restore(result.profile)
+        setMissing(result.missing ?? [])
+      } catch { setLoadError('Deine gespeicherte Einrichtung konnte nicht geladen werden. Bitte lade die Seite neu.') }
+      finally { setChecking(false) }
     }
     check()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function saveStep(expectedStep: number, data: Record<string, unknown> = {}) {
+    setSavingStep(true)
+    setSetupError('')
+    try {
+      const response = await fetch('/api/creator/onboarding', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expectedStep === 5 ? { step: 5, publish: true } : { step: expectedStep, data }),
+      })
+      if (response.status === 401) { window.location.href = '/login?redirect=/creator/onboarding'; return false }
+      const result = await response.json()
+      setMissing(result.missing ?? [])
+      if (!response.ok) throw new Error(result.error)
+      restore(result.profile)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      if (result.profile.is_published) { router.push('/creator'); router.refresh() }
+      return true
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Speichern fehlgeschlagen. Bitte versuche es erneut.')
+      return false
+    } finally { setSavingStep(false) }
+  }
 
   // ── Step 1: Profile ────────────────────────────────────────────────────────
 
@@ -143,27 +183,7 @@ export default function CreatorOnboardingPage() {
       return
     }
     setCategoryError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/login'; return }
-
-    const slug = slugify(data.display_name) + '-' + Math.random().toString(36).slice(2, 6)
-    const { data: creator, error } = await supabase
-      .from('creator_profiles')
-      .insert({
-        user_id: user.id,
-        display_name: data.display_name,
-        slug,
-        bio: data.bio ?? null,
-        category: selectedCategories[0],
-        categories: selectedCategories,
-      })
-      .select('id')
-      .single()
-
-    if (error) { setProfileError('Fehler beim Erstellen des Profils. Bitte versuche es erneut.'); return }
-    setCreatorId(creator.id)
-    setDisplayName(data.display_name)
-    setStep(2)
+    await saveStep(1, { ...data, categories: selectedCategories })
   }
 
   // ── Step 2: Images ─────────────────────────────────────────────────────────
@@ -193,28 +213,26 @@ export default function CreatorOnboardingPage() {
   async function uploadImage(file: File, path: string): Promise<string> {
     const { error } = await supabase.storage
       .from('profile-images').upload(path, file, { upsert: true, contentType: file.type })
-    console.log('Storage upload error:', error)
     if (error) throw error
     const { data } = supabase.storage.from('profile-images').getPublicUrl(path)
     return `${data.publicUrl}?t=${Date.now()}`
   }
 
   async function submitImages() {
-    if (!avatarFile && !bannerFile) { setStep(3); return }
+    if (!avatarFile && !bannerFile) { await saveStep(2); return }
     setUploadingImages(true)
     setImageError('')
     try {
       const updates: Record<string, string> = {}
       if (avatarFile) updates.avatar_url = await uploadImage(avatarFile, `${creatorId}/avatar`)
       if (bannerFile) updates.banner_url = await uploadImage(bannerFile, `${creatorId}/banner`)
-      await supabase.from('creator_profiles').update(updates).eq('id', creatorId)
+      await saveStep(2, updates)
     } catch {
       setImageError('Upload fehlgeschlagen. Bitte versuche es erneut.')
       setUploadingImages(false)
       return
     }
     setUploadingImages(false)
-    setStep(3)
   }
 
   // ── Step 3: Tier ───────────────────────────────────────────────────────────
@@ -227,17 +245,7 @@ export default function CreatorOnboardingPage() {
 
   async function submitTier(data: TierData) {
     setTierError('')
-    const { error } = await supabase.from('subscription_tiers').insert({
-      creator_id: creatorId,
-      name: data.name,
-      description: data.description ?? null,
-      price_monthly: data.price_monthly,
-      features: [],
-      is_active: true,
-    })
-    if (error) { setTierError('Fehler beim Erstellen der Preisstufe.'); return }
-    setTierCreated(true)
-    setStep(4)
+    if (await saveStep(3, data)) setTierCreated(true)
   }
 
   // ── Step 4: Product ────────────────────────────────────────────────────────
@@ -251,19 +259,7 @@ export default function CreatorOnboardingPage() {
 
   async function submitProduct(data: ProductData) {
     setProductError('')
-    const { error } = await supabase.from('products').insert({
-      creator_id: creatorId,
-      title: data.title,
-      description: data.description ?? null,
-      type: data.type,
-      price: data.price,
-      file_url: null,
-      thumbnail_url: null,
-      is_published: false,
-    })
-    if (error) { setProductError('Fehler beim Erstellen des Produkts.'); return }
-    setProductCreated(true)
-    setStep(5)
+    if (await saveStep(4, data)) setProductCreated(true)
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -276,7 +272,9 @@ export default function CreatorOnboardingPage() {
     )
   }
 
-  const totalSteps = STEPS.length   // 4
+  if (loadError) return <div className="max-w-lg mx-auto p-6" role="alert"><p>{loadError}</p><Button className="mt-4" onClick={() => window.location.reload()}>Erneut laden</Button></div>
+
+  const totalSteps = STEPS.length
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-50 px-4 py-10">
@@ -293,18 +291,23 @@ export default function CreatorOnboardingPage() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Coach-Profil einrichten</h1>
           {step <= totalSteps && (
             <p className="text-gray-500 mt-1.5 text-sm">
-              Schritt {step} von {totalSteps}
+              Schritt {step} von {totalSteps}: {STEPS[step - 1]?.label}
             </p>
           )}
         </div>
 
+        <p className="text-center text-sm text-gray-500 mb-5">Entwurf · Noch nicht öffentlich. Jeder abgeschlossene Schritt wird gespeichert.</p>
+        <div className="h-1.5 bg-gray-200 rounded-full mb-4" role="progressbar" aria-label="Einrichtung" aria-valuemin={0} aria-valuemax={4} aria-valuenow={Math.min(step - 1, 4)}>
+          <div className="h-full bg-green-600 rounded-full" style={{ width: `${Math.min(step - 1, 4) * 25}%` }} />
+        </div>
         {step <= totalSteps && <Stepper current={step} />}
+        {setupError && <p role="alert" className="bg-red-50 text-red-700 rounded-xl p-4 mb-4 text-sm">{setupError}{missing.length > 0 && <span className="block mt-2">Noch offen: {missing.join(', ')}</span>}</p>}
 
         {/* ── Step 1: Profile Info ── */}
         {step === 1 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-slide-up">
             <h2 className="font-semibold text-gray-900 mb-1">Profilinformationen</h2>
-            <p className="text-sm text-gray-500 mb-5">Diese Angaben erscheinen auf deinem öffentlichen Coach-Profil.</p>
+            <p className="text-sm text-gray-500 mb-5">Diese Angaben werden erst nach deiner Veröffentlichung öffentlich.</p>
             <form onSubmit={profileForm.handleSubmit(submitProfile)} className="space-y-4">
               <Input
                 label="Coach-Name"
@@ -391,11 +394,11 @@ export default function CreatorOnboardingPage() {
               </div>
             )}
 
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(3)}>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button type="button" variant="outline" className="flex-1" disabled={savingStep || uploadingImages} onClick={() => saveStep(2)}>
                 Überspringen
               </Button>
-              <Button type="button" className="flex-1" loading={uploadingImages} onClick={submitImages}>
+              <Button type="button" className="flex-1" loading={uploadingImages || savingStep} onClick={submitImages}>
                 {avatarFile || bannerFile ? 'Hochladen & Weiter' : 'Weiter'}
                 {!uploadingImages && <ChevronRight className="h-4 w-4" />}
               </Button>
@@ -438,8 +441,8 @@ export default function CreatorOnboardingPage() {
                   {tierError}
                 </div>
               )}
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(4)}>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button type="button" variant="outline" className="flex-1" disabled={savingStep} onClick={() => saveStep(3)}>
                   Überspringen
                 </Button>
                 <Button type="submit" className="flex-1" loading={tierForm.formState.isSubmitting}>
@@ -507,8 +510,8 @@ export default function CreatorOnboardingPage() {
                   {productError}
                 </div>
               )}
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(5)}>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button type="button" variant="outline" className="flex-1" disabled={savingStep} onClick={() => saveStep(4)}>
                   Überspringen
                 </Button>
                 <Button type="submit" className="flex-1" loading={productForm.formState.isSubmitting}>
@@ -535,24 +538,17 @@ export default function CreatorOnboardingPage() {
               {productCreated
                 ? 'Dein erstes Produkt wurde als Entwurf gespeichert — lade jetzt die Datei hoch und veröffentliche es.'
                 : tierCreated
-                ? 'Deine erste Preisstufe ist aktiv — Kunden können jetzt abonnieren.'
-                : 'Erstelle jetzt Produkte und richte deine Preisstufen ein.'}
+                ? 'Deine erste Preisstufe ist gespeichert und wird erst mit deinem Profil öffentlich.'
+                : 'Dein Profil ist bereit zur Veröffentlichung. Angebote kannst du später erstellen.'}
             </p>
 
+            <p className="text-sm text-gray-500 mb-6">Du kannst dein Profil jetzt veröffentlichen. Bezahlte Angebote benötigen zusätzlich ein auszahlungsbereites Stripe-Konto.</p>
+            {missing.length > 0 && <p className="text-sm text-red-700 mb-4">Noch offen: {missing.join(', ')}</p>}
             <div className="space-y-3">
-              <Button className="w-full" size="lg" onClick={() => { router.push('/creator'); router.refresh() }}>
-                Zum Dashboard
+              <Button className="w-full" size="lg" loading={savingStep} onClick={() => saveStep(5)}>
+                Profil veröffentlichen
               </Button>
-              {productCreated && (
-                <Button variant="outline" className="w-full" onClick={() => router.push('/creator/products')}>
-                  Produkt fertigstellen
-                </Button>
-              )}
-              {!tierCreated && !productCreated && (
-                <Button variant="outline" className="w-full" onClick={() => router.push('/creator/settings/tiers')}>
-                  <Plus className="h-4 w-4" /> Abo-Preisstufe erstellen
-                </Button>
-              )}
+              <Link href="/creator" className="block text-sm text-gray-500 underline">Als Entwurf speichern und später fortsetzen</Link>
             </div>
           </div>
         )}

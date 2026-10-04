@@ -12,6 +12,7 @@ export function connectReadinessFixture({ failure = null, accountId = 'acct_synt
   return {
     ConnectReadinessError: SyntheticConnectReadinessError,
     configuredStripeLivemode: () => false,
+    async requirePublishedCoach() {},
     async requirePayoutReadyCoach(service, creatorId) {
       onCheck(service, creatorId)
       if (failure) throw new SyntheticConnectReadinessError(failure.code, failure.status)

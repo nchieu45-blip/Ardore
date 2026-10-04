@@ -170,7 +170,7 @@ async function eventsFor(saved, type) {
 async function tests() {
   foreign = await syntheticUser('buyer')
   coach = await check(service.from('creator_profiles').insert({ user_id: coachActor.id,
-    display_name: 'Synthetic lifecycle verification', slug: run }).select('id').single())
+    display_name: 'Synthetic lifecycle verification', slug: run, categories: ['yoga'], category: 'yoga', is_published: true, onboarding_step: 5 }).select('id').single())
   await check(service.from('coaching_offers').insert({ creator_id: coach.id, is_enabled: true, price_cents: 500,
     duration_minutes: 5, min_notice_hours: 0, cancellation_policy_hours: 24 }))
   await check(service.from('availability_slots').insert(Array.from({ length: 7 }, (_, day_of_week) => ({

@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { berlinDateTimeToIso } from '@/lib/coaching-slots'
 import { COACHING_RESERVATION_MINUTES, startOrResumeCoachingCheckout } from '@/lib/coaching-checkout'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
-import { ConnectReadinessError, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
+import { ConnectReadinessError, requirePublishedCoach, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 
 export async function POST(req: NextRequest) {
   const payload = await req.json().catch(() => null)
@@ -48,6 +48,13 @@ export async function POST(req: NextRequest) {
   }
   const resumed = await resumeRequest()
   if (resumed) return resumed
+
+  try {
+    await requirePublishedCoach(service, creatorId)
+  } catch (error) {
+    if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Coach-Profil momentan nicht verfügbar.' }, { status: 503 })
+  }
 
   let isSubscriptionSession = false
   let resolvedSubscriptionId: string | null = null

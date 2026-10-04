@@ -1051,7 +1051,7 @@ try {
   }
   const buyer = await actor('buyer'), coachActor = await actor('creator')
   coach = await check(service.from('creator_profiles').insert({ user_id: coachActor.id,
-    display_name: 'Synthetic settlement verification', slug: tag }).select('id').single())
+    display_name: 'Synthetic settlement verification', slug: tag, categories: ['yoga'], category: 'yoga', is_published: true, onboarding_step: 5 }).select('id').single())
   fixture = await createSyntheticConnectFixture({ stripe, testRun: run,
     onProgress: value => console.log(JSON.stringify({ phase: 'readiness', ...value })) })
   const ownedAccount = await stripe.v2.core.accounts.retrieve(fixture.accountId)

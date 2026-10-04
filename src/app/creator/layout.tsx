@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { CoachSetupStatus } from '@/components/creator/CoachSetupStatus'
 import CreatorShell from '@/components/creator/CreatorShell'
 
 export default async function CreatorLayout({
@@ -9,23 +10,24 @@ export default async function CreatorLayout({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  let creatorSlug: string | null = null
+  let creator: import('@/lib/coach-publication').CoachSetupProfile | null = null
   if (user) {
     const { data } = await supabase
       .from('creator_profiles')
-      .select('slug')
+      .select('id,slug,display_name,bio,category,categories,avatar_url,banner_url,is_published,onboarding_step')
       .eq('user_id', user.id)
       .maybeSingle()
-    creatorSlug = data?.slug ?? null
+    creator = data
   }
 
   // No creator profile yet (onboarding flow) → render without sidebar
-  if (!creatorSlug) {
+  if (!creator) {
     return <>{children}</>
   }
 
   return (
-    <CreatorShell creatorSlug={creatorSlug}>
+    <CreatorShell creatorSlug={creator.is_published ? creator.slug : null}>
+      <CoachSetupStatus profile={creator} />
       {children}
     </CreatorShell>
   )

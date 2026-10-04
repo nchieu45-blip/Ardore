@@ -48,6 +48,7 @@ async function searchCoaches(category: string) {
   const { data } = await supabase
     .from('creator_profiles')
     .select('id, display_name, bio, category, categories, avatar_url, slug')
+    .eq('is_published', true)
     .or(`categories.cs.{"${category}"},category.eq.${category}`)
     .limit(3)
   return data ?? []

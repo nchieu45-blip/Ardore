@@ -152,6 +152,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { data: c } = await supabase
     .from('creator_profiles')
     .select('display_name, bio, avatar_url')
+    .eq('is_published', true)
     .eq('slug', slug)
     .single()
 
@@ -180,6 +181,7 @@ export default async function CreatorProfilePage({
   const { data: creator } = await supabase
     .from('creator_profiles')
     .select('*')
+    .eq('is_published', true)
     .eq('slug', slug)
     .single()
 

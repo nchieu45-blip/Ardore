@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
-import { ConnectReadinessError, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
+import { ConnectReadinessError, requirePublishedCoach, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
 
 export async function POST(req: NextRequest) {
@@ -36,6 +36,14 @@ export async function POST(req: NextRequest) {
   // published product. RLS can otherwise silently omit inaccessible IDs.
   if (!products || products.length !== productIds.length || productIds.some(id => !products.some(p => p.id === id))) {
     return NextResponse.json({ error: 'Produkte nicht gefunden' }, { status: 404 })
+  }
+
+  try {
+    const visibilityService = await createServiceClient()
+    for (const id of new Set(products.map(product => product.creator_id))) await requirePublishedCoach(visibilityService, id)
+  } catch (error) {
+    if (error instanceof ConnectReadinessError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: 'Coach-Profil momentan nicht verfügbar.' }, { status: 503 })
   }
 
   const hasDemo = products.some(p => {

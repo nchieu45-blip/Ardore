@@ -15,6 +15,12 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = await createClient()
+  // Respect draft privacy before privileged availability/recovery reads.
+  // Owners and existing booking participants retain their authorized context.
+  const { data: visibleCoach, error: visibilityError } = await supabase.from('creator_profiles')
+    .select('id').eq('id', creatorId).maybeSingle()
+  if (visibilityError) return NextResponse.json({ error: 'Coach-Profil konnte nicht geprüft werden.' }, { status: 503 })
+  if (!visibleCoach) return NextResponse.json({ error: 'Coach nicht verfügbar.' }, { status: 404 })
   let excludedBookingDuration: number | null = null
   if (excludeBookingId) {
     const { data: { user } } = await supabase.auth.getUser()

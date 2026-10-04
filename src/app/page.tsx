@@ -19,17 +19,20 @@ export default async function MarketplacePage() {
       .from('products')
       .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, show_sales_count, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
       .eq('is_published', true)
+      .eq('creator_profiles.is_published', true)
       .order('created_at', { ascending: false }),
     supabase
       .from('coaching_offers')
-      .select('creator_id, price_cents, duration_minutes, creator_profiles(id, slug, display_name, avatar_url, category, categories)')
+      .select('creator_id, price_cents, duration_minutes, creator_profiles!inner(id, slug, display_name, avatar_url, category, categories)')
       .eq('is_enabled', true)
+      .eq('creator_profiles.is_published', true)
       .order('price_cents', { ascending: true })
       .limit(20),
     supabase
       .from('subscription_tiers')
-      .select('price_monthly, creator_id, creator_profiles(id, slug, display_name, avatar_url, category, categories)')
+      .select('price_monthly, creator_id, creator_profiles!inner(id, slug, display_name, avatar_url, category, categories)')
       .eq('is_active', true)
+      .eq('creator_profiles.is_published', true)
       .order('price_monthly', { ascending: true })
       .limit(200),
   ])
