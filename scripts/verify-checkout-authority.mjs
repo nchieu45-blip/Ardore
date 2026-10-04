@@ -31,7 +31,7 @@ const makeDiscount = creatorId => ({
   target_product_id: null, target_tier_id: null,
 })
 
-function productFixture(products, discount = null, readinessFailure = null) {
+function productFixture(products, discount = null, readinessFailure = null, owned = [], ownershipError = null) {
   const sessions = []
   const sessionOptions = []
   const orders = []
@@ -40,7 +40,7 @@ function productFixture(products, discount = null, readinessFailure = null) {
   const database = {
     auth: { getUser: async () => ({ data: { user: buyer } }) },
     from(table) {
-      assert.ok(['products', 'discounts'].includes(table))
+      assert.ok(['products', 'discounts', 'purchases'].includes(table))
       const filters = []
       return {
         select() { return this },
@@ -51,14 +51,15 @@ function productFixture(products, discount = null, readinessFailure = null) {
         then(resolve, reject) {
           const rows = table === 'products'
             ? products.filter(product => filters.every(([key, value]) => Array.isArray(value) ? value.includes(product[key]) : product[key] === value))
-            : []
-          return Promise.resolve({ data: rows, error: null }).then(resolve, reject)
+            : table === 'purchases' ? owned.filter(purchase => filters.every(([key, value]) => Array.isArray(value) ? value.includes(purchase[key]) : purchase[key] === value)) : []
+          return Promise.resolve({ data: rows, error: table === 'purchases' ? ownershipError : null }).then(resolve, reject)
         },
       }
     },
   }
   const route = loadRoute('../src/app/api/stripe/checkout/route.ts', {
     '@/lib/supabase/server': { createClient: async () => database, createServiceClient: async () => database },
+    '@/lib/purchases': loadRoute('../src/lib/purchases.ts', {}),
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (data, options) => {
       sessions.push(data); sessionOptions.push(options)
       return { id: 'cs_synthetic', url: 'https://checkout.stripe.com/synthetic' }
@@ -84,6 +85,29 @@ test('missing or inaccessible product IDs cannot enter paid entitlement metadata
   const response = await state.run({ items: [{ productId: 'visible' }, { productId: 'hidden' }] })
   assert.equal(response.status, 404)
   assert.deepEqual(state.sessions, [])
+})
+
+test('owned permanent digital products are rejected before another checkout or settlement order is created', async () => {
+  const state = productFixture([makeProduct('owned', 'coach-a', 29)], null, null,
+    [{ product_id: 'owned', buyer_id: buyer.id, payment_status: 'paid', stripe_livemode: false }])
+  const response = await state.run({ productId: 'owned' })
+  assert.equal(response.status, 409); assert.deepEqual((await response.json()).ownedProductIds, ['owned'])
+  assert.equal(state.sessions.length, 0); assert.equal(state.orders.length, 0)
+})
+test('ownership lookup failure fails closed, while refunded or foreign purchases do not block legitimate checkout', async () => {
+  const failed = productFixture([makeProduct('owned', 'coach-a', 29)], null, null, [], { code: '08006' })
+  assert.equal((await failed.run({ productId: 'owned' })).status, 503); assert.equal(failed.sessions.length, 0)
+  for (const changes of [{ payment_status: 'refunded' }, { buyer_id: 'unrelated' }, { stripe_livemode: null }]) {
+    const state = productFixture([makeProduct('owned', 'coach-a', 29)], null, null,
+      [{ product_id: 'owned', buyer_id: buyer.id, payment_status: 'paid', stripe_livemode: false, ...changes }])
+    assert.equal((await state.run({ productId: 'owned' })).status, 200)
+  }
+})
+test('checkout preserves prices and redirects through an owned session identifier instead of a success assertion', async () => {
+  const state = productFixture([makeProduct('product', 'coach-a', 29)])
+  assert.equal((await state.run({ productId: 'product' })).status, 200)
+  assert.equal(state.sessions[0].success_url, 'https://www.ardore-health.com/buyer/library?session_id={CHECKOUT_SESSION_ID}')
+  assert.equal(state.sessions[0].cancel_url, 'https://www.ardore-health.com/buyer/library?checkout=cancel')
 })
 
 test('unpublished owner products cannot be smuggled into checkout metadata', async () => {

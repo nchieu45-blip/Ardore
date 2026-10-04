@@ -121,6 +121,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     ...r, profiles: { full_name: r.reviewer_name, avatar_url: r.reviewer_avatar_url },
   }))
   const hasPurchased = !!purchaseRes.data
+  const { data: testPurchase } = user && process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_')
+    ? await supabase.from('purchases').select('id').eq('product_id', id).eq('buyer_id', user.id)
+      .eq('payment_status', VALID_PURCHASE_STATUS).eq('stripe_livemode', false).maybeSingle()
+    : { data: null }
+  const alreadyOwned = hasPurchased || !!testPurchase
   const related = (relatedRes.data ?? []) as { id: string; title: string; type: ProductType; price: number; thumbnail_url: string | null }[]
   const currentProfile = profileRes.data
   const salesCount = Number((salesRes.data?.[0] as { sales_count: number } | undefined)?.sales_count ?? 0)
@@ -268,11 +273,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   <p className="text-xs text-gray-400 mt-0.5">inkl. MwSt. · Einmalzahlung</p>
                 </div>
 
-                {hasPurchased ? (
-                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-green-50 rounded-xl border border-green-200 text-green-700 font-semibold text-sm">
+                {alreadyOwned ? (
+                  <Link href="/buyer/library" className="flex items-center justify-center gap-2 w-full py-3 bg-green-50 rounded-xl border border-green-200 text-green-700 font-semibold text-sm">
                     <Check className="h-4 w-4" />
-                    Bereits gekauft
-                  </div>
+                    {testPurchase ? 'Testkauf in deiner Bibliothek' : 'In deiner Bibliothek'}
+                  </Link>
                 ) : (
                   <BuyButtonLarge
                     productId={id}

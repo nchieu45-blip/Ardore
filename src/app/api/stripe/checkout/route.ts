@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 import { ConnectReadinessError, requirePublishedCoach, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
+import { PERMANENT_DIGITAL_TYPES, VALID_PURCHASE_STATUS } from '@/lib/purchases'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -12,7 +13,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
   }
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Ungültiger Warenkorb' }, { status: 400 })
 
   // Support both legacy { productId } and new { items: [{ productId }], discountId? }
   const rawItems: { productId: string }[] = body.items
@@ -20,7 +22,8 @@ export async function POST(req: NextRequest) {
   const discountId: string | null = body.discountId ?? null
   const withdrawalConsent: boolean = body.withdrawalConsent === true
 
-  if (rawItems.length === 0) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0 || rawItems.length > 50
+    || rawItems.some(item => !item || typeof item.productId !== 'string')) {
     return NextResponse.json({ error: 'Keine Produkte' }, { status: 400 })
   }
 
@@ -36,6 +39,17 @@ export async function POST(req: NextRequest) {
   // published product. RLS can otherwise silently omit inaccessible IDs.
   if (!products || products.length !== productIds.length || productIds.some(id => !products.some(p => p.id === id))) {
     return NextResponse.json({ error: 'Produkte nicht gefunden' }, { status: 404 })
+  }
+
+  const permanentIds = products.filter(product => (PERMANENT_DIGITAL_TYPES as readonly string[]).includes(product.type)).map(product => product.id)
+  if (permanentIds.length) {
+    const { data: owned, error } = await supabase.from('purchases').select('product_id')
+      .eq('buyer_id', user.id).eq('payment_status', VALID_PURCHASE_STATUS)
+      .in('product_id', permanentIds)
+      .in('stripe_livemode', configuredStripeLivemode() ? [true] : [true, false])
+    if (error) return NextResponse.json({ error: 'Deine Käufe konnten nicht geprüft werden. Bitte versuche es erneut.' }, { status: 503 })
+    if (owned?.length) return NextResponse.json({ error: 'Dieses digitale Produkt ist bereits in deiner Bibliothek.',
+      ownedProductIds: owned.map(row => row.product_id) }, { status: 409 })
   }
 
   try {
@@ -193,8 +207,8 @@ export async function POST(req: NextRequest) {
     customer_email: user.email,
     line_items: finalLineItems,
     metadata,
-    success_url: `${appUrl}/buyer/library?success=1`,
-    cancel_url: `${appUrl}/marketplace`,
+    success_url: `${appUrl}/buyer/library?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl}/buyer/library?checkout=cancel`,
     ...(finalTotalCents > 0 ? { payment_intent_data: {
       metadata,
       transfer_group: `ardore-order-${order.id}`,

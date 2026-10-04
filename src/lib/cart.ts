@@ -18,7 +18,8 @@ const _listeners = new Set<Listener>()
 function _load(): CartItem[] {
   if (typeof window === 'undefined') return []
   try {
-    return JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
+    const value = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
+    return Array.isArray(value) ? value.filter(item => item && typeof item.id === 'string') : []
   } catch {
     return []
   }
@@ -40,6 +41,13 @@ export function removeFromCart(id: string) {
   _save(_load().filter(i => i.id !== id))
 }
 
+export function removePurchasedFromCart(productIds: string[]) {
+  const purchased = new Set(productIds.filter(id => typeof id === 'string'))
+  const items = _load()
+  const remaining = items.filter(item => !purchased.has(item.id))
+  if (remaining.length !== items.length) _save(remaining)
+}
+
 export function clearCart() {
   _save([])
 }
@@ -55,7 +63,9 @@ export function getCart(): CartItem[] {
 export function subscribeCart(fn: Listener): () => void {
   _listeners.add(fn)
   fn(_load())
-  return () => _listeners.delete(fn)
+  const onStorage = (event: StorageEvent) => { if (event.key === CART_KEY || event.key === null) fn(_load()) }
+  if (typeof window !== 'undefined') window.addEventListener('storage', onStorage)
+  return () => { _listeners.delete(fn); if (typeof window !== 'undefined') window.removeEventListener('storage', onStorage) }
 }
 
 export function openCart() {

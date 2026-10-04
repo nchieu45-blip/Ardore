@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ShoppingCart, Check } from 'lucide-react'
-import { addToCart, isInCart, openCart, type CartItem } from '@/lib/cart'
+import { addToCart, openCart, subscribeCart, type CartItem } from '@/lib/cart'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,7 @@ export default function AddToCartButton({ item, size = 'md', className, isDemo =
   const [inCart, setInCart] = useState(false)
 
   useEffect(() => {
-    setInCart(isInCart(item.id)) // eslint-disable-line react-hooks/set-state-in-effect
+    return subscribeCart(items => setInCart(items.some(candidate => candidate.id === item.id)))
   }, [item.id])
 
   function handleClick() {

@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import { X, Trash2, ShoppingCart, ArrowRight, Package, Tag, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
 import {
   subscribeCart, subscribeCartOpen, removeFromCart, clearCart, type CartItem,
+  removePurchasedFromCart,
 } from '@/lib/cart'
 import { formatCurrency } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 const TYPE_LABELS: Record<string, string> = {
   pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild',
@@ -41,6 +43,24 @@ export default function CartDrawer() {
     const unsubCart = subscribeCart(setItems)
     const unsubOpen = subscribeCartOpen(() => setOpen(true))
     return () => { unsubCart(); unsubOpen() }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    let generation = 0
+    async function synchronize() {
+      const requestGeneration = ++generation
+      try {
+        const response = await fetch('/api/purchases', { cache: 'no-store' })
+        if (!response.ok) return
+        const data = await response.json()
+        if (active && requestGeneration === generation && Array.isArray(data.ownedProductIds)) removePurchasedFromCart(data.ownedProductIds)
+      } catch { /* A network failure must preserve the cart. */ }
+    }
+    void synchronize()
+    window.addEventListener('focus', synchronize)
+    const { data: { subscription } } = createClient().auth.onAuthStateChange(() => { void synchronize() })
+    return () => { active = false; window.removeEventListener('focus', synchronize); subscription.unsubscribe() }
   }, [])
 
   useEffect(() => {
@@ -189,9 +209,10 @@ export default function CartDrawer() {
       if (res.status === 401) { setOpen(false); router.push('/login?redirect=' + encodeURIComponent(window.location.pathname)); return }
       const data: unknown = await res.json().catch(() => null)
       const result = data && typeof data === 'object'
-        ? data as { url?: unknown; error?: unknown }
+        ? data as { url?: unknown; error?: unknown; ownedProductIds?: string[] }
         : null
       if (!res.ok) {
+        if (res.status === 409 && Array.isArray(result?.ownedProductIds)) removePurchasedFromCart(result.ownedProductIds)
         setCheckoutError(typeof result?.error === 'string' && result.error.trim()
           ? result.error
           : 'Der Checkout konnte nicht gestartet werden. Bitte versuche es erneut.')

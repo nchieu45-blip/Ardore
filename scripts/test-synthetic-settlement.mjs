@@ -565,6 +565,107 @@ async function deployedTests(buyer) {
   pass('deployed paid subscription initial invoice and genuine signed webhook create one entitlement and correct settlement')
 }
 
+async function purchaseLifecycleTests(buyer) {
+  const other = await actor('buyer')
+  const productRows = await check(service.from('products').insert(['purchased', 'unrelated', 'canceled', 'failed'].map(name => ({
+    creator_id: coach.id, title: `Synthetic purchase ${name}`, description: 'Disposable Stripe TEST purchase lifecycle fixture',
+    type: 'pdf', price: 5, is_published: true,
+  }))).select('id,title'))
+  productRows.forEach(row => products.add(row.id))
+  const [product, unrelated, canceled, failed] = productRows
+  async function status(id, who = buyer) { return productionRequest(who, `/api/stripe/purchase-status?session_id=${id}`, undefined, 'GET') }
+  async function checkout(productId) {
+    const created = await productionRequest(buyer, '/api/stripe/checkout', { productId, withdrawalConsent: true })
+    const id = new URL(created.url).pathname.split('/').at(-1)
+    const row = await stripe.checkout.sessions.retrieve(id)
+    assert.equal(row.livemode, false); assert.equal(row.metadata.buyer_id, buyer.id); assert.equal(row.metadata.creator_id, coach.id)
+    sessions.add(id); orders.add(row.metadata.ardore_order_id)
+    await stripe.checkout.sessions.update(id, { metadata: { ardore_synthetic_run: run } })
+    await adoptCheckoutCatalog(id)
+    return { id, url: created.url }
+  }
+  const purchase = await checkout(product.id)
+  assert.equal((await status(purchase.id)).state, 'awaiting_payment')
+  pass('unpaid deployed Checkout has no completed purchase or entitlement')
+  const payment = await completeProductionCheckout(purchase.url, buyer)
+  assert.equal((await status(purchase.id)).state, 'completed')
+  assert.deepEqual((await status(purchase.id)).productIds, [product.id])
+  const foreign = await fetch(`${base}/api/stripe/purchase-status?session_id=${purchase.id}`, { headers: { Cookie: other.cookie() } })
+  assert.equal(foreign.status, 404)
+  pass('genuine signed deployed TEST webhook completes exactly one owner-visible purchase')
+  await library.reconcileSettlementCheckout({ service, sessionId: purchase.id })
+  await library.reconcileSettlementCheckout({ service, sessionId: purchase.id })
+  const rows = await check(service.from('purchases').select('id').eq('buyer_id', buyer.id).eq('product_id', product.id))
+  assert.equal(rows.length, 1); assert.equal((await transferFor(payment.paid)).length, 1)
+  pass('duplicate fulfillment observation creates no duplicate entitlement or transfer')
+  const repeated = await fetch(`${base}/api/stripe/checkout`, { method: 'POST', headers: { Cookie: buyer.cookie(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId: product.id, withdrawalConsent: true }) })
+  assert.equal(repeated.status, 409)
+  pass('deployed repeat digital purchase is blocked before a new checkout is created')
+  const expired = await checkout(canceled.id)
+  await stripe.checkout.sessions.expire(expired.id)
+  assert.equal((await status(expired.id)).state, 'canceled')
+  assert.equal((await check(service.from('purchases').select('id').eq('buyer_id', buyer.id).eq('product_id', canceled.id))).length, 0)
+  pass('expired/canceled TEST checkout never grants a library item')
+  const rejected = await checkout(failed.id)
+  const decline = await stripe.paymentMethods.create({ type: 'card', card: { token: 'tok_chargeDeclined' } })
+  try {
+    await stripe.rawRequest('GET', `/v1/payment_pages/${rejected.id}`)
+    await stripe.rawRequest('POST', `/v1/payment_pages/${rejected.id}/confirm`, { payment_method: decline.id, expected_amount: 500 })
+    assert.fail('Declining TEST card must not complete payment')
+  } catch (error) { assert.equal(error.type, 'StripeCardError') }
+  await discoverCheckoutObjects(rejected.id)
+  assert.ok(['payment_failed', 'awaiting_payment'].includes((await status(rejected.id)).state))
+  assert.equal((await check(service.from('purchases').select('id').eq('buyer_id', buyer.id).eq('product_id', failed.id))).length, 0)
+  pass('declined real Stripe TEST payment creates no entitlement')
+
+  const playwrightPath = process.env.ARDORE_PLAYWRIGHT_MODULE
+  assert.ok(playwrightPath, 'Provide installed Playwright path for required mobile production verification')
+  const { chromium } = require(playwrightPath)
+  const browser = await chromium.launch({ headless: true, ...(process.env.ARDORE_CHROME_EXECUTABLE ? { executablePath: process.env.ARDORE_CHROME_EXECUTABLE } : {}) })
+  try {
+    for (const width of [375, 390]) {
+      const context = await browser.newContext({ viewport: { width, height: 844 } })
+      await context.addCookies(buyer.cookie().split('; ').map(pair => { const i = pair.indexOf('='); return { name: pair.slice(0, i), value: pair.slice(i + 1), domain: 'www.ardore-health.com', path: '/', secure: true, sameSite: 'Lax' } }))
+      await context.addInitScript(({ owned, extra, coachId, slug }) => {
+        if (!localStorage.getItem('ardore_fixture_cart_seeded')) {
+          const item = row => ({ id: row.id, title: row.title, type: 'pdf', price: 5, thumbnail_url: null, creatorId: coachId, creatorName: 'Synthetic verification', creatorSlug: slug })
+          localStorage.setItem('ardore_cart', JSON.stringify([item(owned), item(extra)])); localStorage.setItem('ardore_fixture_cart_seeded', '1')
+        }
+      }, { owned: product, extra: unrelated, coachId: coach.id, slug: tag })
+      const page = await context.newPage()
+      let probes = 0
+      await page.route('**/api/stripe/purchase-status?*', async route => {
+        probes += 1
+        if (probes <= 2) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ state: 'processing', productIds: [], testMode: true }) })
+        await route.continue()
+      })
+      await page.goto(`${base}/buyer/library?session_id=${purchase.id}`, { waitUntil: 'networkidle' })
+      await page.getByRole('heading', { name: 'Kauf wird verarbeitet' }).waitFor()
+      await page.getByRole('heading', { name: 'Kauf bestätigt' }).waitFor({ timeout: 30_000 })
+      assert.equal(await page.getByRole('heading', { name: product.title, exact: true }).count(), 1)
+      assert.equal(await page.getByText('Testkauf', { exact: true }).count(), 1)
+      assert.equal(await page.getByRole('button', { name: 'Herunterladen' }).count(), 0)
+      await page.waitForFunction(id => JSON.parse(localStorage.getItem('ardore_cart')).every(item => item.id !== id), product.id)
+      const cart = await page.evaluate(() => JSON.parse(localStorage.getItem('ardore_cart')))
+      assert.deepEqual(cart.map(item => item.id), [unrelated.id])
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      await page.reload({ waitUntil: 'networkidle' })
+      assert.deepEqual((await page.evaluate(() => JSON.parse(localStorage.getItem('ardore_cart')))).map(item => item.id), [unrelated.id])
+      // A logout must remove access; restored synthetic session must reload the
+      // same library while browser cart storage survives the account round-trip.
+      await context.clearCookies()
+      await page.goto(`${base}/buyer/library`, { waitUntil: 'networkidle' }); assert.ok(new URL(page.url()).pathname === '/login')
+      await context.addCookies(buyer.cookie().split('; ').map(pair => { const i = pair.indexOf('='); return { name: pair.slice(0, i), value: pair.slice(i + 1), domain: 'www.ardore-health.com', path: '/', secure: true, sameSite: 'Lax' } }))
+      await page.goto(`${base}/buyer/library`, { waitUntil: 'networkidle' })
+      assert.equal(await page.getByRole('heading', { name: product.title, exact: true }).count(), 1)
+      assert.deepEqual((await page.evaluate(() => JSON.parse(localStorage.getItem('ardore_cart')))).map(item => item.id), [unrelated.id])
+      await context.close()
+      pass(`production library, delayed-status UI, cart preservation and logout/login at ${width}px`)
+    }
+  } finally { await browser.close() }
+}
+
 async function partialRefundTests(buyer) {
   for (const timing of ['before', 'after']) {
     const ownedOrder = await order('products', buyer)
@@ -1059,7 +1160,8 @@ try {
   await stripe.v2.core.accounts.update(fixture.accountId, { metadata: { ...ownedAccount.metadata, ardore_creator_id: coach.id } },
     { idempotencyKey: `${tag}-coach-owner-v1` })
   await check(service.from('creator_profiles').update({ stripe_account_id: fixture.accountId }).eq('id', coach.id).eq('user_id', coachActor.id))
-  if (process.argv.includes('--deployed-flow')) await deployedTests(buyer)
+  if (process.argv.includes('--purchase-lifecycle-only')) await purchaseLifecycleTests(buyer)
+  else if (process.argv.includes('--deployed-flow')) await deployedTests(buyer)
   else if (process.argv.includes('--partial-only')) await partialRefundTests(buyer)
   else if (process.argv.includes('--compatibility-only')) await historicalDestinationTest(buyer)
   else if (process.argv.includes('--additional-only')) {
