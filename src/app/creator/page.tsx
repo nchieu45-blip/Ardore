@@ -85,6 +85,7 @@ export default async function CreatorDashboardPage() {
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center flex-shrink-0">
+            <Link href="/creator/calendar" className="rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-800 focus-visible:ring-2 focus-visible:ring-green-600">Kalender öffnen</Link>
             {creator.is_published && <Link href={`/creators/${creator.slug}`} target="_blank" rel="noopener noreferrer">
               <Button size="sm" variant="outline" className="w-full sm:w-auto">
                 <ExternalLink className="h-4 w-4" />

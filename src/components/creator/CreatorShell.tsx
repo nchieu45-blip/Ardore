@@ -26,6 +26,7 @@ interface NavItem {
 
 const PRIMARY_ITEMS: NavItem[] = [
   { label: 'Übersicht',      href: '/creator',                        icon: LayoutDashboard },
+  { label: 'Kalender',       href: '/creator/calendar',               icon: Calendar },
   { label: 'Produkte',       href: '/creator/products',               icon: Package },
   { label: 'Abos',           href: '/creator/settings/tiers',         icon: CreditCard },
   { label: '1:1 Coaching',   href: '/creator/settings/videocoaching', icon: Video },

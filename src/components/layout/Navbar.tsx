@@ -69,6 +69,7 @@ const CREATOR_MOBILE_GROUPS: CreatorMobileGroup[] = [
     Icon: MessageCircle,
     items: [
       { label: 'Buchungen',   href: '/creator/sessions' },
+      { label: 'Kalender',    href: '/creator/calendar' },
       { label: 'Nachrichten', href: '/creator/chat' },
     ],
   },

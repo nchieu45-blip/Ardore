@@ -74,6 +74,7 @@ export default async function CreatorSessionsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Buchungen</h1>
       </div>
       <p className="text-sm text-gray-500 mb-8">Deine 1:1 Videocoaching-Sessions</p>
+      <Link href="/creator/calendar" className="inline-block mb-6 rounded-lg border border-green-300 px-4 py-2 text-sm font-medium text-green-800 focus-visible:ring-2 focus-visible:ring-green-600">Kalender mit Verfügbarkeit öffnen →</Link>
 
       {/* Stats row */}
       {rows.length > 0 && (
@@ -142,7 +143,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
   const isAboSession = b.is_subscription_session
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
+    <div id={`booking-${b.id}`} className="scroll-mt-24 rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-2">

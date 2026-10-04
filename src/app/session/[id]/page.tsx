@@ -82,6 +82,10 @@ export default async function SessionPage({
         <ArrowLeft className="h-4 w-4" />
         {isCreator ? 'Meine Buchungen' : 'Meine Sessions'}
       </Link>
+      {isCreator && <div className="mb-5 flex flex-wrap gap-4 text-sm text-green-700">
+        <Link href="/creator/calendar" className="underline focus-visible:ring-2">Zum Kalender</Link>
+        {['confirmed', 'cancelled'].includes(b.status) && <Link href={`/creator/sessions#booking-${b.id}`} className="underline focus-visible:ring-2">Terminverwaltung: Verschieben, Stornieren oder Erstattung prüfen</Link>}
+      </div>}
 
       {/* Session info card */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 mb-6 shadow-sm">
