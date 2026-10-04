@@ -114,6 +114,7 @@ export default function RescheduleModal({ bookingId, creatorId, onClose, onSucce
         </div>
 
         <div className="p-5 space-y-5">
+          <p className="text-xs text-gray-500">Alle Terminzeiten: Europe/Berlin.</p>
           {/* Calendar */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -174,7 +175,7 @@ export default function RescheduleModal({ bookingId, creatorId, onClose, onSucce
           {/* Slot picker */}
           {selectedDate && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Uhrzeit wählen</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Uhrzeit wählen (Europe/Berlin)</p>
               {slotsLoading ? (
                 <div className="h-16 flex items-center justify-center">
                   <Loader2 className="h-4 w-4 text-green-600 animate-spin" />

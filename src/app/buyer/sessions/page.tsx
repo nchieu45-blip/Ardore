@@ -9,25 +9,9 @@ import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 import BookingPaymentActions, { BookingPaymentReconciliationStatus } from '@/components/BookingPaymentActions'
 
+import { BOOKING_STATUS_STYLES, bookingStatusLabel, bookingPaymentSummary, groupBookingsByTime } from '@/lib/booking-presentation'
+
 export const metadata: Metadata = { title: 'Meine Sessions' }
-
-const STATUS_LABELS: Record<string, string> = {
-  confirmed:  'Bestätigt',
-  cancelled:  'Abgesagt',
-  completed:  'Abgeschlossen',
-  pending_payment: 'Zahlung ausstehend',
-  payment_failed: 'Zahlung fehlgeschlagen',
-  expired: 'Reservierung abgelaufen',
-  refunded: 'Erstattet',
-  reversed: 'Zahlung rückgängig',
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  confirmed: 'bg-green-50 text-green-700 border-green-200',
-  cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
-  completed: 'bg-blue-50 text-blue-700 border-blue-200',
-  pending_payment: 'bg-amber-50 text-amber-700 border-amber-200',
-}
 
 interface BookingRow {
   id: string
@@ -93,8 +77,7 @@ export default async function BuyerSessionsPage({
     reviewMap.set(r.booking_id, { rating: r.rating, content: r.content })
   }
 
-  const current = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() + b.duration_minutes * 60_000 > now)
-  const other = rows.filter(b => !current.includes(b))
+  const { current, past } = groupBookingsByTime(rows, now)
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -145,11 +128,11 @@ export default async function BuyerSessionsPage({
               </div>
             </section>
           )}
-          {other.length > 0 && (
+          {past.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Weitere Buchungen</h2>
-              <div className="space-y-3 opacity-90">
-                {other.map(b => (
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Vergangen</h2>
+              <div className="space-y-3">
+                {past.map(b => (
                   <SessionCard
                     key={b.id}
                     booking={b}
@@ -187,13 +170,12 @@ function SessionCard({
     && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
   const isEnded      = endAt.getTime() < now && ['confirmed', 'completed'].includes(b.status)
   const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
-  const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const creator     = b.creator_profiles
   const isAboSession = b.is_subscription_session
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-2">
             {isLive && (
@@ -201,8 +183,8 @@ function SessionCard({
                 ● Live
               </span>
             )}
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[b.status] ?? ''}`}>
-              {STATUS_LABELS[b.status] ?? b.status}
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${BOOKING_STATUS_STYLES[b.status] ?? ''}`}>
+              {bookingStatusLabel(b.status)}
             </span>
           </div>
           {creator && (
@@ -217,16 +199,16 @@ function SessionCard({
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr · {b.duration_minutes} Min
+              {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr (Europe/Berlin) · {b.duration_minutes} Min
             </span>
           </div>
           {isAboSession ? (
             <span className="inline-flex items-center gap-1 mt-1 bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full">
               <Video className="h-3 w-3" />
-              Inklusiv (Abo)
+              {bookingPaymentSummary(b)}
             </span>
           ) : (
-            <p className="text-sm text-gray-400 mt-1">{price} €</p>
+            <p className="text-sm font-medium text-gray-700 mt-1">{bookingPaymentSummary(b)}</p>
           )}
           {!VIDEO_CALLS_ENABLED && b.status === 'confirmed' && (
             <p className="text-xs text-gray-500 mt-2">Den privaten Meeting-Link deines Coaches findest du in den Sessiondetails.</p>

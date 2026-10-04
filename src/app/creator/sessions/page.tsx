@@ -8,25 +8,9 @@ import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 import { BookingPaymentReconciliationStatus } from '@/components/BookingPaymentActions'
 
+import { BOOKING_STATUS_STYLES, bookingStatusLabel, bookingPaymentSummary, groupBookingsByTime } from '@/lib/booking-presentation'
+
 export const metadata: Metadata = { title: 'Meine Buchungen' }
-
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Bestätigt',
-  cancelled: 'Abgesagt',
-  completed: 'Abgeschlossen',
-  pending_payment: 'Zahlung ausstehend',
-  payment_failed: 'Zahlung fehlgeschlagen',
-  expired: 'Reservierung abgelaufen',
-  refunded: 'Erstattet',
-  reversed: 'Zahlung rückgängig',
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  confirmed: 'bg-green-50 text-green-700 border-green-200',
-  cancelled: 'bg-gray-50 text-gray-500 border-gray-200',
-  completed: 'bg-blue-50 text-blue-700 border-blue-200',
-  pending_payment: 'bg-amber-50 text-amber-700 border-amber-200',
-}
 
 interface BookingRow {
   id: string
@@ -76,8 +60,7 @@ export default async function CreatorSessionsPage() {
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
 
-  const current = rows.filter(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() + b.duration_minutes * 60_000 > now)
-  const other = rows.filter(b => !current.includes(b))
+  const { current, past } = groupBookingsByTime(rows, now)
 
   const totalRevenue    = rows.filter(b => b.payment_status === 'paid' && b.stripe_livemode === true && !b.is_subscription_session).reduce((sum, b) => sum + b.price_cents, 0)
   const aboSessionCount = rows.filter(b => b.status !== 'cancelled' && b.is_subscription_session).length
@@ -94,10 +77,10 @@ export default async function CreatorSessionsPage() {
 
       {/* Stats row */}
       {rows.length > 0 && (
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           <div className="rounded-xl bg-green-50 p-4 text-center">
-            <p className="text-2xl font-bold text-green-700">{current.length}</p>
-            <p className="text-xs text-green-600 mt-0.5">Bevorstehend/laufend</p>
+            <p className="text-2xl font-bold text-green-700">{current.filter(b => b.status === 'confirmed').length}</p>
+            <p className="text-xs text-green-600 mt-0.5">Bestätigte Termine</p>
           </div>
           <div className="rounded-xl bg-blue-50 p-4 text-center">
             <p className="text-2xl font-bold text-blue-700">{rows.filter(b => b.status === 'completed').length}</p>
@@ -128,17 +111,17 @@ export default async function CreatorSessionsPage() {
         <div className="space-y-8">
           {current.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend/laufend</h2>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Bevorstehend und laufend</h2>
               <div className="space-y-3">
                 {current.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} refund={refundMap.get(b.id) ?? null} />)}
               </div>
             </section>
           )}
-          {other.length > 0 && (
+          {past.length > 0 && (
             <section>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Weitere Buchungen</h2>
-              <div className="space-y-3 opacity-75">
-                {other.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} refund={refundMap.get(b.id) ?? null} />)}
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Vergangen</h2>
+              <div className="space-y-3">
+                {past.map(b => <CreatorSessionCard key={b.id} booking={b} now={now} creatorId={creator.id} refund={refundMap.get(b.id) ?? null} />)}
               </div>
             </section>
           )}
@@ -156,12 +139,11 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
   // Completion is explicit; elapsed appointment time alone is not delivery.
   const canCancel = b.status === 'confirmed'
   const canReschedule = scheduledAt.getTime() > now
-  const price        = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const isAboSession = b.is_subscription_session
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-2">
             {isLive && (
@@ -169,12 +151,12 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
                 ● Live
               </span>
             )}
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[b.status] ?? ''}`}>
-              {STATUS_LABELS[b.status] ?? b.status}
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${BOOKING_STATUS_STYLES[b.status] ?? ''}`}>
+              {bookingStatusLabel(b.status)}
             </span>
           </div>
           <p className="font-semibold text-gray-900 mb-1">{b.buyer_name}</p>
-          <p className="text-sm text-gray-400 mb-2">{b.buyer_email}</p>
+          <p className="text-sm text-gray-400 mb-2 break-words [overflow-wrap:anywhere]">{b.buyer_email}</p>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-wrap">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
@@ -182,7 +164,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr · {b.duration_minutes} Min
+              {scheduledAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr (Europe/Berlin) · {b.duration_minutes} Min
             </span>
           </div>
           {b.notes && (
@@ -194,11 +176,11 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
           {isAboSession ? (
             <span className="inline-flex items-center gap-1 mt-1 bg-purple-50 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full">
               <Video className="h-3 w-3" />
-              Abo-Session (inklusiv)
+              {bookingPaymentSummary(b)}
             </span>
           ) : (
             <p className="text-sm font-medium text-gray-700 mt-1">
-              {price} € · {b.payment_status === 'paid' ? 'Bezahlt' : b.payment_status === 'refunded' ? 'Erstattet' : b.payment_status === 'partially_refunded' ? 'Teilweise erstattet' : b.payment_status === 'pending' ? 'Zahlung ausstehend' : b.payment_status === 'not_required' ? 'Keine Zahlung erforderlich' : 'Nicht bezahlt'}
+              {bookingPaymentSummary(b)}
             </p>
           )}
         </div>

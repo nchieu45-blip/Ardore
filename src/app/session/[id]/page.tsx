@@ -8,6 +8,7 @@ import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 import { canAccessSessionMeeting, normalizeMeetingUrl } from '@/lib/session-meeting'
 import MeetingAccess from './MeetingAccess'
+import { BOOKING_STATUS_STYLES, bookingStatusLabel, bookingPaymentSummary } from '@/lib/booking-presentation'
 
 export const metadata: Metadata = { title: 'Coaching-Session', robots: { index: false, follow: false } }
 
@@ -19,6 +20,7 @@ interface BookingRow {
   buyer_email: string
   scheduled_at: string
   duration_minutes: number
+  is_subscription_session: boolean
   price_cents: number
   status: string
   payment_status: string
@@ -63,7 +65,6 @@ export default async function SessionPage({
   const isConfirmed = b.status === 'confirmed'
   const hasValidPayment = hasValidCoachingPayment(b)
   const isOver      = now > endAt.getTime()
-  const price       = (b.price_cents / 100).toFixed(2).replace('.', ',')
   const canAttend = canAccessSessionMeeting(b, now)
   const { data: meeting, error: meetingError } = canAttend
     ? await supabase.from('booking_meeting_links').select('meeting_url').eq('booking_id', b.id).maybeSingle()
@@ -112,12 +113,13 @@ export default async function SessionPage({
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-gray-900">{b.duration_minutes} Min</p>
-            <p className="text-sm text-gray-400">{price} €</p>
+            <p className="text-sm text-gray-400">{bookingPaymentSummary(b)}</p>
           </div>
         </div>
 
         {/* Status badge */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${BOOKING_STATUS_STYLES[b.status] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}>{bookingStatusLabel(b.status)}</span>
           {isLive && (
             <span className="inline-flex items-center gap-1.5 bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">
               <span className="h-1.5 w-1.5 bg-white rounded-full animate-pulse" />
@@ -138,18 +140,8 @@ export default async function SessionPage({
               Terminzeit vorbei – noch nicht als abgeschlossen markiert
             </span>
           )}
-          {b.status === 'completed' && <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">Abgeschlossen</span>}
-          {!isConfirmed && !['cancelled', 'completed'].includes(b.status) && (
-            <span role="status" className="inline-flex items-center bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium px-3 py-1 rounded-full">
-              {b.status === 'payment_failed' ? 'Zahlung fehlgeschlagen – Session nicht bestätigt' : b.status === 'expired' ? 'Reservierung abgelaufen – Session nicht bestätigt' : b.status === 'refunded' ? 'Zahlung erstattet' : b.status === 'reversed' ? 'Zahlung rückgängig' : 'Zahlung ausstehend – Session nicht bestätigt'}
-            </span>
-          )}
-          {b.status === 'cancelled' && (
-            <span className="inline-flex items-center bg-red-50 text-red-600 border border-red-200 text-xs font-medium px-3 py-1 rounded-full">
-              Abgesagt
-            </span>
-          )}
         </div>
+        {['pending_payment', 'payment_failed', 'expired', 'reversed'].includes(b.status) && <p className="mt-3 text-sm text-amber-800">Diese Session ist nicht bestätigt.</p>}
       </div>
 
       {canAttend && <MeetingAccess key={meetingUrl ?? 'no-meeting'} bookingId={b.id} meetingUrl={meetingUrl} isCoach={Boolean(isCreator)} loadFailed={Boolean(meetingError)} />}

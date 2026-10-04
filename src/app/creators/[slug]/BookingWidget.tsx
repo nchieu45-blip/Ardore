@@ -248,6 +248,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
       </div>
 
       <div className="p-5">
+        <p className="text-xs text-gray-500 mb-3">Alle Terminzeiten: Europe/Berlin.</p>
         {step === 'success' ? (
           <div className="text-center py-4">
             <div className="h-14 w-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
@@ -413,7 +414,7 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
               </button>
               <span>·</span>
               <span className="font-medium text-gray-700">
-                {selected?.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} um {chosenSlot} Uhr
+                {selected?.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })} um {chosenSlot} Uhr (Europe/Berlin)
               </span>
             </div>
 

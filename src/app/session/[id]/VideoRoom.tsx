@@ -69,7 +69,7 @@ export default function VideoRoom({ roomUrl, isLive, isOver, scheduledAt, durati
           Der Videoraum öffnet 15 Minuten vor Beginn.
         </p>
         <p className="text-sm text-gray-400 mt-1">
-          {new Date(scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr ·{' '}
+          {new Date(scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} Uhr (Europe/Berlin) ·{' '}
           {new Date(scheduledAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', timeZone: 'Europe/Berlin' })}
         </p>
       </div>

@@ -24,6 +24,7 @@ function load(path, overrides = {}, globals = {}) {
     if (name === '@/components/SessionReviewPrompt') return { __esModule: true, default: () => null }
     if (name === '@/lib/features') return { VIDEO_CALLS_ENABLED: true }
     if (name === '@/lib/coaching-payment') return { hasValidCoachingPayment: () => true }
+    if (name === '@/lib/booking-presentation') return load('src/lib/booking-presentation.ts')
     return require(name)
   }
   new Function('require', 'exports', 'module', 'fetch', compiled)(mockedRequire, loadedModule.exports, loadedModule, globals.fetch)
