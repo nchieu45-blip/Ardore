@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input'
 import { AuthShell } from '@/components/layout/AuthShell'
 import { Users, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { appOrigin } from '@/lib/app-url'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Mindestens 2 Zeichen'),
@@ -41,11 +42,10 @@ function RegisterContent() {
         password: data.password,
         options: {
           data: { full_name: data.full_name, role },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/verify-success&type=signup`,
+          emailRedirectTo: `${appOrigin()}/auth/callback?next=/verify-success&type=signup`,
         },
       })
       if (signUpError) {
-        console.log(signUpError)
         const msg = signUpError.message ?? ''
         if (msg.includes('already registered')) {
           setError('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich stattdessen an.')
@@ -56,24 +56,20 @@ function RegisterContent() {
         }
         return
       }
-      // Auto-confirmed: Supabase returns a session immediately. Call getSession()
-      // first so the client has time to flush the session into cookie storage before
-      // the hard redirect tears down this JS context. Then use window.location.href
-      // (not router.push) to avoid the Next.js 16 / React 19 race where router.push()
-      // after an await (while Supabase fires SIGNED_IN events) breaks the client router.
+      // Fail closed if the Auth configuration unexpectedly grants a signup session.
+      // This only clears this newly created browser session, never other users.
       if (signUpData.session) {
-        await supabase.auth.getSession()
-        window.location.assign(role === 'creator' ? '/creator/onboarding' : '/buyer/onboarding')
+        await supabase.auth.signOut({ scope: 'local' })
+        setError('Die E-Mail-Bestätigung ist derzeit nicht verfügbar. Bitte versuche es später erneut.')
         return
       }
       // Email confirmation required — user exists but no session yet.
       if (signUpData.user) {
-        router.push(`/verify-email?email=${encodeURIComponent(data.email)}`)
+        router.push(`/verify-email?email=${encodeURIComponent(data.email)}&sent=1`)
         return
       }
       setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
-    } catch (err) {
-      console.log(err)
+    } catch {
       setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
     }
   }
@@ -115,6 +111,9 @@ function RegisterContent() {
         ))}
       </div>
 
+      <p className="mb-4 text-sm text-gray-600">
+        Nach der Registrierung bestätigst du zuerst deine E-Mail-Adresse. Danach kannst du dich anmelden und Ardore nutzen.
+      </p>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           label="Vollständiger Name"
@@ -141,7 +140,7 @@ function RegisterContent() {
           {...register('password')}
         />
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+          <div role="alert" className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
             {error}
           </div>
         )}

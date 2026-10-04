@@ -1,38 +1,41 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { appOrigin, safeAuthDestination } from '@/lib/app-url'
+import type { EmailOtpType } from '@supabase/supabase-js'
+
+const emailTypes = new Set<EmailOtpType>(['recovery', 'signup', 'invite', 'magiclink', 'email_change', 'email'])
+
+function redirect(destination: URL) {
+  const response = NextResponse.redirect(destination)
+  response.headers.set('Cache-Control', 'no-store')
+  response.headers.set('Referrer-Policy', 'no-referrer')
+  return response
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
   const code = searchParams.get('code')
-  const destination = safeAuthDestination(searchParams.get('next'))
+  const next = searchParams.get('next')
+  const recovery = type === 'recovery' || (!type && next?.split('?')[0] === '/reset-password')
+  const destination = safeAuthDestination(next, recovery ? '/reset-password' : '/verify-success')
 
-  const supabase = await createClient()
-
-  // OTP / token-hash flow — no cookie required, works on any device/browser
-  if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: type as 'recovery' | 'signup' | 'invite' | 'magiclink' | 'email_change' | 'email',
-    })
-    if (!error) {
-      return NextResponse.redirect(destination)
+  try {
+    const supabase = await createClient()
+    // Token-hash verification works across browsers without a PKCE cookie.
+    if (tokenHash && type && emailTypes.has(type as EmailOtpType)) {
+      const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as EmailOtpType })
+      if (!error && data.session) return redirect(destination)
+    } else if (!tokenHash && code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+      if (!error && data.session) return redirect(destination)
     }
-    console.error('[auth/callback] verifyOtp failed:', error.message)
+  } catch {
+    // Never log tokens, authorization codes or provider responses.
   }
 
-  // PKCE fallback — only works when the requesting and clicking device match
-  else if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(destination)
-    }
-    console.error('[auth/callback] exchangeCodeForSession failed:', error.message)
-  }
-
-  const url = new URL('/forgot-password', appOrigin())
+  const url = new URL(recovery ? '/forgot-password' : '/verify-email', appOrigin())
   url.searchParams.set('error', 'link_invalid')
-  return NextResponse.redirect(url)
+  return redirect(url)
 }

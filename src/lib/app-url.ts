@@ -15,9 +15,9 @@ export function isSafeRelativePath(path: string | null): path is string {
   return path !== null && path.startsWith('/') && !path.startsWith('//') && !/[\\\u0000-\u001f]/.test(path)
 }
 
-export function safeAuthDestination(next: string | null) {
+export function safeAuthDestination(next: string | null, fallbackPath = '/reset-password') {
   const origin = appOrigin()
-  const fallback = new URL('/reset-password', origin)
+  const fallback = new URL(fallbackPath, origin)
   if (!isSafeRelativePath(next)) return fallback
   const destination = new URL(next, origin)
   return destination.origin === origin ? destination : fallback
