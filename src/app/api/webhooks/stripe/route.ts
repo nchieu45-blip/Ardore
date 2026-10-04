@@ -425,6 +425,7 @@ type SettlementFulfillment = {
   creatorId?: string
   tierId?: string
   notifySubscriber?: boolean
+  subscriptionMonthlyCents?: number
   retryNeeded?: boolean
   items?: { productId: string; amountCents: number }[]
   withdrawalConsentAt?: string | null
@@ -444,7 +445,7 @@ async function notifySettlementFulfillment(
 ) {
   if (!result.handled || !result.newlyFulfilled || !result.buyerId) return
   if (result.kind === 'subscription' && result.notifySubscriber && result.creatorId && result.tierId) {
-    await notifyNewSubscriber(supabase, result.buyerId, result.creatorId, result.tierId)
+    await notifyNewSubscriber(supabase, result.buyerId, result.creatorId, result.tierId, result.subscriptionMonthlyCents)
     return
   }
   if (result.kind !== 'products' || !result.items?.length) return
@@ -578,6 +579,7 @@ export async function notifyNewSubscriber(
   buyerId: string,
   creatorId: string,
   tierId: string,
+  agreedMonthlyCents?: number,
 ) {
   try {
     const [creatorRes, buyerRes, tierRes] = await Promise.all([
@@ -611,7 +613,8 @@ export async function notifyNewSubscriber(
           creatorName,
           subscriberName,
           tierName: tier.name,
-          priceMonthly: tier.price_monthly,
+          priceMonthly: agreedMonthlyCents !== undefined && Number.isSafeInteger(agreedMonthlyCents) && agreedMonthlyCents >= 0
+            ? agreedMonthlyCents / 100 : tier.price_monthly,
           dashboardUrl: `${APP_URL}/creator`,
         }),
         createNotification({

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       await releaseDiscount(service, reservation.id)
       return NextResponse.json({ error: 'Das kostenlose Abo konnte nicht freigeschaltet werden. Bitte prüfe deinen Rabatt.' }, { status: 409 })
     }
-    if (data.newly_created) notifyNewSubscriber(service, user.id, tier.creator_id, tier.id).catch(console.error)
+    if (data.newly_created) notifyNewSubscriber(service, user.id, tier.creator_id, tier.id, 0).catch(console.error)
     return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
   }
 
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Abo konnte nicht erstellt werden' }, { status: 500 })
     }
 
-    notifyNewSubscriber(service, user.id, tier.creator_id, tier.id).catch(console.error)
+    notifyNewSubscriber(service, user.id, tier.creator_id, tier.id, 0).catch(console.error)
     return NextResponse.json({ url: `${appUrl}/buyer?subscribed=1` })
   }
 

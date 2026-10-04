@@ -211,10 +211,11 @@ test('only future active live-paid or server-free subscriptions with matching ti
   assert.equal(entitlement.hasActiveSubscriptionEntitlement({ ...row, tier: undefined, subscription_tiers: [{ creator_id: creatorId }] }, now), true)
 })
 
-function webhookFixture({ type = 'checkout.session.completed', mismatch = false, updateError = false, status = 'active', freshStatus = status, settlementResult = null } = {}) {
+function webhookFixture({ type = 'checkout.session.completed', mismatch = false, updateError = false, status = 'active', freshStatus = status, settlementResult = null, notifyData = false } = {}) {
   const saved = []
   const reconciliations = []
   const creatorReads = []
+  const emails = []
   const releasedEvents = []
   const completedEvents = []
   let claimToken
@@ -241,14 +242,14 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
       else { assert.equal(name, 'complete_stripe_webhook_event'); completedEvents.push(event.id) }
       return { data: true, error: null }
     },
-    auth: { admin: { getUserById: async () => ({ data: { user: null } }) } },
+    auth: { admin: { getUserById: async () => ({ data: { user: notifyData ? {email:'delivered@resend.dev',user_metadata:{full_name:'Synthetic'}} : null } }) } },
     from(table) {
       if (table === 'creator_profiles') creatorReads.push(table)
       const query = {
         action: 'select', select() { return this }, eq() { return this },
         async insert() { assert.equal(table, 'stripe_webhook_events'); return { error: null } },
         async single() {
-          return { data: table === 'subscription_tiers' ? { id: tierId, creator_id: mismatch ? otherId : creatorId } : null, error: null }
+          return { data: table === 'subscription_tiers' ? { id: tierId, creator_id: mismatch ? otherId : creatorId, name:'Synthetic tier', price_monthly:5 } : notifyData && table==='creator_profiles' ? {user_id:creatorId,display_name:'Synthetic coach'} : null, error: null }
         },
         async upsert(row) { assert.equal(table, 'subscriptions'); saved.push(row); return { error: null } },
         update(row) { assert.equal(table, 'subscriptions'); saved.push(row); return this },
@@ -265,8 +266,8 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     '@/lib/stripe/server': { stripe: {
       webhooks: { constructEvent: () => event }, subscriptions: { retrieve: async () => freshSubscription },
     } },
-    '@/lib/email/send': { sendPurchaseReceipt() { throw new Error('Unexpected receipt') }, sendNewSubscriberNotification() { throw new Error('Unexpected email') } },
-    '@/lib/notifications': { createNotification() { throw new Error('Unexpected notification') } },
+    '@/lib/email/send': { sendPurchaseReceipt() { throw new Error('Unexpected receipt') }, sendNewSubscriberNotification(_email,data) { assert.ok(notifyData);emails.push(data) } },
+    '@/lib/notifications': { createNotification() { assert.ok(notifyData) } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking() { throw new Error('Unexpected coaching booking') } },
     '@/lib/coaching-refund': { reconcileCoachingRefund() { throw new Error('Unexpected coaching refund') } },
     '@/lib/coaching-payment-reconciliation': { reconcileCoachingPaymentReconciliation() { throw new Error('Unexpected payment reconciliation') } },
@@ -288,7 +289,7 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     },
   }, { STRIPE_SECRET_KEY: 'sk_test_synthetic' })
   return {
-    saved, releasedEvents, completedEvents, period, reconciliations, creatorReads,
+    saved, releasedEvents, completedEvents, period, reconciliations, creatorReads, emails,
     run: () => route.POST({ text: async () => '{}', headers: new Headers({ 'stripe-signature': 'synthetic' }) }),
   }
 }
@@ -361,5 +362,14 @@ test('owned subscription status events do not overwrite paid invoice periods wit
     assert.equal((await state.run()).status, 200)
     assert.deepEqual(state.reconciliations, ['provider'])
     assert.deepEqual(state.saved, [])
+  }
+})
+
+test('subscriber notification uses the agreed discounted monthly amount, including a zero-euro subscription', async () => {
+  for(const cents of [0,400]){
+    const state=webhookFixture({notifyData:true,settlementResult:{handled:true,newlyFulfilled:true,kind:'subscription',buyerId,creatorId,tierId,notifySubscriber:true,subscriptionMonthlyCents:cents}})
+    assert.equal((await state.run()).status,200)
+    assert.equal(state.emails.length,1)
+    assert.equal(state.emails[0].priceMonthly,cents/100)
   }
 })

@@ -26,7 +26,7 @@ type Action = { id: string; settlement_id: string; kind: string; target_cents: n
 export type SettlementFulfillmentResult = {
   handled: boolean; newlyFulfilled?: boolean; kind?: Kind; buyerId?: string; creatorId?: string;
   items?: { productId: string; amountCents: number }[]; tierId?: string; withdrawalConsentAt?: string;
-  notifySubscriber?: boolean; retryNeeded?: boolean;
+  notifySubscriber?: boolean; subscriptionMonthlyCents?: number; retryNeeded?: boolean;
 }
 export class SettlementError extends Error {
   constructor(readonly code: string) { super(code); this.name = 'SettlementError' }
@@ -493,7 +493,7 @@ function fulfillmentResult(order: SettlementOrder, result: { newly_fulfilled?: b
     buyerId: order.buyer_id, creatorId: order.creator_id,
     ...(order.kind === 'products' ? { items: order.reference.items as { productId: string; amountCents: number }[],
       withdrawalConsentAt: typeof order.reference.withdrawalConsentAt === 'string' ? order.reference.withdrawalConsentAt : undefined } : {}),
-    ...(order.kind === 'subscription' ? { tierId: String(order.reference.tierId), notifySubscriber: result.is_new_subscription === true } : {}) }
+    ...(order.kind === 'subscription' ? { tierId: String(order.reference.tierId), subscriptionMonthlyCents: order.gross_cents, notifySubscriber: result.is_new_subscription === true } : {}) }
 }
 
 export async function reconcileSettlementCheckout({ service, sessionId, provider = stripe }: {

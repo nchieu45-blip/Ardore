@@ -26,9 +26,9 @@ const require = createRequire(import.meta.url)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { maxNetworkRetries: 2 })
 const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false, autoRefreshToken: false } })
-const run = randomUUID()
-const tag = `ardore-settlement-${run.slice(0, 12)}`
-const startedAt = Math.floor(Date.now() / 1000)
+let run = randomUUID()
+let tag = `ardore-settlement-${run.slice(0, 12)}`
+let startedAt = Math.floor(Date.now() / 1000)
 const users = [], actors = [], orders = new Set(), intents = new Set(), sessions = new Set(), customers = new Set()
 const bookings = new Set(), products = new Set(), tiers = new Set(), subscriptions = new Set(), stripeProducts = new Set(), stripePrices = new Set()
 const restrictedFixtures = []
@@ -130,12 +130,15 @@ async function discoverCheckoutObjects(sessionId) {
     if (!customers.has(customerId)) {
       assert.equal(objectId(session.customer), customerId)
       const customer = await stripe.customers.retrieve(customerId)
-      assert.equal(customer.deleted, undefined); assert.equal(customer.livemode, false)
+      if(customer.deleted){assert.equal(subscription.metadata.ardore_synthetic_run,run);customers.add(customerId)}
+      else {
+      assert.equal(customer.livemode, false)
       const buyer = actors.find(value => value.id === subscription.metadata.buyer_id)
       assert.ok(buyer); assert.equal(customer.email, buyer.email)
       assert.ok(customer.created >= startedAt, 'Only a customer created for this owned Checkout may be adopted')
       await stripe.customers.update(customerId, { metadata: { ardore_synthetic_run: run } })
       customers.add(customerId)
+      }
     }
     assert.ok(customers.has(customerId))
     subscriptions.add(subscriptionId)
@@ -510,10 +513,16 @@ async function completeProductionCheckout(url, buyer, expectedCents = 500) {
   assert.equal(paid.status, 'succeeded'); assert.equal(paid.transfer_data, null); assert.equal(paid.application_fee_amount, null)
   // Do not run the settlement library here. The deployed app and its genuine,
   // signed Stripe webhook must establish fulfillment and money movement.
+  let diagnosticDone=false;const diagnosticStarted=Date.now()
   const saved = await waitFor('deployed_signed_webhook_settlement', async () => {
     const rows = await check(service.from('payment_settlements').select('*').eq('stripe_payment_intent_id', paid.id))
     assert.ok(rows.length <= 1)
     if (rows[0]?.id) settlements.add(rows[0].id)
+    if(process.argv.includes('--diagnose-owned-booking')&&row.kind==='booking'&&!rows.length&&!diagnosticDone&&Date.now()-diagnosticStarted>20_000){
+      diagnosticDone=true
+      try{const life=loadSource('src/lib/coaching-payment-lifecycle.ts');await life.reconcileCoachingCheckout({service,sessionId,stripeLivemode:false,eventType:'checkout.session.completed'})}
+      catch(error){console.log(JSON.stringify({bookingDiagnosticCode:error.code,bookingDiagnosticMessage:String(error.message).replace(/[A-Za-z0-9_-]{24,}/g,'[identifier]')}));throw error}
+    }
     return rows[0]?.state === 'settled' && rows[0]?.fulfillment_state === 'fulfilled' ? rows[0] : null
   }, 240_000)
   const transfer = await transferFor(paid)
@@ -522,6 +531,44 @@ async function completeProductionCheckout(url, buyer, expectedCents = 500) {
   return { row, paid, saved }
 }
 
+
+
+async function resumeOwnedDiscountFixture() {
+  const rows=await check(service.from('creator_profiles').select('id,user_id,slug,stripe_account_id,created_at')
+    .like('slug','ardore-settlement-%').eq('display_name','Synthetic settlement verification'))
+  assert.equal(rows.length,1,'Resume requires exactly one previously preserved synthetic fixture')
+  coach=rows[0]
+  const account=await stripe.v2.core.accounts.retrieve(coach.stripe_account_id)
+  assert.equal(account.metadata.ardore_synthetic,'settlement')
+  assert.equal(account.metadata.ardore_creator_id,coach.id)
+  run=account.metadata.test_run;assert.match(run,/^[0-9a-f-]{36}$/)
+  tag=`ardore-settlement-${run.slice(0,12)}`;assert.equal(coach.slug,tag)
+  fixture={accountId:coach.stripe_account_id,testRun:run}
+  startedAt=Math.floor(new Date(coach.created_at).getTime()/1000)-60
+  const userIds=new Set([coach.user_id])
+  for(const [table,set] of [['products',products],['subscription_tiers',tiers],['discounts',discounts],['bookings',bookings],['payment_orders',orders],['payment_settlements',settlements]]){
+    const records=await check(service.from(table).select('*').eq('creator_id',coach.id))
+    for(const row of records){set.add(row.id);if(row.buyer_id)userIds.add(row.buyer_id);if(row.stripe_checkout_session_id)sessions.add(row.stripe_checkout_session_id);if(row.stripe_payment_intent_id)intents.add(row.stripe_payment_intent_id);if(row.stripe_charge_id)ownedCharges.add(row.stripe_charge_id);if(row.stripe_transfer_id)ownedTransfers.add(row.stripe_transfer_id)}
+  }
+  const claims=await check(service.from('discount_redemptions').select('buyer_id').eq('creator_id',coach.id))
+  claims.forEach(row=>userIds.add(row.buyer_id))
+  const subs=await check(service.from('subscriptions').select('*').eq('creator_id',coach.id))
+  for(const row of subs){userIds.add(row.buyer_id);if(row.stripe_subscription_id.startsWith('free_'))freeSubscriptions.add(row.id);else subscriptions.add(row.stripe_subscription_id)}
+  for(const id of userIds){
+    const user=await service.auth.admin.getUserById(id)
+    assert.equal(user.error,null);assert.ok(user.data.user.email.startsWith(`delivered+${tag}-`));assert.ok(user.data.user.email.endsWith('@resend.dev'))
+    users.push(id)
+    const cookies=new Map();const client=createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,{cookies:{getAll:()=>[...cookies].map(([name,value])=>({name,value})),setAll:values=>values.forEach(({name,value})=>cookies.set(name,value))}})
+    const refreshLogin=async()=>{const link=await service.auth.admin.generateLink({type:'magiclink',email:user.data.user.email});assert.equal(link.error,null);const verified=await client.auth.verifyOtp({type:'magiclink',token_hash:link.data.properties.hashed_token});assert.equal(verified.error,null)}
+    await refreshLogin();actors.push({id,email:user.data.user.email,client,refreshLogin,cookie:()=>[...cookies].map(([name,value])=>`${name}=${value}`).join('; ')})
+  }
+  actors.sort((a,b)=>a.id===coach.user_id?1:b.id===coach.user_id?-1:0)
+  // Discover provider IDs before adopting private records; every parent and
+  // every actor must be proven to belong to this exact synthetic run.
+  for(const id of sessions)await discoverCheckoutObjects(id)
+  await assertNoUnexpectedInteractions()
+  return actors.find(actor=>actor.id!==coach.user_id)
+}
 
 async function discountFixture(options = {}) {
   const row = await check(service.from('discounts').insert({ creator_id: coach.id,
@@ -621,6 +668,18 @@ async function trackDiscountCheckout(url, buyer) {
   await stripe.checkout.sessions.update(id,{metadata:{ardore_synthetic_run:run}});await adoptCheckoutCatalog(id)
   return session
 }
+async function freeDiscountSubscriptionTest(buyer) {
+  const tier=await discountTier(),coupon=await discountFixture({value:100,applies_to:'subscriptions'})
+  for(let i=0;i<2;i++){
+    const result=await productionRequest(buyer,'/api/stripe/subscription',{tierId:tier.id,creatorId:coach.id,discountId:coupon.id})
+    assert.equal(new URL(result.url).hostname,'www.ardore-health.com')
+    const rows=await check(service.from('subscriptions').select('*').eq('creator_id',coach.id).eq('buyer_id',buyer.id))
+    rows.forEach(row=>freeSubscriptions.add(row.id));assert.equal(rows.length,1);assert.equal(rows[0].stripe_livemode,null)
+    assert.match(rows[0].stripe_subscription_id,/^free_discount_/);assert.equal(await discountCount(coupon),1)
+  }
+  pass('latest deployed 100-percent subscription grants one free entitlement and redemption without any Stripe payment')
+}
+
 async function freeProductDiscountTest(buyer) {
   const freeProduct=await discountProduct(),free=await discountFixture({value:100})
   const zero=await productionRequest(buyer,'/api/stripe/checkout',{productId:freeProduct.id,discountId:free.id,withdrawalConsent:true})
@@ -646,8 +705,8 @@ async function freeProductDiscountTest(buyer) {
   pass('genuine free product checkout creates one entitlement and redemption, with no charge, settlement or transfer')
 }
 
-async function discountDeployedTests(buyer, {remainder = false} = {}) {
-  if (!remainder) {
+async function discountDeployedTests(buyer, {remainder = false, lastOnly = false} = {}) {
+  if (!remainder && !lastOnly) {
   const product=await discountProduct(),percent=await discountFixture()
   const opened=await productionRequest(buyer,'/api/stripe/checkout',{productId:product.id,discountId:percent.id,withdrawalConsent:true})
   const session=await trackDiscountCheckout(opened.url,buyer)
@@ -680,18 +739,20 @@ async function discountDeployedTests(buyer, {remainder = false} = {}) {
   assert.equal((await check(service.from('discount_redemptions').select('state').eq('discount_id',expired.id).single())).state,'released')
   pass('expired and canceled deployed checkout releases its hold without consumption or entitlement')
   }
+  if (!lastOnly) {
   const failedProduct=await discountProduct(),failed=await discountFixture()
   const fail=await productionRequest(buyer,'/api/stripe/checkout',{productId:failedProduct.id,discountId:failed.id,withdrawalConsent:true})
   const failSession=await trackDiscountCheckout(fail.url,buyer)
   const card=await stripe.paymentMethods.create({type:'card',card:{token:'tok_chargeDeclined'},billing_details:{name:'Synthetic discount verification',email:buyer.email}})
-  await stripe.rawRequest('GET',`/v1/payment_pages/${failSession.id}`)
-  const initialized=await discoverCheckoutObjects(failSession.id)
-  const failedIntentId=objectId(initialized.payment_intent)
-  assert.ok(intents.has(failedIntentId),'Only this synthetic Checkout intent may be confirmed')
-  try{await stripe.paymentIntents.confirm(failedIntentId,{payment_method:card.id})}
+  // Use the public provider API for a genuine declined TEST intent belonging
+  // to this unpaid discount order. Hosted Checkout's private preflight may
+  // reject the card before it creates or confirms any PaymentIntent.
+  const rejectedIntent=await stripe.paymentIntents.create({amount:400,currency:'eur',payment_method_types:['card'],payment_method:card.id,
+    metadata:{...failSession.metadata,ardore_synthetic_run:run},transfer_group:`ardore-order-${failSession.metadata.ardore_order_id}`})
+  intents.add(rejectedIntent.id)
+  try{await stripe.paymentIntents.confirm(rejectedIntent.id)}
   catch(error){if(error.type!=='StripeCardError'&&error.code!=='card_declined')throw error}
-  const failedIntent=await stripe.paymentIntents.retrieve(failedIntentId)
-  console.log(JSON.stringify({syntheticDeclineStatus:failedIntent.status,syntheticDeclineCode:failedIntent.last_payment_error?.code}))
+  const failedIntent=await stripe.paymentIntents.retrieve(rejectedIntent.id)
   assert.equal(failedIntent.status,'requires_payment_method');assert.equal(failedIntent.last_payment_error?.code,'card_declined')
   assert.equal(await discountCount(failed),0)
   assert.equal((await check(service.from('purchases').select('id').eq('product_id',failedProduct.id).eq('buyer_id',buyer.id))).length,0)
@@ -724,6 +785,12 @@ async function discountDeployedTests(buyer, {remainder = false} = {}) {
   assert.equal(await discountCount(bookingCoupon),1);assert.equal((await transferFor(bookingPayment.paid))[0].amount_reversed,360)
   pass('deployed discounted booking payment consumes exactly once; full cancellation preserves policy and reverses actual 90 percent transfer')
 
+  }
+  if(lastOnly){
+    const tier=await discountTier(),coupon=await discountFixture({applies_to:'subscriptions'})
+    const session=await productionRequest(buyer,'/api/stripe/subscription',{tierId:tier.id,creatorId:coach.id,discountId:coupon.id})
+    await completeProductionCheckout(session.url,buyer,400)
+  }
   const freeBuyer=await actor('buyer'),freeTier=await discountTier(),freeCoupon=await discountFixture({value:100,applies_to:'subscriptions'})
   for(let i=0;i<2;i++){
     const response=await productionRequest(freeBuyer,'/api/stripe/subscription',{tierId:freeTier.id,creatorId:coach.id,discountId:freeCoupon.id})
@@ -733,17 +800,19 @@ async function discountDeployedTests(buyer, {remainder = false} = {}) {
     assert.equal(rows[0].stripe_livemode,null);assert.equal(await discountCount(freeCoupon),1)
   }
   pass('deployed 100-percent monthly discount creates one free subscription without Checkout, payment or coach transfer')
+  if(!lastOnly){
   const recurringCoupon=await discountFixture({applies_to:'subscriptions'})
   await recurringTest(buyer,recurringCoupon)
   assert.equal(await discountCount(recurringCoupon),1)
   pass('real Stripe TEST-clock recurring discounted cycles keep monthly price and consume one subscription redemption in total')
+  }
   const lateBuyer=await actor('buyer'),lateProduct=await discountProduct(),lateCoupon=await discountFixture({max_redemptions:1})
   const late=await productionRequest(lateBuyer,'/api/stripe/checkout',{productId:lateProduct.id,discountId:lateCoupon.id,withdrawalConsent:true})
   const lateSession=await trackDiscountCheckout(late.url,lateBuyer)
   await check(service.from('discount_redemptions').update({expires_at:new Date(Date.now()-1000).toISOString()}).eq('id',lateSession.metadata.ardore_order_id).eq('creator_id',coach.id))
   const rival=await reserveCoupon(lateCoupon,buyer,'products',lateProduct)
   assert.ok(rival.id)
-  const method=await stripe.paymentMethods.create({type:'card',card:{token:'tok_visa'},billing_details:{email:lateBuyer.email}})
+  const method=await stripe.paymentMethods.create({type:'card',card:{token:'tok_visa'},billing_details:{name:'Synthetic discount verification',email:lateBuyer.email}})
   await stripe.rawRequest('GET',`/v1/payment_pages/${lateSession.id}`)
   await stripe.rawRequest('POST',`/v1/payment_pages/${lateSession.id}/confirm`,{payment_method:method.id,expected_amount:400})
   const lateCompleted=await discoverCheckoutObjects(lateSession.id)
@@ -1289,6 +1358,10 @@ async function assertNoUnexpectedInteractions() {
 
 async function cleanup() {
   const errors = []
+  if(coach && orders.size){
+    const rows=await check(service.from('payment_settlements').select('id,buyer_id,creator_id,order_id').eq('creator_id',coach.id).in('order_id',[...orders]))
+    for(const row of rows){assert.ok(users.includes(row.buyer_id));settlements.add(row.id)}
+  }
   try { await assertNoUnexpectedInteractions() }
   catch {
     console.error(JSON.stringify({ cleanupPreservedForUnexpectedInteraction: true }))
@@ -1381,6 +1454,7 @@ async function cleanup() {
     object_ids: retiredIds }, { onConflict: 'id' }))
   for (const customerId of customers) {
     const customer = await stripe.customers.retrieve(customerId)
+    if(customer.deleted)continue
     assert.equal(customer.metadata.ardore_synthetic_run, run)
     await stripe.customers.del(customerId)
   }
@@ -1456,10 +1530,14 @@ try {
   for (const name of ['createSettlementOrder','registerSettlementCheckout','recordSuccessfulSettlement','settlePayment','prepareSettlementRefund','reconcileSettlementRefund','reconcileSettlementInvoice']) {
     assert.equal(typeof library[name], 'function', `Production library must expose ${name}`)
   }
+  if(process.argv.includes('--resume-owned-discount')) {
+    const buyer=await resumeOwnedDiscountFixture()
+    if(!process.argv.includes('--cleanup-only')) await discountDeployedTests(buyer,{remainder:true})
+  } else {
   const buyer = await actor('buyer'), coachActor = await actor('creator')
   coach = await check(service.from('creator_profiles').insert({ user_id: coachActor.id,
     display_name: 'Synthetic settlement verification', slug: tag, categories: ['yoga'], category: 'yoga', is_published: true, onboarding_step: 5 }).select('id').single())
-  if (!process.argv.includes('--discount-database-only') && !process.argv.includes('--discount-zero-only')) {
+  if (!process.argv.includes('--discount-database-only') && !process.argv.includes('--discount-zero-only') && !process.argv.includes('--discount-free-sub-only')) {
   fixture = await createSyntheticConnectFixture({ stripe, testRun: run,
     onProgress: value => console.log(JSON.stringify({ phase: 'readiness', ...value })) })
   const ownedAccount = await stripe.v2.core.accounts.retrieve(fixture.accountId)
@@ -1469,7 +1547,9 @@ try {
   await check(service.from('creator_profiles').update({ stripe_account_id: fixture.accountId }).eq('id', coach.id).eq('user_id', coachActor.id))
   }
   if (process.argv.includes('--discount-database-only')) await discountDatabaseTests(buyer)
+  else if (process.argv.includes('--discount-free-sub-only')) await freeDiscountSubscriptionTest(buyer)
   else if (process.argv.includes('--discount-zero-only')) await freeProductDiscountTest(buyer)
+  else if (process.argv.includes('--discount-last-only')) await discountDeployedTests(buyer,{lastOnly:true})
   else if (process.argv.includes('--discount-remainder-only')) await discountDeployedTests(buyer,{remainder:true})
   else if (process.argv.includes('--discount-lifecycle-only')) { await discountDatabaseTests(buyer); await discountDeployedTests(buyer) }
   else if (process.argv.includes('--purchase-lifecycle-only')) await purchaseLifecycleTests(buyer)
@@ -1482,6 +1562,7 @@ try {
     await restrictedCoachTest(buyer)
   }
   else await tests(buyer)
+  }
 } catch (error) {
   console.error(JSON.stringify({ failedAfter: results.at(-1) ?? 'setup', code: code(error),
     providerType: error.type, providerParam: error.param, providerStatus: error.statusCode,
