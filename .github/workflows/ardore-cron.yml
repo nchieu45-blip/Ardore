@@ -32,11 +32,16 @@ jobs:
           persist-credentials: false
 
       - name: Recover coaching payment reservations and refunds
+        id: recovery
         if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/10 * * * *'
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         shell: bash
         run: node scripts/run-coaching-recovery.mjs
+
+      - name: Diagnose network after recovery failure
+        if: failure() && steps.recovery.outcome == 'failure'
+        run: node scripts/diagnose-recovery-network.mjs
 
       - name: Call session cron endpoints
         if: (github.event_name == 'workflow_dispatch' && inputs.target != 'coaching-payments') || github.event.schedule == '0 8 * * *'

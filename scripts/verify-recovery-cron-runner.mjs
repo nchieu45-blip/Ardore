@@ -5,6 +5,7 @@ import { PassThrough } from 'node:stream'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { classifyAttempt, curlArguments, curlAttempt, diagnostics, parseCurlOutput, recoveryPolicy, recoveryUrl, runRecovery } from './run-coaching-recovery.mjs'
+import { dnsAddresses, probeArguments } from './diagnose-recovery-network.mjs'
 
 const baseUrl = 'https://www.ardore-health.com'
 const secret = 'synthetic-cron-secret-never-log'
@@ -129,7 +130,20 @@ test('workflow syntax keeps recovery retries separate from non-idempotent email 
   const recovery = job.steps.find(step => step.name === 'Recover coaching payment reservations and refunds')
   assert.equal(recovery.run, 'node scripts/run-coaching-recovery.mjs')
   assert.match(recovery.if, /coaching|10/) // Existing recovery-only schedule is preserved.
+  const diagnostic = job.steps.find(step => step.name === 'Diagnose network after recovery failure')
+  assert.equal(diagnostic.if, "failure() && steps.recovery.outcome == 'failure'")
+  assert.equal(recovery.id, 'recovery'); assert.equal(diagnostic.env?.CRON_SECRET, undefined)
+  assert.equal(job.env.CRON_SECRET, undefined)
   for (const step of job.steps.filter(step => /session cron|verification cleanup/.test(step.name))) {
     assert.doesNotMatch(step.run, /run-coaching-recovery|--retry/)
   }
+})
+
+test('failure diagnostics contain only public DNS addresses and unauthenticated bounded probes', () => {
+  assert.deepEqual(dnsAddresses('203.0.113.1 STREAM www.ardore-health.com\n203.0.113.1 DGRAM\nPRIVATE invalid\n2001:db8::1 STREAM'), ['203.0.113.1', '2001:db8::1'])
+  const args = probeArguments('https://www.ardore-health.com/', true)
+  assert.equal(args[0], '--disable'); assert.ok(args.includes('--ipv4'))
+  assert.ok(args.includes('--connect-timeout')); assert.ok(args.includes('--max-time'))
+  assert.ok(args.includes('/dev/null'))
+  for (const forbidden of ['--header', '--insecure', '-k', '--location', '-L', '--retry-all-errors']) assert.ok(!args.includes(forbidden))
 })
