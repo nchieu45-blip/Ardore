@@ -51,5 +51,5 @@ export function availabilitySaveError(error: { code?: string; message?: string }
   if (error.code === '23P01') return { status: 409, error: 'Diese Änderung würde eine bestehende Buchung oder Reservierung ausschließen. Bitte behalte deren Zeitfenster bei.' }
   if (error.code === '22023' || error.code === '22007' || error.code === '22008') return { status: 400, error: 'Ungültige oder überlappende Verfügbarkeit. Bitte prüfe alle Zeitfenster.' }
   if (error.code === '42501') return { status: 403, error: 'Du darfst diese Verfügbarkeit nicht ändern.' }
-  return { status: 503, error: 'Speichern fehlgeschlagen. Deine bisherigen Einstellungen wurden nicht verändert. Bitte lade die Seite neu, bevor du es erneut versuchst.', reloadRequired: true }
+  return { status: 503, error: 'Speichern konnte nicht bestätigt werden. Bitte lade den gespeicherten Stand neu, bevor du es erneut versuchst.', reloadRequired: true }
 }

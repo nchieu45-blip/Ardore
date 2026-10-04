@@ -69,3 +69,9 @@ test('failed initial database read shows recovery action, never an editable empt
  const html=renderToStaticMarkup(await page())
  assert.match(html,/role="alert"/);assert.match(html,/Erneut laden/);assert.match(html,/unverändert/)
 })
+
+test('lost RPC response does not falsely claim the committed state was unchanged',()=>{
+ const error=availability.availabilitySaveError({code:'',message:'Network fetch failed'})
+ assert.equal(error.reloadRequired,true);assert.match(error.error,/nicht bestätigt/)
+ assert.doesNotMatch(error.error,/nicht verändert|unverändert/)
+})
