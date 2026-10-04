@@ -17,14 +17,14 @@ const service = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.S
 const users = [], fixtureEmails = []
 const tag = `ardore-confirm-${randomUUID().slice(0,12)}`
 const pass = label => console.log(`PASS ${label}`)
-let stage = 'initial audit', server, timeout, baseline, originalConfig, changedConfig = false, emailDeliveryVerified = false
+let stage = 'initial audit', server, timeout, baseline, originalConfig, changedConfig = false, emailDeliveryVerified = false, lastFailure = null
 async function manage(path, method='GET', body) {
  const response = await fetch(`https://api.supabase.com/v1/projects/${project}/${path}`, {method,headers:{Authorization:`Bearer ${managementToken}`,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined})
  assert.ok(response.ok, `Management ${path} accepted (${response.status})`)
  return response.json()
 }
 async function readAuth(query) { return manage('database/query','POST',{query}) }
-async function check(promise) { const r=await promise;assert.ok(!r.error,`Fixture API succeeded (${r.error?.code??r.error?.status??'unknown'})`);return r.data }
+async function check(promise) { const r=await promise;if(r.error)lastFailure={status:r.error.status,code:r.error.code};assert.ok(!r.error,`Fixture API succeeded (${r.error?.code??r.error?.status??'unknown'})`);return r.data }
 function actor() {
  const cookies = new Map()
  const client = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,{cookies:{getAll:()=>[...cookies].map(([name,value])=>({name,value})),setAll:rows=>rows.forEach(({name,value})=>cookies.set(name,value))}})
@@ -65,14 +65,29 @@ try {
  const after=await manage('config/auth')
  assert.equal(after.mailer_autoconfirm,false)
  for(const key of new Set([...Object.keys(originalConfig),...Object.keys(after)]))if(key!=='mailer_autoconfirm')assert.ok(JSON.stringify(after[key])===JSON.stringify(originalConfig[key]),`Other Auth setting preserved: ${key}`)
+ // Management configuration is applied asynchronously to the running Auth service.
+ // Wait for its public runtime settings before creating any unconfirmed fixture.
+ let runtimeReady=false
+ for(let attempt=0;attempt<30;attempt++){
+  const response=await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/settings`,{headers:{apikey:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,'Cache-Control':'no-cache'}})
+  const settings=await response.json()
+  if(response.ok&&settings.mailer_autoconfirm===false){runtimeReady=true;break}
+  if(attempt===0)console.log('Waiting for Supabase Auth runtime configuration propagation')
+  await new Promise(resolve=>setTimeout(resolve,5000))
+ }
+ assert.ok(runtimeReady,'Running Auth service has email confirmation enabled')
  assert.ok((await check(existing.client.auth.getUser(oldSession.session.access_token))).user.id===existing.id,'Existing session remains usable')
  await check(existing.client.auth.signInWithPassword({email:existing.email,password:existing.password}))
  pass('only mailer_autoconfirm changed; existing confirmed login and session preserved')
  stage='new signup and SMTP confirmation'
  const buyer=actor();fixtureEmails.push(buyer.email)
  const signed=await check(buyer.client.auth.signUp({email:buyer.email,password:buyer.password,options:{data:{full_name:'Synthetic confirmation account',role:'buyer'},emailRedirectTo:`${base}/auth/callback?next=/verify-success&type=signup`}}))
- assert.ok(signed.user?.id,'Synthetic signup created account');buyer.id=signed.user.id;users.push(buyer.id)
- assert.ok(!signed.session&&!signed.user.email_confirmed_at,'No session or confirmation before verification')
+ // Some GoTrue/SDK versions return no user object for a pending signup.
+ // Resolve ONLY this uniquely named fixture through GoTrue Admin, never raw writes.
+ const listed=await check(service.auth.admin.listUsers({page:1,perPage:1000}))
+ const fixture=listed.users.find(user=>user.email===buyer.email)
+ assert.ok(fixture?.id,'Synthetic signup created account');buyer.id=fixture.id;users.push(buyer.id)
+ assert.ok(!signed.session&&!fixture.email_confirmed_at,'No session or confirmation before verification')
  assert.ok(!(await check(buyer.client.auth.getSession())).session,'No normal client session')
  const blocked=await buyer.client.auth.signInWithPassword({email:buyer.email,password:buyer.password})
  assert.ok(blocked.error?.code==='email_not_confirmed'&&!blocked.data.session,'Unconfirmed login is blocked')
@@ -135,8 +150,9 @@ try {
   console.log('BROWSER REVIEW READY http://127.0.0.1:3011/register (read-only)')
   await completed;pass('mobile Auth review completed')
  }
-} catch {
- console.error(`SYNTHETIC AUTH FAILED at: ${stage}`);process.exitCode=1
+} catch (error) {
+ console.error(`SYNTHETIC AUTH FAILED at: ${stage}`)
+ console.error(JSON.stringify({provider:lastFailure,assertion:error instanceof assert.AssertionError?error.message.replace(/\n[\s\S]*/, ''):'operation failed'}));process.exitCode=1
  // Restore only our config flag if the very first SMTP signup failed. Do not reopen
  // auto-confirmation after successful delivery or silently undo a healthy rollout.
  if(changedConfig&&!emailDeliveryVerified){await manage('config/auth','PATCH',{mailer_autoconfirm:originalConfig.mailer_autoconfirm});console.log('Restored original auto-confirm setting because SMTP rollout was not verified')}

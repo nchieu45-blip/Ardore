@@ -58,8 +58,8 @@ function form(path,auth,query='') {
  return {handler,states,pushes,inFlight}
 }
 const input={email:'delivered+auth-fixture@resend.dev',password:'Synthetic-only',full_name:'Synthetic Auth'}
-test('signup without a session goes to confirmation exactly once, no extra email',async()=>{
- let calls=0;const f=form('src/app/(auth)/register/page.tsx',{signUp:async()=>{calls++;return {data:{user:{id:'fixture'},session:null},error:null}}})
+for(const user of [{id:'fixture'},null])test(`signup without a session (${user?'user returned':'no user returned'}) goes to confirmation once`,async()=>{
+ let calls=0;const f=form('src/app/(auth)/register/page.tsx',{signUp:async()=>{calls++;return {data:{user,session:null},error:null}}})
  await f.handler(input);assert.equal(calls,1);assert.deepEqual(f.pushes,[`/verify-email?email=${encodeURIComponent(input.email)}&sent=1`])
 })
 test('unexpected autoconfirm signup fails closed and only signs out the local session',async()=>{

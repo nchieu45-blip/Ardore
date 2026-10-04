@@ -63,12 +63,9 @@ function RegisterContent() {
         setError('Die E-Mail-Bestätigung ist derzeit nicht verfügbar. Bitte versuche es später erneut.')
         return
       }
-      // Email confirmation required — user exists but no session yet.
-      if (signUpData.user) {
-        router.push(`/verify-email?email=${encodeURIComponent(data.email)}&sent=1`)
-        return
-      }
-      setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
+      // Successful pending signup responses need not include a user object.
+      // Do not enumerate accounts or send another email to compensate for this.
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}&sent=1`)
     } catch {
       setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
     }
