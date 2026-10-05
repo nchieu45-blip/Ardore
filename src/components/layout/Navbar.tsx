@@ -141,6 +141,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-1">
+            {user ? <>
             <Link href="/" className={navCls('/')}>
               Startseite
             </Link>
@@ -158,6 +159,12 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
             <Link href="/hilfe" className={navCls('/hilfe')}>
               Hilfe
             </Link>
+            </> : <>
+              <Link href="/coaches" className={navCls('/coaches')}>Coaches</Link>
+              <Link href="/marketplace" className={navCls('/marketplace')}>Produkte</Link>
+              <Link href="/landing" className={navCls('/landing')}>Für Coaches</Link>
+              <Link href="/hilfe" className={navCls('/hilfe')}>Hilfe</Link>
+            </>}
 
             {user ? (
               <>
@@ -286,7 +293,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
         <div id={mobileMenuId} className="lg:hidden border-t border-gray-100 bg-surface max-h-[calc(100svh-4rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
             <Link href="/marketplace" className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
-              Marktplatz
+              {user ? 'Marktplatz' : 'Produkte'}
             </Link>
             <Link href="/coaches" className={mobileNavCls('/coaches')} onClick={() => setMenuOpen(false)}>
               Coaches

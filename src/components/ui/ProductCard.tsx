@@ -68,6 +68,7 @@ export function ProductCard({
       <ProductThumbnail
         src={product.thumbnail_url}
         alt={product.title}
+        fallback={<div className="product-cover-fallback"><span>ARDORE / {FILE_LABELS[product.type].toUpperCase()}</span><strong>{PRODUCT_OFFER_LABELS[product.type]}</strong></div>}
         sizes={
           compact
             ? '288px'
