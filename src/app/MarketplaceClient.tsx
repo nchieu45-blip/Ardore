@@ -5,6 +5,9 @@ import Link from 'next/link'
 import {
   ArrowRight,
   Search,
+  Dumbbell,
+  Leaf,
+  Heart,
   BookOpen,
   UsersRound,
   Layers,
@@ -16,7 +19,6 @@ import { Button, ButtonLink } from '@/components/ui/Button'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { CoachCard } from '@/components/ui/CoachCard'
 import { StatePanel } from '@/components/ui/StatePanel'
-import { EditorialVisual } from '@/components/ui/EditorialVisual'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
 import type { CoachData } from '@/lib/publicCoaches'
@@ -50,8 +52,6 @@ interface Props {
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
   coaches: CoachData[]
-  heroImage?: { src: string; alt: string }
-  categoryImages?: Record<string, { src: string; alt: string }>
 }
 
 export default function MarketplaceClient({
@@ -59,8 +59,6 @@ export default function MarketplaceClient({
   salesCounts,
   ratings,
   coaches,
-  heroImage,
-  categoryImages = {},
 }: Props) {
   const [intent, setIntent] = useState('/coaches')
   const [helpOpen, setHelpOpen] = useState(false)
@@ -73,48 +71,34 @@ export default function MarketplaceClient({
     ]),
   ]
     .filter((key) => CATEGORY_LABEL_MAP[key])
-
-  const categoryHref = (key: string) => `${coaches.some((c) => c.categories.includes(key) || c.category === key) ? '/coaches' : '/marketplace'}?category=${encodeURIComponent(key)}`
-  const areas = categories.slice(0, 4)
-  const goalOptions = [
-    { keys: ['muskelaufbau', 'krafttraining', 'fitness'], title: 'Stärker werden', text: 'Coaches und Inhalte rund um dein Training.' },
-    { keys: ['abnehmen', 'gewichtsmanagement'], title: 'Gewicht bewusst gestalten', text: 'Begleitung für deine persönlichen Ziele.' },
-    { keys: ['ernaehrungsberatung', 'ernaehrung', 'sporternaehrung'], title: 'Ernährung entdecken', text: 'Neue Impulse für deinen Alltag.' },
-    { keys: ['beweglichkeit', 'mobility', 'yoga', 'pilates'], title: 'In Bewegung bleiben', text: 'Raum für Beweglichkeit und Körpergefühl.' },
-    { keys: ['stressbewaeltigung', 'stressmanagement', 'mental', 'meditation', 'schlaf'], title: 'Mehr Ruhe finden', text: 'Themen rund um Entspannung und Wohlbefinden.' },
-  ].flatMap((goal) => {
-    const key = goal.keys.find((k) => categories.includes(k))
-    return key ? [{ ...goal, key }] : []
-  }).slice(0, 4)
-  const previewProduct = products[0]
-
+    .slice(0, 6)
   return (
     <div>
-      <section className="public-hero">
-        <div className="ardore-container grid items-center gap-8 py-8 md:grid-cols-[1.15fr_1fr] md:gap-10 md:py-14 lg:py-20">
-          <div className="min-w-0">
+      <section className="border-b border-border bg-brand-soft">
+        <div className="ardore-container py-8 sm:py-12">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-brand">
             Dein Ziel. Dein nächster Schritt.
           </p>
-          <h1 className="marketing-title max-w-xl text-foreground">
-            Deine Gesundheit.
-            <span className="block text-brand">Dein eigener Weg.</span>
+          <h1 className="page-title max-w-4xl text-foreground">
+            Coaches und Angebote für deine Gesundheit.
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-relaxed text-muted lg:text-lg">
-            Finde Coaches, digitale Produkte und Abonnements für Fitness, Ernährung und Wohlbefinden. In deinem Tempo. Für deinen Alltag.
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
+            Persönliches Coaching, digitale Produkte und Abonnements für
+            Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
+            passt.
           </p>
           <form
             action={intent}
             role="search"
             aria-label="Marktplatz durchsuchen"
-            className="surface-card mt-6 grid max-w-3xl grid-cols-[100px_minmax(0,1fr)] gap-3 p-3 lg:flex lg:items-center"
+            className="surface-card mt-6 grid max-w-3xl grid-cols-[100px_minmax(0,1fr)] gap-3 p-3 sm:flex sm:items-center"
           >
             <label className="shrink-0">
               <span className="sr-only">Was möchtest du entdecken?</span>
               <select
                 value={intent}
                 onChange={(e) => setIntent(e.target.value)}
-                className="field-control w-full px-2 lg:w-28"
+                className="field-control w-full px-2 sm:w-36"
               >
                 <option value="/coaches">Coaches</option>
                 <option value="/marketplace">Produkte</option>
@@ -136,7 +120,7 @@ export default function MarketplaceClient({
                 className="field-control w-full pl-10"
               />
             </label>
-            <Button type="submit" className="col-span-2 lg:shrink-0">
+            <Button type="submit" className="col-span-2 sm:shrink-0">
               Entdecken
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -157,59 +141,60 @@ export default function MarketplaceClient({
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-          </div>
-          <EditorialVisual src={heroImage?.src} alt={heroImage?.alt ?? ''} word="wohl."
-            tone="sage" className="hero-visual rounded-[2rem]" />
         </div>
       </section>
 
       <div className="ardore-container">
-        {areas.length > 0 && (
-          <section className="section-space" aria-labelledby="areas-title">
-            <p className="marketing-eyebrow">Deine Themen</p>
-            <div className="mb-8 mt-3 flex flex-wrap items-end justify-between gap-4">
-              <h2 id="areas-title" className="marketing-heading max-w-xl">Finde deinen Einstieg.</h2>
-              <p className="max-w-sm text-sm leading-relaxed text-muted">Entdecke die Bereiche, die unsere Coaches und Produkte abdecken.</p>
+        {categories.length > 0 && (
+          <section className="py-8 sm:py-12" aria-labelledby="goals-title">
+            <div className="mb-6">
+              <h2 id="goals-title" className="section-title">
+                Was möchtest du erreichen?
+              </h2>
+              <p className="mt-2 text-sm text-muted">
+                Entdecke Themen, die unsere Coaches und Produkte abdecken.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-              {areas.map((key, i) => (
-                <Link key={key} href={categoryHref(key)} className="surface-card interactive-card group overflow-hidden">
-                  <EditorialVisual src={categoryImages[key]?.src} alt={categoryImages[key]?.alt ?? ''}
-                    sizes="(max-width: 1023px) 50vw, 25vw" word={CATEGORY_LABEL_MAP[key]} tone={i % 2 ? 'sand' : 'sage'} className="aspect-[4/3]" />
-                  <div className="p-4 sm:p-5">
-                    <h3 className="text-lg font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-xl">{CATEGORY_LABEL_MAP[key]}</h3>
-                    <p className="mt-2 text-sm text-muted">Coaches und Inhalte zu diesem Thema kennenlernen.</p>
-                    <span className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">Bereich entdecken <ArrowRight className="h-4 w-4" aria-hidden="true" /></span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {goalOptions.length > 0 && (
-          <section className="section-space grid gap-8 border-y border-border md:grid-cols-[1fr_1.15fr] md:gap-16" aria-labelledby="goals-title">
-            <div>
-              <p className="marketing-eyebrow">Was bewegt dich?</p>
-              <h2 id="goals-title" className="marketing-heading mt-4 max-w-md">Ein Ziel. Viele Möglichkeiten.</h2>
-              <p className="mt-5 max-w-sm text-base leading-relaxed text-muted">Du musst noch keinen fertigen Plan haben. Beginne mit dem Thema, das dir gerade wichtig ist.</p>
-            </div>
-            <div className="divide-y divide-border">
-              {goalOptions.map((goal) => <Link key={goal.key} href={categoryHref(goal.key)} className="group flex min-h-24 items-center justify-between gap-4 py-5">
-                <div><h3 className="text-xl font-semibold tracking-tight sm:text-2xl">{goal.title}</h3><p className="mt-2 text-sm text-muted">{goal.text}</p></div>
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface group-hover:bg-brand-soft"><ArrowRight className="h-5 w-5" aria-hidden="true" /></span>
-              </Link>)}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+              {categories.map((key) => {
+                const Icon = /ern[aä]|nutrition/.test(key)
+                  ? Leaf
+                  : /mental|stress|schlaf|meditation/.test(key)
+                    ? Heart
+                    : /yoga|pilates|beweglichkeit|mobility/.test(key)
+                      ? Sparkles
+                      : Dumbbell
+                return (
+                  <Link
+                    key={key}
+                    href={`${coaches.some((c) => c.categories.includes(key) || c.category === key) ? '/coaches' : '/marketplace'}?category=${encodeURIComponent(key)}`}
+                    className="surface-card interactive-card flex min-h-20 min-w-0 items-center gap-3 p-4 md:flex-col md:items-start"
+                  >
+                    <Icon
+                      className="h-5 w-5 shrink-0 text-brand"
+                      aria-hidden="true"
+                    />
+                    <span className="text-sm font-semibold [overflow-wrap:anywhere]">
+                      {CATEGORY_LABEL_MAP[key]}
+                    </span>
+                    <ArrowRight
+                      className="mt-auto hidden h-4 w-4 text-muted md:block"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}
 
         <section
-          className="section-space"
+          className="pb-8 pt-8 sm:pb-12"
           aria-labelledby="home-coaches-title"
         >
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 id="home-coaches-title" className="marketing-heading">
+              <h2 id="home-coaches-title" className="section-title">
                 Coaches entdecken
               </h2>
               <p className="mt-2 text-sm text-muted">
@@ -236,12 +221,12 @@ export default function MarketplaceClient({
         </section>
 
         <section
-          className="section-space rounded-[2rem] bg-brand-soft p-5 sm:px-8"
+          className="py-8 sm:py-12"
           aria-labelledby="home-products-title"
         >
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 id="home-products-title" className="marketing-heading">
+              <h2 id="home-products-title" className="section-title">
                 Neu im Marktplatz
               </h2>
               <p className="mt-2 text-sm text-muted">
@@ -272,60 +257,48 @@ export default function MarketplaceClient({
           )}
         </section>
 
-        <section className="section-space" aria-labelledby="formats-title">
-          <div className="brand-story grid items-center gap-8 rounded-[2rem] bg-brand-dark p-6 sm:p-10 lg:grid-cols-2 lg:gap-16 lg:p-14">
-            <div>
-              <p className="marketing-eyebrow text-green-200">Dein Ardore</p>
-              <h2 id="formats-title" className="marketing-heading mt-4 text-white">Menschen. Wissen. Dein nächster Schritt.</h2>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-green-100">Ein Coach-Profil verbindet persönliche Begleitung und digitale Inhalte. Du wählst das Angebot, das in deinen Alltag passt.</p>
-              <div className="mt-8 space-y-5">
-                {[
-                  ...(coaches.some((c) => c.hasVideoCoaching) ? [{ title: '1:1 Coaching', text: 'Termin und privater Meeting-Link findest du in deiner Buchung.', href: '/coaches?videocoaching=true', Icon: UsersRound }] : []),
-                  { title: 'Digitale Produkte', text: 'Nach dem Kauf findest du deine Inhalte in deiner Bibliothek.', href: '/marketplace', Icon: BookOpen },
-                  ...(coaches.some((c) => c.hasSubscription) ? [{ title: 'Abonnements', text: 'Inhalte, Preis und Laufzeit stehen im Coach-Profil.', href: '/coaches?subscription=true', Icon: Layers }] : []),
-                ].map(({ title, text, href, Icon }) => <Link key={title} href={href} className="flex items-start gap-4 rounded-lg py-1 text-white">
-                  <Icon className="mt-1 h-5 w-5 shrink-0 text-green-200" aria-hidden="true" /><div><h3 className="font-semibold">{title}</h3><p className="mt-1 text-sm leading-relaxed text-green-100">{text}</p></div><ArrowRight className="ml-auto mt-1 h-5 w-5 shrink-0" aria-hidden="true" />
-                </Link>)}
-              </div>
-            </div>
-            {previewProduct ? <div className="min-w-0 rounded-2xl bg-brand-soft p-4 sm:p-6">
-              <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted"><span>Ardore · Einblick in den Marktplatz</span><span aria-hidden="true">•••</span></div>
-              <div className="mx-auto max-w-sm"><ProductCard product={previewProduct} salesCount={salesCounts[previewProduct.id]} rating={ratings[previewProduct.id]} /></div>
-              <p className="mt-4 text-center text-xs text-muted">Aktuelles öffentliches Angebot · direkt entdecken</p>
-            </div> : <EditorialVisual alt="" word="deins." tone="green" className="aspect-[4/3] rounded-2xl" />}
-          </div>
-        </section>
-
-        <section className="py-8 sm:py-12" aria-labelledby="how-title">
-          <h2 id="how-title" className="marketing-heading mb-8">
-            So funktioniert Ardore
+        <section className="py-8 sm:py-12" aria-labelledby="formats-title">
+          <h2 id="formats-title" className="section-title mb-6">
+            Die passende Begleitung für dich
           </h2>
-          <ol className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             {[
-              [
-                'Entdecken',
-                'Suche nach deinem Ziel und vergleiche Coaches oder Produkte.',
-              ],
-              [
-                'Auswählen',
-                'Lies Profil und Angebot. Prüfe Preis, Format und Voraussetzungen.',
-              ],
-              [
-                'Loslegen',
-                'Buche deine Session oder kaufe einen Inhalt und finde alles in deinem Konto.',
-              ],
-            ].map(([title, text], i) => (
-              <li key={title} className="flex gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
-                  {i + 1}
+              {
+                title: '1:1 Coaching',
+                text: 'Persönliche Sessions mit einem Coach. Termin und Meeting-Link findest du in deiner Buchung.',
+                href: '/coaches?videocoaching=true',
+                Icon: UsersRound,
+              },
+              {
+                title: 'Digitale Produkte',
+                text: 'Pläne, Kurse und weitere Inhalte. Nach dem Kauf findest du sie in deiner Bibliothek.',
+                href: '/marketplace',
+                Icon: BookOpen,
+              },
+              {
+                title: 'Abonnements',
+                text: 'Begleitung im Abo. Inhalte, Preis und Laufzeit siehst du im jeweiligen Coach-Profil.',
+                href: '/coaches?subscription=true',
+                Icon: Layers,
+              },
+            ].map(({ title, text, href, Icon }) => (
+              <Link
+                key={title}
+                href={href}
+                className="surface-card interactive-card p-6"
+              >
+                <Icon className="mb-4 h-6 w-6 text-brand" aria-hidden="true" />
+                <h3 className="card-title">{title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  {text}
+                </p>
+                <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-brand">
+                  Entdecken
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </span>
-                <div>
-                  <h3 className="card-title">{title}</h3>
-                  <p className="mt-2 text-sm text-muted">{text}</p>
-                </div>
-              </li>
+              </Link>
             ))}
-          </ol>
+          </div>
         </section>
 
         <section
@@ -366,6 +339,38 @@ export default function MarketplaceClient({
           </div>
         </section>
 
+        <section className="py-8 sm:py-12" aria-labelledby="how-title">
+          <h2 id="how-title" className="section-title mb-6">
+            So funktioniert Ardore
+          </h2>
+          <ol className="grid gap-6 md:grid-cols-3">
+            {[
+              [
+                'Entdecken',
+                'Suche nach deinem Ziel und vergleiche Coaches oder Produkte.',
+              ],
+              [
+                'Auswählen',
+                'Lies Profil und Angebot. Prüfe Preis, Format und Voraussetzungen.',
+              ],
+              [
+                'Loslegen',
+                'Buche deine Session oder kaufe einen Inhalt und finde alles in deinem Konto.',
+              ],
+            ].map(([title, text], i) => (
+              <li key={title} className="flex gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                  {i + 1}
+                </span>
+                <div>
+                  <h3 className="card-title">{title}</h3>
+                  <p className="mt-2 text-sm text-muted">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         <section className="pb-8 sm:pb-12">
           <details
             className="surface-card p-4 sm:p-6"
@@ -389,16 +394,16 @@ export default function MarketplaceClient({
         </section>
       </div>
 
-      <section className="bg-brand text-white">
-        <div className="ardore-container flex flex-col items-start justify-between gap-6 py-12 sm:py-16 md:flex-row md:items-center">
+      <section className="border-t border-border bg-brand-soft">
+        <div className="ardore-container flex flex-col items-start justify-between gap-6 py-8 sm:py-12 md:flex-row md:items-center">
           <div>
-            <h2 className="marketing-heading">Dein Wissen verdient einen Platz.</h2>
-            <p className="mt-4 max-w-xl text-base text-green-100">
+            <h2 className="section-title">Dein Wissen verdient einen Platz.</h2>
+            <p className="mt-3 max-w-xl text-sm text-muted">
               Erstelle dein Coach-Profil und präsentiere deine eigenen Angebote
               auf Ardore.
             </p>
           </div>
-          <ButtonLink href="/register?role=creator" variant="secondary">
+          <ButtonLink href="/register?role=creator">
             Als Coach starten
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </ButtonLink>
