@@ -2,36 +2,36 @@
 
 import Link from 'next/link'
 import { ProductThumbnail } from '@/components/ui/Media'
-import { Badge } from '@/components/ui/Badge'
-import { FileText, Play, GraduationCap, Image as ImageIcon } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import HeartButton from '@/components/HeartButton'
-import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import { showSalesCount } from '@/lib/salesCount'
+import { DURATION_OPTIONS, LEVEL_OPTIONS } from '@/lib/productOptions'
 
-type ProductType = 'pdf' | 'video' | 'course' | 'image'
-
-const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText     className="h-8 w-8 text-muted" />,
-  video:  <Play         className="h-8 w-8 text-muted" />,
-  course: <GraduationCap className="h-8 w-8 text-muted" />,
-  image:  <ImageIcon    className="h-8 w-8 text-muted" />,
+// The schema stores file/format types, not a promise about the content's subject.
+export const PRODUCT_OFFER_LABELS = {
+  pdf: 'Digitales Produkt',
+  video: 'Video',
+  course: 'Online-Kurs',
+  image: 'Bildmaterial',
 }
-
-const TYPE_LABELS: Record<ProductType, string> = {
-  pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild',
+const FILE_LABELS = {
+  pdf: 'PDF',
+  video: 'Videoformat',
+  course: 'Kurs',
+  image: 'Bildformat',
 }
-
 export interface ProductCardData {
   id: string
   title: string
-  type: ProductType
+  type: 'pdf' | 'video' | 'course' | 'image'
   price: number
   thumbnail_url: string | null
   categories?: string[]
   show_sales_count?: boolean
+  level?: string | null
+  duration?: string | null
   creator: {
     id: string
     display_name: string
@@ -41,86 +41,90 @@ export interface ProductCardData {
     categories: string[]
   }
 }
-
 interface ProductCardProps {
   product: ProductCardData
   salesCount?: number
   rating?: { avg: number; count: number }
-  /** true → compact row card (w-48 fixed), false → full-width grid card */
   compact?: boolean
   scrollSnap?: boolean
-  /** Denser responsive treatment used by the marketplace catalog grid. */
   variant?: 'default' | 'marketplace'
 }
-
 export function ProductCard({
   product,
   salesCount = 0,
   rating,
   compact = false,
   scrollSnap = false,
-  variant = 'default',
 }: ProductCardProps) {
-  const isMarketplace = variant === 'marketplace'
-
+  const metadata = [
+    FILE_LABELS[product.type],
+    LEVEL_OPTIONS.find((o) => o.value === product.level)?.label,
+    DURATION_OPTIONS.find((o) => o.value === product.duration)?.label,
+  ].filter(Boolean)
   return (
-    <div className={['relative', compact ? 'flex-shrink-0 w-48' : 'w-full', scrollSnap ? '[scroll-snap-align:start]' : ''].filter(Boolean).join(' ')}>
-      <Link href={`/products/${product.id}`} className="block h-full rounded-2xl">
-      <div className="surface-card interactive-card group flex h-full flex-col overflow-hidden">
-        <ProductThumbnail src={product.thumbnail_url} alt={product.title} fallback={TYPE_ICONS[product.type]}
-          sizes={compact ? '192px' : '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'}>
-          <Badge className="absolute right-2 top-2 bg-white">{TYPE_LABELS[product.type]}</Badge>
-        </ProductThumbnail>
-        {/* ── Content ───────────────────────────────────── */}
-        <div className={compact ? 'p-3 flex flex-col flex-1' : isMarketplace ? 'p-3 sm:p-4 flex flex-col flex-1' : 'p-4 flex flex-col flex-1'}>
-          {compact ? (
-            <p className="text-xs text-muted truncate mb-0.5">{product.creator.display_name}</p>
-          ) : (
-            <div className={isMarketplace ? 'flex items-center gap-1.5 mb-1.5 sm:gap-2 sm:mb-2' : 'flex items-center gap-2 mb-2'}>
-              <Avatar
-                src={product.creator.avatar_url}
-                name={product.creator.display_name}
-                size="sm"
-                className={isMarketplace ? 'hidden sm:flex h-5 w-5 text-[10px] flex-shrink-0' : 'h-5 w-5 text-[10px] flex-shrink-0'}
-              />
-              <span className={isMarketplace ? 'text-xs text-muted truncate' : 'text-xs text-muted truncate'}>{product.creator.display_name}</span>
-            </div>
-          )}
-
-          <p className={'card-title text-foreground line-clamp-2 flex-1 mb-2'}>
+    <article
+      className={`surface-card interactive-card group relative flex h-full min-w-0 flex-col overflow-hidden ${compact ? 'w-72 shrink-0' : 'w-full'} ${scrollSnap ? '[scroll-snap-align:start]' : ''}`}
+    >
+      <ProductThumbnail
+        src={product.thumbnail_url}
+        alt={product.title}
+        sizes={
+          compact
+            ? '288px'
+            : '(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 25vw'
+        }
+      />
+      <div className="flex flex-1 flex-col p-4">
+        <p className="mb-2 text-xs font-semibold text-brand">
+          {PRODUCT_OFFER_LABELS[product.type]}
+        </p>
+        <h3 className="card-title mb-3 min-h-11 line-clamp-2 text-foreground">
+          <Link
+            href={`/products/${product.id}`}
+            className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-brand focus-visible:after:-outline-offset-4"
+          >
             {product.title}
+          </Link>
+        </h3>
+        <Link
+          href={`/creators/${product.creator.slug}`}
+          className="relative z-10 mb-3 flex min-w-0 items-center gap-2 text-sm text-muted hover:text-brand"
+        >
+          <span aria-hidden="true">
+            <Avatar
+              src={product.creator.avatar_url}
+              name={product.creator.display_name}
+              size="sm"
+              className="h-6 w-6 shrink-0 text-xs"
+            />
+          </span>
+          <span className="truncate">{product.creator.display_name}</span>
+        </Link>
+        <p className="mb-4 text-xs leading-relaxed text-muted">
+          {metadata.join(' · ')}
+        </p>
+        {rating && rating.count > 0 && (
+          <div className="mb-3">
+            <StarRating rating={rating.avg} count={rating.count} size="sm" />
+          </div>
+        )}
+        {showSalesCount(product, salesCount) && salesCount >= 50 && (
+          <p className="mb-2 text-xs text-muted">{salesCount}× gekauft</p>
+        )}
+        <div className="mt-auto border-t border-border pt-3">
+          <p className="text-xl font-semibold text-foreground">
+            {product.price === 0 ? 'Kostenlos' : formatCurrency(product.price)}
           </p>
-
-          {!compact && product.categories && product.categories.length > 0 && (
-            <div className={isMarketplace ? 'hidden sm:flex flex-wrap gap-1 mb-2' : 'flex flex-wrap gap-1 mb-2'}>
-              {product.categories.slice(0, 2).map(cat => (
-                <span key={cat} className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
-                  {CATEGORY_LABEL_MAP[cat] ?? cat}
-                </span>
-              ))}
-              {product.categories.length > 2 && (
-                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                  +{product.categories.length - 2} mehr
-                </span>
-              )}
-            </div>
-          )}
-
-          {rating && (
-            <div className="mb-1">
-              <StarRating rating={rating.avg} count={rating.count} size="sm" />
-            </div>
-          )}
-
-          {showSalesCount(product, salesCount) && salesCount >= 50 && (
-            <p className="text-[10px] text-gray-400 mb-1">{salesCount}× gekauft</p>
-          )}
-
-          <p className="text-brand font-semibold text-base mt-auto">{formatCurrency(product.price)}</p>
+          <p className="mt-1 text-xs text-muted">
+            {product.price === 0 ? 'Digitaler Inhalt' : 'Einmaliger Kauf'}
+          </p>
         </div>
       </div>
-      </Link>
-      <HeartButton type="product" itemId={product.id} className="absolute left-2 top-2" />
-    </div>
+      <HeartButton
+        type="product"
+        itemId={product.id}
+        className="absolute right-3 top-3 z-20"
+      />
+    </article>
   )
 }

@@ -15,7 +15,7 @@ export function Footer() {
               Ardore
             </Link>
             <p className="text-sm leading-relaxed max-w-sm">
-              Der Marktplatz für Health-Coaching in Deutschland — finde qualifizierte Coaches für Fitness, Ernährung und Mental Health oder verkaufe dein eigenes Coaching.
+              Der Marktplatz für Health-Coaching in Deutschland — entdecke Coaches für Fitness, Ernährung und Wohlbefinden oder verkaufe dein eigenes Coaching.
             </p>
           </div>
           <div>

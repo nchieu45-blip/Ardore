@@ -1,43 +1,28 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
-import type { CoachingCoach, SubscriptionCoach } from './MarketplaceRows'
+import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Ardore – Fitness & Gesundheitscoaches',
-  description: 'Entdecke Trainingspläne, Kurse und Ernährungsberatung von qualifizierten Coaches. Starte heute mit deinem Fitnessziel.',
+  description: 'Finde Coaches, persönliches Coaching und digitale Produkte für Fitness, Ernährung und Wohlbefinden auf Ardore.',
 }
 
 export default async function MarketplacePage() {
   const supabase = await createClient()
 
-  const [productsData, coachingOffersData, subTiersData] = await Promise.all([
-    supabase
-      .from('products')
+  const [productsData, coaches] = await Promise.all([
+    supabase.from('products')
       .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, show_sales_count, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
       .eq('is_published', true)
       .eq('creator_profiles.is_published', true)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('coaching_offers')
-      .select('creator_id, price_cents, duration_minutes, creator_profiles!inner(id, slug, display_name, avatar_url, category, categories)')
-      .eq('is_enabled', true)
-      .eq('creator_profiles.is_published', true)
-      .order('price_cents', { ascending: true })
-      .limit(20),
-    supabase
-      .from('subscription_tiers')
-      .select('price_monthly, creator_id, creator_profiles!inner(id, slug, display_name, avatar_url, category, categories)')
-      .eq('is_active', true)
-      .eq('creator_profiles.is_published', true)
-      .order('price_monthly', { ascending: true })
-      .limit(200),
+    loadPublicCoaches(),
   ])
-
-  if (productsData.error || coachingOffersData.error || subTiersData.error) throw new Error('Angebote konnten nicht geladen werden')
+  if (productsData.error) throw new Error('Angebote konnten nicht geladen werden')
 
   const products: MarketplaceProduct[] = (productsData.data ?? []).map((p: {
     id: string
@@ -80,66 +65,14 @@ export default async function MarketplacePage() {
     }
   })
 
-  const coachingCoaches: CoachingCoach[] = (coachingOffersData.data ?? []).flatMap((o: {
-    creator_id: string
-    price_cents: number
-    duration_minutes: number
-    creator_profiles: { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null } | { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null }[] | null
-  }) => {
-    const cp = Array.isArray(o.creator_profiles) ? o.creator_profiles[0] : o.creator_profiles
-    if (!cp) return []
-    return [{
-      id:               cp.id,
-      slug:             cp.slug,
-      display_name:     cp.display_name,
-      avatar_url:       cp.avatar_url,
-      category:         cp.category,
-      categories:       cp.categories ?? [],
-      price_cents:      o.price_cents,
-      duration_minutes: o.duration_minutes,
-    }]
-  })
-
-  // Build subscription coaches: one entry per creator with their cheapest active tier
-  type SubTierRow = {
-    price_monthly: number
-    creator_id: string
-    creator_profiles: { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null }
-      | { id: string; slug: string; display_name: string; avatar_url: string | null; category: string | null; categories: string[] | null }[]
-      | null
-  }
-  const subCoachMap = new Map<string, SubscriptionCoach>()
-  for (const row of (subTiersData.data ?? []) as SubTierRow[]) {
-    const cp = Array.isArray(row.creator_profiles) ? row.creator_profiles[0] : row.creator_profiles
-    if (!cp) continue
-    const existing = subCoachMap.get(cp.id)
-    if (!existing || row.price_monthly < existing.min_price_monthly) {
-      subCoachMap.set(cp.id, {
-        id:                 cp.id,
-        slug:               cp.slug,
-        display_name:       cp.display_name,
-        avatar_url:         cp.avatar_url,
-        category:           cp.category,
-        categories:         cp.categories ?? [],
-        min_price_monthly:  row.price_monthly,
-      })
-    }
-  }
-  const subscriptionCoaches: SubscriptionCoach[] = [...subCoachMap.values()]
-    .sort((a, b) => a.min_price_monthly - b.min_price_monthly)
-    .slice(0, 20)
-
   const productIds = products.map(p => p.id)
 
-  const [salesRes, reviewsRes, favoritesRes] = await Promise.all([
+  const [salesRes, reviewsRes] = await Promise.all([
     productIds.length > 0
       ? supabase.rpc('get_public_product_sales_counts', { requested_product_ids: productIds })
       : Promise.resolve({ data: [] }),
     productIds.length > 0
       ? supabase.from('public_product_reviews').select('id, product_id, rating').in('product_id', productIds)
-      : Promise.resolve({ data: [] }),
-    productIds.length > 0
-      ? supabase.from('favorites').select('item_id').eq('item_type', 'product').in('item_id', productIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -152,19 +85,12 @@ export default async function MarketplacePage() {
     (reviewsRes.data ?? []) as { id: string; product_id: string; rating: number }[]
   )
 
-  const favoriteCounts: Record<string, number> = {}
-  for (const { item_id } of (favoritesRes.data ?? []) as { item_id: string }[]) {
-    favoriteCounts[item_id] = (favoriteCounts[item_id] ?? 0) + 1
-  }
-
   return (
     <MarketplaceClient
+      coaches={coaches}
       products={products}
       salesCounts={salesCounts}
       ratings={ratings}
-      favoriteCounts={favoriteCounts}
-      coachingCoaches={coachingCoaches}
-      subscriptionCoaches={subscriptionCoaches}
     />
   )
 }

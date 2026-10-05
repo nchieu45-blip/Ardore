@@ -1,29 +1,19 @@
-import { CoachCardSkeleton } from '@/components/ui/Skeleton'
-
+import { CoachCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 export default function Loading() {
   return (
     <div aria-busy="true" aria-label="Coaches werden geladen">
-      {/* Hero skeleton */}
-      <div className="bg-gradient-to-br from-green-950 to-emerald-800 py-16 px-4">
-        <div className="max-w-3xl mx-auto text-center space-y-4">
-          <div className="h-6 w-48 bg-white/20 rounded-full mx-auto animate-pulse" />
-          <div className="h-12 w-72 bg-white/20 rounded-xl mx-auto animate-pulse" />
-          <div className="h-4 w-64 bg-white/20 rounded mx-auto animate-pulse" />
-          <div className="h-13 max-w-xl w-full mx-auto bg-white/20 rounded-2xl animate-pulse" />
+      <div className="border-b border-border bg-surface">
+        <div className="ardore-container space-y-4 py-8">
+          <Skeleton className="h-8 w-64 max-w-full" />
+          <Skeleton className="h-11 w-full max-w-2xl" />
         </div>
       </div>
-      {/* Filter bar skeleton */}
-      <div className="border-b border-gray-100 bg-white">
-        <div className="ardore-container py-3 flex gap-2 overflow-hidden">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-7 w-24 bg-gray-200 rounded-full animate-pulse flex-shrink-0" />
-          ))}
+      <div className="ardore-container py-6">
+        <div className="mb-6 flex gap-3">
+          <Skeleton className="h-11 w-36" />
+          <Skeleton className="h-11 w-36" />
         </div>
-      </div>
-      {/* Grid */}
-      <div className="ardore-container py-8">
-        <div className="h-4 w-28 bg-gray-200 rounded animate-pulse mb-6" />
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <CoachCardSkeleton key={i} />
           ))}

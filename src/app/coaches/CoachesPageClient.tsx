@@ -1,447 +1,410 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { Search, X, SlidersHorizontal } from 'lucide-react'
+import { CoachCard } from '@/components/ui/CoachCard'
 import {
-  Search, X, Star, Package, ArrowRight, Users, Video, ChevronDown, Check, ShieldCheck, Languages,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/Badge'
-import { Avatar } from '@/components/ui/Avatar'
-import { cn } from '@/lib/utils'
-import HeartButton from '@/components/HeartButton'
-import type { CoachData } from './page'
-import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
+  DiscoveryNavigation,
+  discoveryHref,
+} from '@/components/ui/DiscoveryNavigation'
+import { Button, ButtonLink } from '@/components/ui/Button'
+import { StatePanel } from '@/components/ui/StatePanel'
+import type { CoachData } from '@/lib/publicCoaches'
+import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import { LANGUAGE_LABEL_MAP } from '@/lib/languages'
 
-const CATEGORY_LABELS = CATEGORY_LABEL_MAP
-
-type SortKey = 'newest' | 'most_products' | 'top_rated'
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'newest',        label: 'Neueste' },
-  { key: 'most_products', label: 'Meiste Produkte' },
-  // TODO: re-enable post-launch when review data exists
-  // { key: 'top_rated', label: 'Top bewertet' },
-]
-
-interface Props {
+export default function CoachesPageClient({
+  coaches,
+}: {
   coaches: CoachData[]
-}
-
-function CoachCard({ coach }: { coach: CoachData }) {
-  const allCats    = coach.categories.length ? coach.categories : coach.category ? [coach.category] : []
-
-  return (
-    <div className="relative group h-full">
-      <HeartButton type="coach" itemId={coach.id} className="absolute top-3 right-3 z-10" />
-      <Link href={`/creators/${coach.slug}`} className="group block h-full">
-      <div className="surface-card interactive-card overflow-hidden h-full flex flex-col">
-        {/* Gradient banner */}
-        <div className="h-20 bg-brand-soft relative overflow-hidden flex-shrink-0">
-          <div className="absolute -bottom-4 -right-4 h-16 w-16 rounded-full bg-white/10" />
-          <div className="absolute -top-4 left-1/3 h-12 w-12 rounded-full bg-white/10" />
-          {coach.rating && (
-            <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full">
-              <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-              <span className="text-[11px] font-bold text-white">{coach.rating.avg.toFixed(1)}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="px-5 pb-5 flex flex-col flex-1">
-          {/* Avatar overlapping banner */}
-          <div className="-mt-7 mb-3 relative z-10">
-            <Avatar
-              src={coach.avatar_url}
-              name={coach.display_name}
-              size="lg"
-              className="ring-4 ring-white shadow-md"
-            />
-          </div>
-
-          {/* Name + category badges */}
-          <div className="mb-2.5">
-            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <h3 className="card-title text-gray-900 group-hover:text-green-700 transition-colors">
-                {coach.display_name}
-              </h3>
-              {coach.is_verified && (
-                <Badge variant="success" icon={<ShieldCheck />}>Verifiziert</Badge>
-              )}
-              {coach.hasVideoCoaching && (
-                <Badge variant="info" icon={<Video />}>1:1 Sessions</Badge>
-              )}
-              {coach.hasGroupClasses && (
-                <Badge variant="info" icon={<Users />}>Gruppen-Sessions</Badge>
-              )}
-            </div>
-            {allCats.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {allCats.slice(0, 3).map(cat => (
-                  <span
-                    key={cat}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-100"
-                  >
-                    {CATEGORY_LABELS[cat] ?? cat}
-                  </span>
-                ))}
-                {allCats.length > 3 && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-100">
-                    +{allCats.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Bio excerpt */}
-          {coach.bio ? (
-            <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed flex-1 mb-3">{coach.bio}</p>
-          ) : (
-            <p className="text-sm text-gray-300 italic flex-1 mb-3">Keine Beschreibung vorhanden</p>
-          )}
-
-          {/* Stats row */}
-          <div className="flex items-center gap-3 text-xs text-gray-400 mb-4">
-            <span className="flex items-center gap-1">
-              <Package className="h-3.5 w-3.5 text-gray-300" />
-              {coach.productCount} {coach.productCount === 1 ? 'Produkt' : 'Produkte'}
-            </span>
-            {coach.rating && (
-              <>
-                <span className="text-gray-200">·</span>
-                <span className="flex items-center gap-1 text-amber-500 font-medium">
-                  <Star className="h-3.5 w-3.5 fill-amber-400" />
-                  {coach.rating.avg.toFixed(1)}
-                  <span className="font-normal text-gray-400">({coach.rating.count})</span>
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* CTA button */}
-          <span className="inline-flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold group-hover:bg-green-700 transition-colors">
-            Profil ansehen
-            <ArrowRight className="h-4 w-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
-          </span>
-        </div>
-      </div>
-    </Link>
-    </div>
-  )
-}
-
-export default function CoachesPageClient({ coaches }: Props) {
-  const router       = useRouter()
-  const searchParams = useSearchParams()
-
-  const category      = searchParams.get('category') ?? 'all'
-  const language       = searchParams.get('language') ?? 'all'
-  const sort          = (searchParams.get('sort') as SortKey) ?? 'newest'
-  const videocoaching = searchParams.get('videocoaching') === 'true'
-  const groupclasses  = searchParams.get('groupclasses') === 'true'
-  const [search,       setSearch]       = useState('')
-  const [moreOpen,     setMoreOpen]     = useState(false)
-  const [languageOpen, setLanguageOpen] = useState(false)
-  const [openGroups,   setOpenGroups]   = useState<Set<string>>(new Set())
-  const moreRef     = useRef<HTMLDivElement>(null)
-  const languageRef = useRef<HTMLDivElement>(null)
-
-  function toggleGroup(label: string) {
-    setOpenGroups(prev => {
-      const next = new Set(prev)
-      if (next.has(label)) { next.delete(label) } else { next.add(label) }
-      return next
-    })
-  }
-
+}) {
+  const router = useRouter(),
+    params = useSearchParams()
+  const category = params.get('category') ?? 'all',
+    language = params.get('language') ?? 'all',
+    sort = params.get('sort') ?? 'newest'
+  const videocoaching = params.get('videocoaching') === 'true',
+    groupclasses = params.get('groupclasses') === 'true',
+    subscription = params.get('subscription') === 'true'
+  const urlSearch = (params.get('q') ?? '').trim().replace(/\s+/g, ' ')
+  const [searchState, setSearchState] = useState({
+    value: urlSearch,
+    syncedUrl: urlSearch,
+  })
+  if (searchState.syncedUrl !== urlSearch)
+    setSearchState({ value: urlSearch, syncedUrl: urlSearch })
+  const search = searchState.value
+  const setSearch = (value: string) =>
+    setSearchState((current) => ({ ...current, value }))
+  const normalizedSearch = search.trim().replace(/\s+/g, ' ')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const dialog = useRef<HTMLDialogElement>(null),
+    trigger = useRef<HTMLButtonElement>(null),
+    titleId = useId()
   useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false)
-      }
-      if (languageRef.current && !languageRef.current.contains(e.target as Node)) {
-        setLanguageOpen(false)
+    if (!filtersOpen) return
+    const node = dialog.current,
+      button = trigger.current,
+      oldOverflow = document.body.style.overflow
+    node?.showModal()
+    document.body.style.overflow = 'hidden'
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Tab' || !node) return
+      const controls = Array.from(
+        node.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href]'
+        )
+      ).filter((control) => control.getClientRects().length > 0)
+      const first = controls[0],
+        last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
       }
     }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
-
-  // Build available category / language lists from actual coach data —
-  // avoids showing filter options nobody on the platform actually has.
+    node?.addEventListener('keydown', onKeyDown)
+    return () => {
+      node?.removeEventListener('keydown', onKeyDown)
+      node?.close()
+      document.body.style.overflow = oldOverflow
+      button?.focus()
+    }
+  }, [filtersOpen])
+  useEffect(() => {
+    if (normalizedSearch === urlSearch) return
+    const timeout = window.setTimeout(() => {
+      const next = new URLSearchParams(params.toString())
+      if (normalizedSearch) next.set('q', normalizedSearch)
+      else next.delete('q')
+      router.replace(`/coaches${next.size ? `?${next}` : ''}`, {
+        scroll: false,
+      })
+    }, 300)
+    return () => window.clearTimeout(timeout)
+  }, [normalizedSearch, urlSearch, router, params])
+  function go(overrides: Record<string, string | null>) {
+    const next = new URLSearchParams(params.toString())
+    for (const [key, value] of Object.entries(overrides)) {
+      if (!value || value === 'all' || (key === 'sort' && value === 'newest'))
+        next.delete(key)
+      else next.set(key, value)
+    }
+    router.push(`/coaches${next.size ? `?${next}` : ''}`, { scroll: false })
+  }
+  function reset() {
+    setSearch('')
+    router.push('/coaches', { scroll: false })
+  }
   const availableCategories = [
     ...new Set(
-      coaches.flatMap(c =>
+      coaches.flatMap((c) =>
         c.categories.length ? c.categories : c.category ? [c.category] : []
       )
     ),
-  ].filter(cat => cat in CATEGORY_LABELS)
-
-  const availableLanguages = [...new Set(coaches.flatMap(c => c.languages))]
-    .filter(code => code in LANGUAGE_LABEL_MAP)
-
-  function buildUrl(overrides: { category?: string; language?: string; sort?: string; videocoaching?: boolean; groupclasses?: boolean } = {}): string {
-    const cat  = overrides.category    ?? category
-    const lang = overrides.language    ?? language
-    const s    = overrides.sort        ?? sort
-    const vc   = overrides.videocoaching !== undefined ? overrides.videocoaching : videocoaching
-    const gc   = overrides.groupclasses  !== undefined ? overrides.groupclasses  : groupclasses
-    const params = new URLSearchParams()
-    if (cat !== 'all') params.set('category', cat)
-    if (lang !== 'all') params.set('language', lang)
-    if (s !== 'newest') params.set('sort', s)
-    if (vc) params.set('videocoaching', 'true')
-    if (gc) params.set('groupclasses', 'true')
-    const qs = params.toString()
-    return `/coaches${qs ? '?' + qs : ''}`
-  }
-
-  function go(overrides: Parameters<typeof buildUrl>[0]) {
-    router.push(buildUrl(overrides), { scroll: false })
-  }
-
+  ].filter((key) => CATEGORY_LABEL_MAP[key])
+  const availableLanguages = [
+    ...new Set(coaches.flatMap((c) => c.languages)),
+  ].filter((key) => LANGUAGE_LABEL_MAP[key])
   const filtered = coaches
-    .filter(c => {
-      const cats = c.categories.length ? c.categories : c.category ? [c.category] : []
-      const matchesCat    = category === 'all' || cats.includes(category)
-      const matchesLang   = language === 'all' || c.languages.includes(language)
-      const matchesSearch = !search
-        || c.display_name.toLowerCase().includes(search.toLowerCase())
-        || (c.bio ?? '').toLowerCase().includes(search.toLowerCase())
-      const matchesVC     = !videocoaching || c.hasVideoCoaching
-      const matchesGC     = !groupclasses  || c.hasGroupClasses
-      return matchesCat && matchesLang && matchesSearch && matchesVC && matchesGC
+    .filter((c) => {
+      const cats = c.categories.length
+        ? c.categories
+        : c.category
+          ? [c.category]
+          : []
+      const haystack = [
+        c.display_name,
+        c.bio ?? '',
+        ...cats.flatMap((key) => [key, CATEGORY_LABEL_MAP[key] ?? '']),
+      ]
+        .join(' ')
+        .toLocaleLowerCase('de-DE')
+      return (
+        (category === 'all' || cats.includes(category)) &&
+        (language === 'all' || c.languages.includes(language)) &&
+        (!videocoaching || c.hasVideoCoaching) &&
+        (!groupclasses || c.hasGroupClasses) &&
+        (!subscription || c.hasSubscription) &&
+        (!normalizedSearch ||
+          haystack.includes(normalizedSearch.toLocaleLowerCase('de-DE')))
+      )
     })
-    .sort((a, b) => {
-      switch (sort) {
-        case 'newest':        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        case 'most_products': return b.productCount - a.productCount
-        case 'top_rated':     return (b.rating?.avg ?? -1) - (a.rating?.avg ?? -1)
-      }
-    })
-
+    .sort((a, b) =>
+      sort === 'most_products'
+        ? b.productCount - a.productCount
+        : sort === 'top_rated'
+          ? (b.rating?.avg ?? 0) - (a.rating?.avg ?? 0)
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  const chips = [
+    category !== 'all' && {
+      key: 'category',
+      label: CATEGORY_LABEL_MAP[category] ?? category,
+    },
+    language !== 'all' && {
+      key: 'language',
+      label: LANGUAGE_LABEL_MAP[language] ?? language,
+    },
+    videocoaching && { key: 'videocoaching', label: '1:1 Coaching' },
+    subscription && { key: 'subscription', label: 'Abonnements' },
+    groupclasses && {
+      key: 'groupclasses',
+      label: 'Gruppen-Sessions (bestehender Filter)',
+    },
+    normalizedSearch && { key: 'q', label: `Suche: „${normalizedSearch}“` },
+  ].filter((chip): chip is { key: string; label: string } => !!chip)
+  function filters() {
+    return (
+      <div className="grid gap-4 md:grid-cols-3">
+        <label>
+          <span className="mb-2 block text-sm font-semibold text-muted">
+            Kategorie / Ziel
+          </span>
+          <select
+            className="field-control w-full"
+            value={category}
+            onChange={(e) => go({ category: e.target.value })}
+          >
+            <option value="all">Alle Kategorien</option>
+            {availableCategories.map((key) => (
+              <option key={key} value={key}>
+                {CATEGORY_LABEL_MAP[key]}
+              </option>
+            ))}
+            {category !== 'all' && !availableCategories.includes(category) && (
+              <option value={category}>
+                {CATEGORY_LABEL_MAP[category] ?? category}
+              </option>
+            )}
+          </select>
+        </label>
+        <label>
+          <span className="mb-2 block text-sm font-semibold text-muted">
+            Sprache
+          </span>
+          <select
+            className="field-control w-full"
+            value={language}
+            onChange={(e) => go({ language: e.target.value })}
+          >
+            <option value="all">Alle Sprachen</option>
+            {availableLanguages.map((key) => (
+              <option key={key} value={key}>
+                {LANGUAGE_LABEL_MAP[key]}
+              </option>
+            ))}
+            {language !== 'all' && !availableLanguages.includes(language) && (
+              <option value={language}>
+                {LANGUAGE_LABEL_MAP[language] ?? language}
+              </option>
+            )}
+          </select>
+        </label>
+        <label>
+          <span className="mb-2 block text-sm font-semibold text-muted">
+            Angebotsformat
+          </span>
+          <select
+            className="field-control w-full"
+            value={
+              videocoaching ? 'coaching' : subscription ? 'subscription' : 'all'
+            }
+            onChange={(e) =>
+              go({
+                videocoaching: e.target.value === 'coaching' ? 'true' : null,
+                subscription: e.target.value === 'subscription' ? 'true' : null,
+                groupclasses: null,
+              })
+            }
+          >
+            <option value="all">Alle Formate</option>
+            <option value="coaching">1:1 Coaching</option>
+            <option value="subscription">Abonnements</option>
+          </select>
+        </label>
+      </div>
+    )
+  }
+  const sortControl = (
+    <label>
+      <span className="sr-only">Coaches sortieren</span>
+      <select
+        value={sort}
+        onChange={(e) => go({ sort: e.target.value })}
+        className="field-control w-full"
+      >
+        <option value="newest">Neueste Profile</option>
+        <option value="most_products">Meiste Produkte</option>
+        {sort === 'top_rated' && (
+          <option value="top_rated">Nach Produktbewertungen</option>
+        )}
+      </select>
+    </label>
+  )
   return (
-    <div>
-      {/* ── Hero ──────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-emerald-800 py-16 px-4">
-        <div className="pointer-events-none absolute -top-20 -right-20 h-80 w-80 rounded-full bg-green-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
-
-        <div className="relative max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-5">
-            <Users className="h-3.5 w-3.5" />
-            {coaches.length} qualifizierte Coaches
-          </div>
-          <h1 className="page-title text-white mb-4">
-            Finde deinen Coach
-          </h1>
-          <p className="text-green-100/70 text-base mb-8 max-w-md mx-auto">
-            Qualifizierte Experten für Fitness, Ernährung, Mental Health und mehr
-          </p>
-          <div className="relative max-w-xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Coach suchen nach Name oder Bio..."
-              aria-label="Coaches nach Name oder Beschreibung suchen"
-              className="w-full pl-12 pr-10 py-3.5 rounded-2xl text-sm bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 shadow-lg"
+    <div className="min-h-screen">
+      <section className="border-b border-border bg-surface">
+        <div className="ardore-container py-6 sm:py-8">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="section-title">Marktplatz entdecken</h1>
+              <p className="mt-2 text-sm text-muted">
+                Coaches kennenlernen. Digitale Produkte vergleichen.
+              </p>
+            </div>
+            <DiscoveryNavigation
+              active="coaches"
+              search={normalizedSearch}
+              category={category}
             />
-            {search && (
+          </div>
+          <label className="relative block max-w-2xl">
+            <span className="sr-only">
+              Coaches nach Name, Thema oder Kategorie suchen
+            </span>
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted"
+              aria-hidden="true"
+            />
+            <input
+              aria-label="Coaches nach Name, Thema oder Kategorie suchen"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Name, Thema oder Ziel suchen"
+              className="field-control w-full pl-12 pr-12"
+            />
+            {normalizedSearch && (
               <button
+                aria-label="Suche löschen"
                 onClick={() => setSearch('')}
-                aria-label="Coach-Suche zurücksetzen"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="icon-button absolute right-1 top-1/2 -translate-y-1/2 text-muted"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
-          </div>
+          </label>
+          <p className="mt-3 text-xs text-muted">
+            Hier findest du Coach-Profile.{' '}
+            <ButtonLink
+              href={discoveryHref('/marketplace', normalizedSearch, category)}
+              variant="tertiary"
+              className="min-h-0 p-0 text-xs font-semibold text-brand underline underline-offset-2"
+            >
+              Passende Produkte ansehen
+            </ButtonLink>
+          </p>
         </div>
       </section>
-
-      {/* ── Sticky filter bar ─────────────────────────────────────── */}
-      <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <div className="ardore-container py-2.5">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
-            {/* Scrollable primary pills */}
-            <div className="flex items-center gap-2 overflow-x-auto flex-1 basis-full md:basis-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden min-w-0">
-              <button
-                onClick={() => go({ category: 'all', videocoaching: false })}
-                className={cn(
-                  'flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                  category === 'all' && !videocoaching
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-                )}
-              >
-                Alle
-              </button>
-              <button
-                onClick={() => go({ videocoaching: !videocoaching, category: 'all' })}
-                className={cn(
-                  'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                  videocoaching
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-600'
-                )}
-              >
-                <Video className="h-3 w-3" />
-                1:1 Sessions
-              </button>
-              <button
-                onClick={() => go({ groupclasses: !groupclasses, category: 'all' })}
-                className={cn(
-                  'flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                  groupclasses
-                    ? 'bg-violet-600 text-white border-violet-600'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-violet-300 hover:text-violet-600'
-                )}
-              >
-                <Users className="h-3 w-3" />
-                Gruppen-Sessions
-              </button>
-            </div>
-
-            <div className="h-5 w-px bg-gray-200 flex-shrink-0" />
-
-            {/* "Mehr Kategorien" dropdown — collapses all topic pills */}
-            <div ref={moreRef} className="relative flex-shrink-0">
-              <button
-                onClick={() => setMoreOpen(o => !o)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                  category !== 'all'
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-                )}
-              >
-                {category !== 'all' ? (CATEGORY_LABELS[category] ?? 'Kategorie') : 'Mehr Kategorien'}
-                <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', moreOpen && 'rotate-180')} />
-              </button>
-
-              {moreOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto animate-scale-in">
-                  {CATEGORY_GROUPS.map((group, gi) => {
-                    const visibleItems = group.items.filter(({ key }) => availableCategories.includes(key))
-                    if (visibleItems.length === 0) return null
-                    const isOpen = openGroups.has(group.label)
-                    return (
-                      <div key={group.label}>
-                        {gi > 0 && <div className="mx-4 border-t border-gray-100" />}
-                        <button
-                          onClick={() => toggleGroup(group.label)}
-                          className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          {group.label}
-                          <ChevronDown className={cn('h-3 w-3 transition-transform duration-150', isOpen && 'rotate-180')} />
-                        </button>
-                        {isOpen && visibleItems.map(({ key, label }) => (
-                          <button
-                            key={key}
-                            onClick={() => { setMoreOpen(false); go({ category: category === key ? 'all' : key }) }}
-                            className="w-full flex items-center justify-between px-6 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          >
-                            <span>{label}</span>
-                            {category === key && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
-                          </button>
-                        ))}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* "Sprache" dropdown — only lists languages at least one coach actually has */}
-            {availableLanguages.length > 0 && (
-              <div ref={languageRef} className="relative flex-shrink-0">
-                <button
-                  onClick={() => setLanguageOpen(o => !o)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                    language !== 'all'
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-                  )}
-                >
-                  <Languages className="h-3 w-3" />
-                  {language !== 'all' ? (LANGUAGE_LABEL_MAP[language] ?? 'Sprache') : 'Sprache'}
-                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', languageOpen && 'rotate-180')} />
-                </button>
-
-                {languageOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto animate-scale-in">
-                    {availableLanguages.map(code => (
-                      <button
-                        key={code}
-                        onClick={() => { setLanguageOpen(false); go({ language: language === code ? 'all' : code }) }}
-                        className="w-full flex items-center justify-between px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <span>{LANGUAGE_LABEL_MAP[code] ?? code}</span>
-                        {language === code && <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Sort options */}
-            <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-              {SORT_OPTIONS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => go({ sort: key })}
-                  className={cn(
-                    'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap',
-                    sort === key
-                      ? 'bg-green-600 text-white border-green-600'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+      <div className="ardore-container py-6">
+        <div className="hidden md:block">{filters()}</div>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 md:mt-6">
+          <p role="status" aria-live="polite" className="text-sm text-muted">
+            <strong className="text-foreground">{filtered.length}</strong>{' '}
+            {filtered.length === 1 ? 'Coach' : 'Coaches'} gefunden
+          </p>
+          <div className="flex min-w-0 gap-3">
+            <Button
+              ref={trigger}
+              variant="secondary"
+              className="md:hidden"
+              onClick={() => setFiltersOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Filter{chips.length > 0 ? ` (${chips.length})` : ''}
+            </Button>
+            {sortControl}
           </div>
         </div>
-      </div>
-
-      {/* ── Results ───────────────────────────────────────────────── */}
-      <div className="ardore-container py-8">
-        <p className="text-sm text-gray-500 mb-6">
-          <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
-          {filtered.length === 1 ? 'Coach' : 'Coaches'} gefunden
-          {search && <span className="text-gray-400"> für {'„'}{search}{'"'}</span>}
-        </p>
-
-        {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="h-16 w-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-              <Users className="h-7 w-7 text-gray-300" />
-            </div>
-            <p className="text-gray-500 font-medium mb-1">Keine Coaches gefunden</p>
-            <p className="text-sm text-gray-400 mb-5">
-              Versuche andere Filter oder einen anderen Suchbegriff.
-            </p>
-            <button
-              onClick={() => { setSearch(''); go({ category: 'all', language: 'all', sort: 'newest', videocoaching: false, groupclasses: false }) }}
-              className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
-            >
-              Filter zurücksetzen
-            </button>
+        {chips.length > 0 && (
+          <div className="mb-6 flex flex-wrap gap-2" aria-label="Aktive Filter">
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                aria-label={`${chip.label} entfernen`}
+                className="button-base max-w-full border border-border bg-brand-soft px-3 text-xs text-brand"
+                onClick={() => {
+                  if (chip.key === 'q') setSearch('')
+                  go({ [chip.key]: null })
+                }}
+              >
+                <span className="break-words">{chip.label}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden="true" />
+              </button>
+            ))}
+            <Button variant="tertiary" onClick={reset}>
+              Zurücksetzen
+            </Button>
           </div>
+        )}
+        {filtered.length === 0 ? (
+          <StatePanel
+            title="Keine Coaches gefunden"
+            description="Versuche einen anderen Suchbegriff oder setze die Filter zurück."
+            action={
+              <>
+                <Button variant="secondary" onClick={reset}>
+                  Zurücksetzen
+                </Button>
+                <ButtonLink
+                  variant="tertiary"
+                  href={discoveryHref(
+                    '/marketplace',
+                    normalizedSearch,
+                    category
+                  )}
+                >
+                  Produkte ansehen
+                </ButtonLink>
+              </>
+            }
+          />
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filtered.map(coach => (
-              <CoachCard key={coach.id} coach={coach} />
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filtered.map((c) => (
+              <CoachCard key={c.id} coach={c} />
             ))}
           </div>
         )}
       </div>
+      {filtersOpen && (
+        <dialog
+          ref={dialog}
+          aria-labelledby={titleId}
+          onCancel={() => setFiltersOpen(false)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setFiltersOpen(false)
+          }}
+          className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[88svh] w-full max-w-none rounded-t-[var(--radius-dialog)] bg-surface p-0 text-foreground shadow-[var(--shadow-floating)] backdrop:bg-gray-950/45"
+        >
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <h2 id={titleId} className="card-title">
+              Coaches filtern
+            </h2>
+            <Button
+              variant="tertiary"
+              aria-label="Filter schließen"
+              onClick={() => setFiltersOpen(false)}
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto p-4">{filters()}</div>
+          <div className="flex gap-3 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Button variant="secondary" onClick={reset}>
+              Zurücksetzen
+            </Button>
+            <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
+              {filtered.length} anzeigen
+            </Button>
+          </div>
+        </dialog>
+      )}
     </div>
   )
 }

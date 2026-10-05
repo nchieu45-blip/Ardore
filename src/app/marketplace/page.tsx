@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Marktplatz',
-  description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von qualifizierten Coaches.',
+  description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von Coaches auf Ardore.',
   openGraph: {
     title: 'Marktplatz – Ardore',
     description: 'Digitale Produkte von Fitness- und Gesundheitscoaches.',
