@@ -17,7 +17,7 @@ export default function Loading() {
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 py-10">
+      <div className="ardore-workspace py-10">
         <div className="grid grid-cols-3 gap-4 mb-10">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="rounded-2xl border border-gray-100 p-5 bg-white">

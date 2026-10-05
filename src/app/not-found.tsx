@@ -27,7 +27,7 @@ export default function NotFound() {
         <Link href="/marketplace">
           <Button variant="outline" className="gap-2 min-w-40">
             <Search className="h-4 w-4" />
-            Marketplace
+            Marktplatz
           </Button>
         </Link>
       </div>

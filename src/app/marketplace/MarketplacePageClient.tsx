@@ -335,7 +335,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
     const equipmentLabel = EQUIPMENT_OPTIONS.find(option => option.value === equipmentValue)?.label ?? equipmentValue
     activeFilterChips.push({
       key: `equipment-${equipmentValue}`,
-      label: `Equipment: ${equipmentLabel}`,
+      label: `Ausstattung: ${equipmentLabel}`,
       remove: () => go({ equipment: equipment.filter(value => value !== equipmentValue), page: 1 }),
     })
   }
@@ -414,7 +414,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
             <Sparkles className="h-3 w-3" aria-hidden="true" />
             Ardore Marktplatz
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white mb-1.5 sm:mb-2">
+          <h1 className="page-title text-white mb-4">
             Alle Produkte entdecken
           </h1>
           <p className="text-green-100/70 text-xs sm:text-sm mb-5 sm:mb-7">
@@ -482,7 +482,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
 
       {/* ── Desktop sticky filter bar ─────────────────────────────── */}
       <div className="hidden md:block sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-2.5">
+        <div className="ardore-container py-2.5">
           <div className="flex items-center gap-2">
 
             {/* Category dropdown — outside the overflow-x-auto so the menu isn't clipped */}
@@ -625,7 +625,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
                   className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium transition-colors whitespace-nowrap"
                 >
                   <X className="h-3 w-3" />
-                  Reset
+                  Zurücksetzen
                 </button>
               )}
             </div>
@@ -636,7 +636,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
           {advancedOpen && (
             <div className="mt-3 pt-3 border-t border-gray-100 space-y-4 pb-2">
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Equipment</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Ausstattung</p>
                 <div className="flex flex-wrap gap-1.5">
                   {EQUIPMENT_OPTIONS.map(opt => {
                     const active = equipment.includes(opt.value)
@@ -825,7 +825,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
               </fieldset>
 
               <fieldset>
-                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Equipment</legend>
+                <legend className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ausstattung</legend>
                 <div className="flex flex-wrap gap-2">
                   {EQUIPMENT_OPTIONS.map(option => {
                     const active = equipment.includes(option.value)
@@ -892,7 +892,7 @@ export default function MarketplacePageClient({ products, salesCounts, ratings }
       )}
 
       {/* ── Results ───────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8">
+      <div className="ardore-container py-5 sm:py-8">
         {/* Count + active-filter badge */}
         <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
           <p ref={resultsSummaryRef} tabIndex={-1} className="text-sm text-gray-500 focus:outline-none scroll-mt-24">

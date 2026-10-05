@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Video, Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Loader2, Tag, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { StatePanel } from '@/components/ui/StatePanel'
+import { Input, Textarea } from '@/components/ui/Input'
 import { cn, formatCurrency } from '@/lib/utils'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
@@ -70,16 +71,21 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   const [discountLoading,setDiscountLoading]= useState(false)
 
   // Days with at least one available slot in the current month view
+  const [daysError, setDaysError] = useState(false)
+  const [slotsError, setSlotsError] = useState(false)
   const [availableDays, setAvailableDays] = useState<Set<number>>(new Set())
   const [daysLoading,   setDaysLoading]   = useState(false)
 
   const fetchAvailableDays = useCallback(async (year: number, month: number) => {
     setDaysLoading(true)
+    setDaysError(false)
     try {
       const res  = await fetch(`/api/coaching/available-days?creatorId=${creatorId}&year=${year}&month=${month}`)
       const json = await res.json() as { days: number[] }
-      setAvailableDays(new Set(json.days ?? []))
+      if (!res.ok || !Array.isArray(json.days)) throw new Error('Availability unavailable')
+      setAvailableDays(new Set(json.days))
     } catch {
+      setDaysError(true)
       setAvailableDays(new Set())
     } finally {
       setDaysLoading(false)
@@ -92,12 +98,15 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
 
   async function fetchSlots(date: Date) {
     setSlotsLoading(true)
+    setSlotsError(false)
     setSlots([])
     try {
       const res  = await fetch(`/api/coaching/slots?creatorId=${creatorId}&date=${formatDate(date)}`)
       const json = await res.json() as { slots: string[] }
-      setSlots(json.slots ?? [])
+      if (!res.ok || !Array.isArray(json.slots)) throw new Error('Slots unavailable')
+      setSlots(json.slots)
     } catch {
+      setSlotsError(true)
       setSlots([])
     } finally {
       setSlotsLoading(false)
@@ -212,9 +221,9 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
   }
 
   return (
-    <div className="rounded-2xl border-2 border-green-200 bg-white overflow-hidden shadow-sm" data-booking-widget>
+    <div className="surface-card overflow-hidden" data-booking-widget>
       {/* Header */}
-      <div className="bg-gradient-to-br from-green-600 to-emerald-600 px-5 py-4">
+      <div className="bg-brand px-5 py-4">
         <div className="flex items-center gap-2 mb-1">
           <Video className="h-4.5 w-4.5 text-white" />
           <h3 className="font-bold text-white">1:1 Videocoaching</h3>
@@ -353,6 +362,8 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
                       )
                     })}
                   </div>
+                  {daysError && <StatePanel kind="error" title="Verfügbarkeit nicht erreichbar" description="Bitte versuche es erneut. Es werden momentan keine verfügbaren Tage angezeigt."
+                    action={<Button type="button" variant="outline" onClick={() => fetchAvailableDays(calYear, calMonth)}>Erneut versuchen</Button>} />}
                   {daysLoading && (
                     <div className="flex items-center justify-center gap-1.5 mt-2 text-xs text-gray-400">
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -370,6 +381,9 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
                     <div className="flex items-center justify-center py-6">
                       <Loader2 className="h-5 w-5 text-green-600 animate-spin" />
                     </div>
+                  ) : slotsError ? (
+                    <StatePanel kind="error" title="Termine nicht erreichbar" description="Die Termine konnten nicht geladen werden. Bitte versuche es erneut."
+                      action={<Button type="button" variant="outline" onClick={() => selected && fetchSlots(selected)}>Erneut versuchen</Button>} />
                   ) : slots.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-sm text-gray-500 mb-2">Keine freien Termine an diesem Tag.</p>
@@ -419,16 +433,13 @@ export default function BookingWidget({ creatorId, offer, currentUserEmail, curr
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name" />
+              <Input label="Name *" required value={name} onChange={e => setName(e.target.value)} placeholder="Dein Name" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">E-Mail *</label>
-              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="deine@email.de" />
+              <Input label="E-Mail *" required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="deine@email.de" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nachricht / Ziele (optional)</label>
-              <textarea
+              <Textarea label="Nachricht / Ziele (optional)"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 rows={2}

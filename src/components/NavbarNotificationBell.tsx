@@ -111,7 +111,7 @@ export default function NavbarNotificationBell({ userId }: { userId: string }) {
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative p-2 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all focus:outline-none"
+        className="button-base button-tertiary icon-button relative"
         aria-label="Benachrichtigungen"
       >
         <Bell className="h-5 w-5" />
@@ -123,7 +123,7 @@ export default function NavbarNotificationBell({ userId }: { userId: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-scale-in">
+        <div className="surface-elevated absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 overflow-hidden animate-scale-in">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-semibold text-gray-900">Benachrichtigungen</span>

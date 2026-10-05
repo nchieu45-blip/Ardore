@@ -8,7 +8,8 @@ import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 import { BookingPaymentReconciliationStatus } from '@/components/BookingPaymentActions'
 
-import { BOOKING_STATUS_STYLES, bookingStatusLabel, bookingPaymentSummary, groupBookingsByTime } from '@/lib/booking-presentation'
+import { BookingStatusBadge } from '@/components/ui/StatusBadge'
+import { bookingPaymentSummary, groupBookingsByTime } from '@/lib/booking-presentation'
 
 export const metadata: Metadata = { title: 'Meine Buchungen' }
 
@@ -71,7 +72,7 @@ export default async function CreatorSessionsPage() {
         <div className="h-10 w-10 rounded-xl bg-green-600 flex items-center justify-center shadow-sm">
           <Video className="h-5 w-5 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Buchungen</h1>
+        <h1 className="section-title text-gray-900">Buchungen</h1>
       </div>
       <p className="text-sm text-gray-500 mb-8">Deine 1:1 Videocoaching-Sessions</p>
       <Link href="/creator/calendar" className="inline-block mb-6 rounded-lg border border-green-300 px-4 py-2 text-sm font-medium text-green-800 focus-visible:ring-2 focus-visible:ring-green-600">Kalender mit Verfügbarkeit öffnen →</Link>
@@ -152,9 +153,7 @@ function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: B
                 ● Live
               </span>
             )}
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${BOOKING_STATUS_STYLES[b.status] ?? ''}`}>
-              {bookingStatusLabel(b.status)}
-            </span>
+            <BookingStatusBadge status={b.status} />
           </div>
           <p className="font-semibold text-gray-900 mb-1">{b.buyer_name}</p>
           <p className="text-sm text-gray-400 mb-2 break-words [overflow-wrap:anywhere]">{b.buyer_email}</p>

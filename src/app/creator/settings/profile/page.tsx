@@ -260,7 +260,7 @@ export default function ProfileSettingsPage() {
         Zurück zu Einstellungen
       </Link>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Coach-Profil bearbeiten</h1>
+      <h1 className="section-title text-gray-900 mb-6">Coach-Profil bearbeiten</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Banner + Avatar */}

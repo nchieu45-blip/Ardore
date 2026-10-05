@@ -62,26 +62,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   mobility: 'Mobility & Dehnen',
 }
 
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  fitness: 'from-orange-400 to-red-500',
-  ernaehrung: 'from-green-400 to-emerald-600',
-  mental: 'from-violet-400 to-purple-600',
-  abnehmen: 'from-pink-400 to-rose-500',
-  schlaf: 'from-blue-400 to-indigo-600',
-  yoga: 'from-teal-400 to-cyan-600',
-  laufen: 'from-amber-400 to-orange-500',
-  krafttraining: 'from-gray-600 to-gray-800',
-  meditation: 'from-violet-500 to-fuchsia-600',
-  stressmanagement: 'from-sky-400 to-blue-600',
-  rueckenschmerzen: 'from-red-400 to-orange-500',
-  schwangerschaft: 'from-pink-300 to-rose-400',
-  mobility: 'from-emerald-400 to-teal-600',
-  pilates: 'from-purple-400 to-violet-600',
-  muskelaufbau: 'from-zinc-500 to-gray-700',
-}
-
-const DEFAULT_GRADIENT = 'from-green-400 to-emerald-600'
-
 const SERVICE_LABELS: Record<string, string> = {
   '1to1_coaching':    '1:1 Coaching',
   'video_kurs':       'Video Kurs',
@@ -97,18 +77,13 @@ const SERVICE_LABELS: Record<string, string> = {
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText  className="h-6 w-6 text-white/90" />,
-  video:  <Video     className="h-6 w-6 text-white/90" />,
-  course: <BookOpen  className="h-6 w-6 text-white/90" />,
-  image:  <ImageIcon className="h-6 w-6 text-white/90" />,
+  pdf:    <FileText  className="h-6 w-6 text-muted" />,
+  video:  <Video     className="h-6 w-6 text-muted" />,
+  course: <BookOpen  className="h-6 w-6 text-muted" />,
+  image:  <ImageIcon className="h-6 w-6 text-muted" />,
 }
 
-const TYPE_GRADIENTS: Record<ProductType, string> = {
-  pdf:    'from-blue-500 to-blue-700',
-  video:  'from-violet-500 to-violet-700',
-  course: 'from-amber-400 to-orange-500',
-  image:  'from-pink-500 to-rose-600',
-}
+
 
 const TYPE_LABELS: Record<ProductType, string> = {
   pdf: 'PDF', video: 'Video', course: 'Kurs', image: 'Bild',
@@ -376,16 +351,12 @@ export default async function CreatorProfilePage({
     }
   }
 
-  const primaryCategory = (creator.categories as string[] | null)?.[0] ?? creator.category ?? null
   const allCategories: string[] = (creator.categories as string[] | null)?.length
     ? (creator.categories as string[])
     : creator.category ? [creator.category] : []
   const services: string[] = (creator.services as string[] | null) ?? []
   const qualifications: string[] = (creator.qualifications as string[] | null) ?? []
   const languages: string[] = (creator.languages as string[] | null) ?? []
-  const bannerGradient = primaryCategory
-    ? (CATEGORY_GRADIENTS[primaryCategory] ?? DEFAULT_GRADIENT)
-    : DEFAULT_GRADIENT
 
   const isOwner = user?.id === creator.user_id
 
@@ -404,16 +375,16 @@ export default async function CreatorProfilePage({
   return (
     <div className="min-h-screen bg-gray-50/40 overflow-x-hidden">
       {/* Full-width banner */}
-      <div className={`relative w-full bg-gradient-to-br ${bannerGradient} h-44 md:h-56 lg:h-64 overflow-hidden animate-fade-in`}>
+      <div className="relative w-full bg-brand-soft h-44 md:h-56 lg:h-64 overflow-hidden animate-fade-in">
         {creator.banner_url && (
           <Image src={creator.banner_url} alt="" fill className="object-cover" />
         )}
-        <div className="absolute inset-0 bg-black/20" />
+        {creator.banner_url && <div className="absolute inset-0 bg-black/20" />}
         <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
         <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
       </div>
 
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="ardore-container">
         {/* Avatar + action buttons — overlaps banner */}
         <div className="-mt-16 mb-4 flex items-end justify-between gap-4 flex-wrap animate-fade-in relative z-10">
           <Avatar
@@ -829,13 +800,13 @@ export default async function CreatorProfilePage({
                   return (
                     <Card key={product.id} className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
                       <div className="flex gap-0">
-                        <div className={`w-2 bg-gradient-to-b ${TYPE_GRADIENTS[product.type]} flex-shrink-0 rounded-l-2xl`} />
+                        <div className="w-2 bg-brand-soft flex-shrink-0 rounded-l-2xl" />
                         <CardContent className="flex items-start gap-4 p-5 flex-1">
                           <Link href={`/products/${product.id}`} aria-label={product.title} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
                             {product.thumbnail_url ? (
                               <Image src={product.thumbnail_url} alt="" fill sizes="56px" className="object-cover" />
                             ) : (
-                              <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[product.type]} flex items-center justify-center`}>
+                              <div className="absolute inset-0 bg-surface-muted flex items-center justify-center">
                                 {TYPE_ICONS[product.type]}
                               </div>
                             )}

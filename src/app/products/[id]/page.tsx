@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import Image from 'next/image'
+import { ProductThumbnail } from '@/components/ui/Media'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -9,7 +10,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
 import {
   FileText, Video, BookOpen, Image as ImageIcon,
-  Check, ShoppingBag, Star, Users, ArrowRight, ChevronRight,
+  Check, ShoppingBag, Star, Users, ArrowRight,
   Shield, Lock, MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -25,16 +26,10 @@ const TYPE_LABELS: Record<ProductType, string> = {
   pdf: 'PDF / E-Book', video: 'Video', course: 'Kurs', image: 'Bild',
 }
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText  className="h-8 w-8 text-white/90" />,
-  video:  <Video     className="h-8 w-8 text-white/90" />,
-  course: <BookOpen  className="h-8 w-8 text-white/90" />,
-  image:  <ImageIcon className="h-8 w-8 text-white/90" />,
-}
-const TYPE_GRADIENTS: Record<ProductType, string> = {
-  pdf:    'from-blue-500 to-blue-700',
-  video:  'from-violet-500 to-violet-700',
-  course: 'from-amber-400 to-orange-500',
-  image:  'from-pink-500 to-rose-600',
+  pdf:    <FileText  className="h-8 w-8 text-muted" />,
+  video:  <Video     className="h-8 w-8 text-muted" />,
+  course: <BookOpen  className="h-8 w-8 text-muted" />,
+  image:  <ImageIcon className="h-8 w-8 text-muted" />,
 }
 const CATEGORY_LABELS: Record<string, string> = {
   fitness: 'Fitness', ernaehrung: 'Ernährung', mental: 'Mental Health',
@@ -146,46 +141,21 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ]
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm text-gray-400 mb-6" aria-label="Breadcrumb">
-        <Link href="/marketplace" className="hover:text-gray-600 transition-colors">Marketplace</Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <Link href={`/creators/${creator.slug}`} className="hover:text-gray-600 transition-colors">{creator.display_name}</Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-gray-600 truncate max-w-48">{product.title}</span>
-      </nav>
+    <div className="ardore-container py-8">
+      <Breadcrumb items={[{ label: 'Marktplatz', href: '/marketplace' }, { label: creator.display_name, href: `/creators/${creator.slug}` }, { label: product.title }]} />
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* ── Left: hero + description + reviews ─── */}
         <div className="lg:col-span-2 space-y-6">
           {/* Hero image */}
-          <div className="relative rounded-3xl overflow-hidden aspect-video bg-gray-100 shadow-sm animate-fade-in">
-            {product.thumbnail_url ? (
-              <Image
-                src={product.thumbnail_url}
-                alt={product.title}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[type]} flex items-center justify-center`}>
-                <div className="opacity-40">
-                  {TYPE_ICONS[type]}
-                </div>
-              </div>
-            )}
-            <div className="absolute top-4 left-4">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-gradient-to-r ${TYPE_GRADIENTS[type]} shadow-sm`}>
-                {TYPE_ICONS[type] && <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{TYPE_ICONS[type]}</span>}
-                {TYPE_LABELS[type]}
-              </span>
-            </div>
-          </div>
+          <ProductThumbnail src={product.thumbnail_url} alt={product.title} fallback={TYPE_ICONS[type]}
+            className="rounded-2xl border border-border" sizes="(max-width: 1024px) 100vw, 66vw">
+            <Badge className="absolute left-4 top-4 bg-white" icon={TYPE_ICONS[type]}>{TYPE_LABELS[type]}</Badge>
+          </ProductThumbnail>
 
           {/* Title + meta */}
           <div className="animate-slide-up">
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-3">{product.title}</h1>
+            <h1 className="section-title text-foreground mb-3">{product.title}</h1>
             <div className="flex items-center gap-4 flex-wrap">
               {avgRating !== null && (
                 <span className="flex items-center gap-1.5">
@@ -266,7 +236,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           {/* Sticky buy box */}
           <div className="lg:sticky lg:top-24 space-y-4">
             <Card className="overflow-hidden animate-slide-up">
-              <div className={`h-2 bg-gradient-to-r ${TYPE_GRADIENTS[type]}`} />
+              <div className="h-2 bg-brand" />
               <CardContent className="p-5 space-y-4">
                 <div>
                   <p className="text-4xl font-bold text-gray-900">{formatCurrency(product.price)}</p>
@@ -344,7 +314,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       {related.length > 0 && (
         <div className="mt-16 animate-slide-up animate-delay-300">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Weitere Produkte von {creator.display_name}</h2>
+            <h2 className="section-title text-foreground">Weitere Produkte von {creator.display_name}</h2>
             <Link href={`/creators/${creator.slug}`} className="text-sm text-green-600 hover:text-green-700 font-medium flex items-center gap-1 transition-colors">
               Alle anzeigen <ArrowRight className="h-4 w-4" />
             </Link>
@@ -353,15 +323,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             {related.map(p => (
               <Link key={p.id} href={`/products/${p.id}`} className="group">
                 <Card className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full">
-                  <div className="relative h-32 overflow-hidden bg-gray-100">
-                    {p.thumbnail_url ? (
-                      <Image src={p.thumbnail_url} alt={p.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className={`absolute inset-0 bg-gradient-to-br ${TYPE_GRADIENTS[p.type]} flex items-center justify-center opacity-80`}>
-                        {TYPE_ICONS[p.type]}
-                      </div>
-                    )}
-                  </div>
+                  <ProductThumbnail src={p.thumbnail_url} alt={p.title} fallback={TYPE_ICONS[p.type]} />
                   <CardContent className="p-3">
                     <p className="font-medium text-gray-900 text-sm line-clamp-2 leading-snug mb-1">{p.title}</p>
                     <p className="font-bold text-green-700 text-sm">{formatCurrency(p.price)}</p>

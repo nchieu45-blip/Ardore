@@ -33,7 +33,7 @@ export default async function CreatorChatOverviewPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Abonnenten-Chat</h1>
+          <h1 className="section-title text-gray-900">Abonnenten-Chat</h1>
           <p className="text-gray-500">0 aktive Abonnenten</p>
         </div>
         <Card className="text-center py-12">
@@ -92,7 +92,7 @@ export default async function CreatorChatOverviewPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Abonnenten-Chat</h1>
+        <h1 className="section-title text-gray-900">Abonnenten-Chat</h1>
         <p className="text-gray-500">
           {subs.length} aktive{subs.length !== 1 ? ' Abonnenten' : 'r Abonnent'}
           {totalUnread > 0 && ` · ${totalUnread} ungelesen`}

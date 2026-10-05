@@ -10,7 +10,7 @@ interface AuthShellProps {
 }
 
 const FEATURES = [
-  { icon: <Sparkles    className="h-4 w-4" />, text: 'Hunderte Premium-Inhalte von qualifizierten Coaches' },
+  { icon: <Sparkles    className="h-4 w-4" />, text: 'Digitale Produkte und persönliches Coaching entdecken' },
   { icon: <MessageCircle className="h-4 w-4" />, text: 'Direkt mit deinem Coach chatten' },
   { icon: <ShieldCheck className="h-4 w-4" />, text: 'Sicher, verschlüsselt und DSGVO-konform' },
 ]
@@ -19,7 +19,7 @@ export function AuthShell({ children, heading, subheading, icon, footer }: AuthS
   return (
     <div className="min-h-[calc(100vh-64px)] flex">
       {/* ── Brand panel (desktop only) ──────────────────────── */}
-      <div className="hidden lg:flex lg:w-[420px] xl:w-[480px] flex-col justify-between relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-emerald-800 px-10 py-12 flex-shrink-0">
+      <div className="hidden lg:flex lg:w-[420px] xl:w-[480px] flex-col justify-between relative overflow-hidden bg-green-950 px-10 py-12 flex-shrink-0">
         {/* Decorative blobs */}
         <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-green-600/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -80,12 +80,12 @@ export function AuthShell({ children, heading, subheading, icon, footer }: AuthS
 
           {/* Heading */}
           <div className="text-center mb-7">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{heading}</h1>
+            <h1 className="section-title text-foreground">{heading}</h1>
             {subheading && <p className="text-gray-500 mt-1.5 text-sm">{subheading}</p>}
           </div>
 
           {/* Form card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="surface-card p-4 sm:p-6">
             {children}
           </div>
 

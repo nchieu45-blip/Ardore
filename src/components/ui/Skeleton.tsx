@@ -1,14 +1,14 @@
 import { cn } from '@/lib/utils'
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('skeleton-shimmer rounded-lg', className)} />
+  return <div aria-hidden="true" className={cn('skeleton-shimmer rounded-xl', className)} />
 }
 
 export function ProductCardSkeleton({ compact, marketplace }: { compact?: boolean; marketplace?: boolean }) {
   if (compact) {
     return (
-      <div className="flex-shrink-0 w-48 rounded-2xl overflow-hidden border border-gray-100 bg-white">
-        <Skeleton className="h-32 rounded-none" />
+      <div className="flex-shrink-0 w-48 surface-card overflow-hidden">
+        <Skeleton className="aspect-video rounded-none" />
         <div className="p-3 space-y-2">
           <Skeleton className="h-3.5 w-4/5" />
           <Skeleton className="h-3 w-3/5" />
@@ -19,8 +19,8 @@ export function ProductCardSkeleton({ compact, marketplace }: { compact?: boolea
   }
   if (marketplace) {
     return (
-      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
-        <Skeleton className="h-32 sm:h-40 lg:h-44 rounded-none" />
+      <div className="surface-card overflow-hidden">
+        <Skeleton className="aspect-video rounded-none" />
         <div className="p-3 sm:p-4 space-y-2">
           <Skeleton className="h-3 w-1/2" />
           <Skeleton className="h-3.5 sm:h-4 w-4/5" />
@@ -31,8 +31,8 @@ export function ProductCardSkeleton({ compact, marketplace }: { compact?: boolea
     )
   }
   return (
-    <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
-      <Skeleton className="h-44 rounded-none" />
+    <div className="surface-card overflow-hidden">
+      <Skeleton className="aspect-video rounded-none" />
       <div className="p-4 space-y-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-3 w-1/2" />
@@ -47,7 +47,7 @@ export function ProductCardSkeleton({ compact, marketplace }: { compact?: boolea
 
 export function CoachCardSkeleton() {
   return (
-    <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
+    <div className="surface-card overflow-hidden">
       <Skeleton className="h-20 rounded-none" />
       <div className="px-5 pb-5">
         <div className="-mt-7 mb-3 relative z-10">

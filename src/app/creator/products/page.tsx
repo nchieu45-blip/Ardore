@@ -29,10 +29,10 @@ export default async function CreatorProductsPage() {
   const productList = products ?? []
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="ardore-workspace py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Meine Produkte</h1>
+          <h1 className="section-title text-gray-900">Meine Produkte</h1>
           <p className="text-gray-500">{productList.length} Produkte gesamt</p>
         </div>
         <Link href="/creator/products/new">

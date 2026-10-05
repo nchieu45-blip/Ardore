@@ -33,11 +33,13 @@ export interface CoachData {
 export default async function CoachesPage() {
   const supabase = await createClient()
 
-  const { data: creatorsData } = await supabase
+  const { data: creatorsData, error: creatorsError } = await supabase
     .from('creator_profiles')
     .select('id, slug, display_name, bio, category, categories, qualifications, languages, is_verified, avatar_url, created_at')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
+
+  if (creatorsError) throw new Error('Coaches konnten nicht geladen werden')
 
   const creators = (creatorsData ?? []) as {
     id: string

@@ -125,7 +125,7 @@ export default function BuyerOnboardingPage() {
               Ardore
             </Link>
 
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            <h1 className="section-title text-gray-900 tracking-tight">
               Herzlich willkommen{firstName ? `, ${firstName}` : ''}!
             </h1>
             <p className="text-gray-500 mt-2">

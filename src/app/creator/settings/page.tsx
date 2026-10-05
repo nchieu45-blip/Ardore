@@ -58,7 +58,7 @@ export default async function CreatorSettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Einstellungen</h1>
+      <h1 className="section-title text-gray-900 mb-6">Einstellungen</h1>
 
       <div className="space-y-6">
         {/* Payout / Stripe Connect */}

@@ -1,45 +1,20 @@
 import { cn } from '@/lib/utils'
+import type { HTMLAttributes } from 'react'
 
-interface CardProps {
-  className?: string
-  children: React.ReactNode
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
   hover?: boolean
+  variant?: 'default' | 'panel' | 'elevated'
 }
-
-export function Card({ className, children, hover }: CardProps) {
-  return (
-    <div
-      className={cn(
-        'bg-white rounded-2xl border border-gray-100 shadow-sm transition-shadow duration-200',
-        hover && 'card-hover cursor-pointer hover:border-green-200',
-        className
-      )}
-    >
-      {children}
-    </div>
-  )
+export function Card({ className, children, hover, variant = 'default', ...props }: CardProps) {
+  const surfaces = { default: 'surface-card', panel: 'surface-panel', elevated: 'surface-elevated' }
+  return <div className={cn(surfaces[variant], hover && 'interactive-card', className)} {...props}>{children}</div>
 }
-
-export function CardHeader({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <div className={cn('p-6 border-b border-gray-100', className)}>
-      {children}
-    </div>
-  )
+export function CardHeader({ className, children }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('border-b border-border p-4 sm:p-6', className)}>{children}</div>
 }
-
-export function CardContent({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <div className={cn('p-6', className)}>
-      {children}
-    </div>
-  )
+export function CardContent({ className, children }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('p-4 sm:p-6', className)}>{children}</div>
 }
-
-export function CardFooter({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <div className={cn('px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl', className)}>
-      {children}
-    </div>
-  )
+export function CardFooter({ className, children }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('rounded-b-2xl border-t border-border bg-surface-muted px-4 py-4 sm:px-6', className)}>{children}</div>
 }

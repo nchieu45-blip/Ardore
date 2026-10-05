@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import { ProductThumbnail } from '@/components/ui/Media'
+import { Badge } from '@/components/ui/Badge'
 import { FileText, Play, GraduationCap, Image as ImageIcon } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { StarRating } from '@/components/ui/StarRating'
@@ -12,31 +13,11 @@ import { showSalesCount } from '@/lib/salesCount'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  fitness:          'from-green-500 to-emerald-600',
-  ernaehrung:       'from-amber-400 to-orange-500',
-  mental:           'from-violet-500 to-purple-700',
-  abnehmen:         'from-teal-400 to-cyan-600',
-  schlaf:           'from-indigo-400 to-indigo-600',
-  yoga:             'from-pink-400 to-rose-500',
-  laufen:           'from-amber-500 to-orange-600',
-  krafttraining:    'from-gray-600 to-gray-800',
-  meditation:       'from-violet-500 to-fuchsia-600',
-  stressmanagement: 'from-sky-400 to-blue-600',
-  rueckenschmerzen: 'from-red-400 to-orange-500',
-  schwangerschaft:  'from-pink-300 to-rose-400',
-  mobility:         'from-emerald-400 to-teal-600',
-  pilates:          'from-purple-400 to-violet-600',
-  muskelaufbau:     'from-zinc-500 to-gray-700',
-}
-
-const DEFAULT_GRADIENT = 'from-green-600 to-emerald-700'
-
 const TYPE_ICONS: Record<ProductType, React.ReactNode> = {
-  pdf:    <FileText     className="h-10 w-10 text-white/50" />,
-  video:  <Play         className="h-10 w-10 text-white/50" />,
-  course: <GraduationCap className="h-10 w-10 text-white/50" />,
-  image:  <ImageIcon    className="h-10 w-10 text-white/50" />,
+  pdf:    <FileText     className="h-8 w-8 text-muted" />,
+  video:  <Play         className="h-8 w-8 text-muted" />,
+  course: <GraduationCap className="h-8 w-8 text-muted" />,
+  image:  <ImageIcon    className="h-8 w-8 text-muted" />,
 }
 
 const TYPE_LABELS: Record<ProductType, string> = {
@@ -72,15 +53,6 @@ interface ProductCardProps {
   variant?: 'default' | 'marketplace'
 }
 
-function getGradient(creator: ProductCardData['creator']): string {
-  const primary = creator.categories[0] ?? creator.category ?? ''
-  return CATEGORY_GRADIENTS[primary] ?? DEFAULT_GRADIENT
-}
-
-function getInitials(name: string): string {
-  return name.split(' ').slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase()
-}
-
 export function ProductCard({
   product,
   salesCount = 0,
@@ -89,61 +61,20 @@ export function ProductCard({
   scrollSnap = false,
   variant = 'default',
 }: ProductCardProps) {
-  const gradient = getGradient(product.creator)
-  const hasThumb = !!product.thumbnail_url
   const isMarketplace = variant === 'marketplace'
 
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className={[
-        'block',
-        isMarketplace ? 'rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2' : '',
-        compact ? 'flex-shrink-0 w-48' : 'w-full',
-        scrollSnap ? '[scroll-snap-align:start]' : '',
-      ].filter(Boolean).join(' ')}
-    >
-      <div className="hp-card rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-gray-200 group">
-
-        {/* ── Thumbnail ─────────────────────────────────── */}
-        <div className={[
-          'relative flex-shrink-0 overflow-hidden',
-          compact ? 'h-32' : isMarketplace ? 'h-32 sm:h-40 lg:h-44' : 'h-44',
-          hasThumb ? 'bg-gray-100' : `bg-gradient-to-br ${gradient}`,
-        ].join(' ')}>
-          {hasThumb ? (
-            <Image
-              src={product.thumbnail_url!}
-              alt={product.title}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <>
-              <div className="absolute inset-0 bg-black/10" />
-              <div className="absolute inset-0 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                {TYPE_ICONS[product.type]}
-              </div>
-              <span className="absolute bottom-2 left-2.5 text-[10px] font-bold text-white/40 uppercase tracking-wider select-none pointer-events-none">
-                {getInitials(product.creator.display_name)}
-              </span>
-            </>
-          )}
-          {/* Type badge */}
-          <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/40 backdrop-blur-sm text-white px-2 py-0.5 rounded-full">
-            {TYPE_LABELS[product.type]}
-          </span>
-          <HeartButton
-            type="product"
-            itemId={product.id}
-            className={isMarketplace ? 'absolute top-2 left-2 h-9 w-9 sm:h-7 sm:w-7' : 'absolute top-2 left-2'}
-          />
-        </div>
-
+    <div className={['relative', compact ? 'flex-shrink-0 w-48' : 'w-full', scrollSnap ? '[scroll-snap-align:start]' : ''].filter(Boolean).join(' ')}>
+      <Link href={`/products/${product.id}`} className="block h-full rounded-2xl">
+      <div className="surface-card interactive-card group flex h-full flex-col overflow-hidden">
+        <ProductThumbnail src={product.thumbnail_url} alt={product.title} fallback={TYPE_ICONS[product.type]}
+          sizes={compact ? '192px' : '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw'}>
+          <Badge className="absolute right-2 top-2 bg-white">{TYPE_LABELS[product.type]}</Badge>
+        </ProductThumbnail>
         {/* ── Content ───────────────────────────────────── */}
         <div className={compact ? 'p-3 flex flex-col flex-1' : isMarketplace ? 'p-3 sm:p-4 flex flex-col flex-1' : 'p-4 flex flex-col flex-1'}>
           {compact ? (
-            <p className="text-[11px] text-gray-400 truncate mb-0.5">{product.creator.display_name}</p>
+            <p className="text-xs text-muted truncate mb-0.5">{product.creator.display_name}</p>
           ) : (
             <div className={isMarketplace ? 'flex items-center gap-1.5 mb-1.5 sm:gap-2 sm:mb-2' : 'flex items-center gap-2 mb-2'}>
               <Avatar
@@ -152,23 +83,23 @@ export function ProductCard({
                 size="sm"
                 className={isMarketplace ? 'hidden sm:flex h-5 w-5 text-[10px] flex-shrink-0' : 'h-5 w-5 text-[10px] flex-shrink-0'}
               />
-              <span className={isMarketplace ? 'text-[11px] sm:text-xs text-gray-500 truncate' : 'text-xs text-gray-500 truncate'}>{product.creator.display_name}</span>
+              <span className={isMarketplace ? 'text-xs text-muted truncate' : 'text-xs text-muted truncate'}>{product.creator.display_name}</span>
             </div>
           )}
 
-          <p className={isMarketplace ? 'text-[13px] sm:text-sm font-semibold text-gray-900 line-clamp-2 leading-snug flex-1 mb-1.5 sm:mb-2' : 'text-sm font-semibold text-gray-900 line-clamp-2 leading-snug flex-1 mb-2'}>
+          <p className={'card-title text-foreground line-clamp-2 flex-1 mb-2'}>
             {product.title}
           </p>
 
           {!compact && product.categories && product.categories.length > 0 && (
             <div className={isMarketplace ? 'hidden sm:flex flex-wrap gap-1 mb-2' : 'flex flex-wrap gap-1 mb-2'}>
               {product.categories.slice(0, 2).map(cat => (
-                <span key={cat} className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-100">
+                <span key={cat} className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
                   {CATEGORY_LABEL_MAP[cat] ?? cat}
                 </span>
               ))}
               {product.categories.length > 2 && (
-                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500">
+                <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
                   +{product.categories.length - 2} mehr
                 </span>
               )}
@@ -185,9 +116,11 @@ export function ProductCard({
             <p className="text-[10px] text-gray-400 mb-1">{salesCount}× gekauft</p>
           )}
 
-          <p className="text-green-700 font-bold text-sm mt-auto">{formatCurrency(product.price)}</p>
+          <p className="text-brand font-semibold text-base mt-auto">{formatCurrency(product.price)}</p>
         </div>
       </div>
-    </Link>
+      </Link>
+      <HeartButton type="product" itemId={product.id} className="absolute left-2 top-2" />
+    </div>
   )
 }

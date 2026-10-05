@@ -9,7 +9,8 @@ import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 import BookingPaymentActions, { BookingPaymentReconciliationStatus } from '@/components/BookingPaymentActions'
 
-import { BOOKING_STATUS_STYLES, bookingStatusLabel, bookingPaymentSummary, groupBookingsByTime } from '@/lib/booking-presentation'
+import { BookingStatusBadge } from '@/components/ui/StatusBadge'
+import { bookingPaymentSummary, groupBookingsByTime } from '@/lib/booking-presentation'
 
 export const metadata: Metadata = { title: 'Meine Sessions' }
 
@@ -85,7 +86,7 @@ export default async function BuyerSessionsPage({
         <div className="h-10 w-10 rounded-xl bg-green-600 flex items-center justify-center shadow-sm">
           <Video className="h-5 w-5 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Meine Sessions</h1>
+        <h1 className="section-title text-gray-900">Meine Sessions</h1>
       </div>
 
       {checkout === 'success' && (
@@ -183,9 +184,7 @@ function SessionCard({
                 ● Live
               </span>
             )}
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${BOOKING_STATUS_STYLES[b.status] ?? ''}`}>
-              {bookingStatusLabel(b.status)}
-            </span>
+            <BookingStatusBadge status={b.status} />
           </div>
           {creator && (
             <p className="font-semibold text-gray-900 mb-1">

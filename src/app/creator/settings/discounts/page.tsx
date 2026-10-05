@@ -233,7 +233,7 @@ export default function DiscountsPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Rabatte & Gutscheine</h1>
+          <h1 className="section-title text-gray-900">Rabatte & Gutscheine</h1>
           <p className="text-sm text-gray-500 mt-0.5">Rabattcodes und automatische Rabatte für deine Kunden</p>
         </div>
         <Button onClick={() => setShowForm(true)} className="gap-1.5">

@@ -15,8 +15,9 @@ export default function NavbarCartIcon() {
 
   return (
     <button
+      type="button"
       onClick={openCart}
-      className="relative p-2 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all focus:outline-none"
+      className="button-base button-tertiary icon-button relative"
       aria-label="Warenkorb"
     >
       <ShoppingCart className="h-5 w-5" />

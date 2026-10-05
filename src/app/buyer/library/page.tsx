@@ -37,8 +37,8 @@ export default async function BuyerLibraryPage({ searchParams }: { searchParams:
   const purchaseList = purchases ?? []
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Meine Bibliothek</h1>
+    <div className="ardore-workspace py-8">
+      <h1 className="section-title text-gray-900 mb-2">Meine Bibliothek</h1>
       <p className="text-gray-500 mb-8">{purchaseList.length} gekaufte Produkte</p>
 
       <PurchaseConfirmation key={query.session_id ?? query.checkout ?? query.success ?? 'library'} sessionId={query.session_id} returned={query.checkout ?? query.success} />

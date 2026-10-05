@@ -1,5 +1,8 @@
+'use client'
+
 import { cn, getInitials } from '@/lib/utils'
 import Image from 'next/image'
+import { useState } from 'react'
 
 interface AvatarProps {
   src?: string | null
@@ -9,6 +12,7 @@ interface AvatarProps {
 }
 
 export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const sizes = {
     sm: 'h-8 w-8 text-xs',
     md: 'h-10 w-10 text-sm',
@@ -16,18 +20,18 @@ export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
     xl: 'h-20 w-20 text-xl',
   }
 
-  if (src) {
+  if (src && src !== failedSrc) {
     return (
       <div className={cn('relative rounded-full overflow-hidden flex-shrink-0', sizes[size], className)}>
-        <Image src={src} alt={name} fill className="object-cover" />
+        <Image src={src} alt={name} fill sizes="80px" className="object-cover" onError={() => setFailedSrc(src)} />
       </div>
     )
   }
 
   return (
-    <div
+    <div role="img" aria-label={name}
       className={cn(
-        'rounded-full bg-green-100 text-green-700 flex items-center justify-center font-semibold flex-shrink-0',
+        'rounded-full bg-brand-soft text-brand flex items-center justify-center font-semibold flex-shrink-0',
         sizes[size],
         className
       )}

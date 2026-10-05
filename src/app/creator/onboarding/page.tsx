@@ -288,7 +288,7 @@ export default function CreatorOnboardingPage() {
             </div>
             Ardore
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Coach-Profil einrichten</h1>
+          <h1 className="section-title text-gray-900 tracking-tight">Coach-Profil einrichten</h1>
           {step <= totalSteps && (
             <p className="text-gray-500 mt-1.5 text-sm">
               Schritt {step} von {totalSteps}: {STEPS[step - 1]?.label}

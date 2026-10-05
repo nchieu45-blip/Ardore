@@ -338,7 +338,7 @@ export default function EditProductForm({ product }: { product: Product }) {
           <CategoryPicker label="Kategorien" selected={selectedCategories} onChange={setSelectedCategories} />
 
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Equipment / Voraussetzungen</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">Ausstattung / Voraussetzungen</p>
             <div className="flex flex-wrap gap-2">
               {EQUIPMENT_OPTIONS.map(opt => {
                 const active = selectedEquipment.includes(opt.value)

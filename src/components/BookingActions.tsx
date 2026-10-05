@@ -156,7 +156,7 @@ export default function BookingActions({
 
       {showCancel && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget && !cancelling) setShowCancel(false) }}>
-          <div ref={cancelDialogRef} role="dialog" aria-modal="true" aria-labelledby={`cancel-title-${bookingId}`} aria-describedby={`cancel-description-${bookingId}`} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div ref={cancelDialogRef} role="dialog" aria-modal="true" aria-labelledby={`cancel-title-${bookingId}`} aria-describedby={`cancel-description-${bookingId}`} className="surface-dialog w-full max-w-sm p-6">
             <div className="flex items-start gap-3 mb-4">
               <div className="h-9 w-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="h-4.5 w-4.5 text-red-500" aria-hidden="true" />

@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, X, Star, Package, ArrowRight, Users, GraduationCap, Video, ChevronDown, Check, ShieldCheck, Languages,
+  Search, X, Star, Package, ArrowRight, Users, Video, ChevronDown, Check, ShieldCheck, Languages,
 } from 'lucide-react'
+import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 import HeartButton from '@/components/HeartButton'
@@ -14,26 +15,6 @@ import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
 import { LANGUAGE_LABEL_MAP } from '@/lib/languages'
 
 const CATEGORY_LABELS = CATEGORY_LABEL_MAP
-
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  fitness:          'from-orange-400 to-red-500',
-  ernaehrung:       'from-green-400 to-emerald-600',
-  mental:           'from-violet-400 to-purple-600',
-  abnehmen:         'from-pink-400 to-rose-500',
-  schlaf:           'from-blue-400 to-indigo-600',
-  yoga:             'from-teal-400 to-cyan-600',
-  laufen:           'from-amber-400 to-orange-500',
-  krafttraining:    'from-gray-600 to-gray-800',
-  meditation:       'from-violet-500 to-fuchsia-600',
-  stressmanagement: 'from-sky-400 to-blue-600',
-  rueckenschmerzen: 'from-red-400 to-orange-500',
-  schwangerschaft:  'from-pink-300 to-rose-400',
-  mobility:         'from-emerald-400 to-teal-600',
-  pilates:          'from-purple-400 to-violet-600',
-  muskelaufbau:     'from-zinc-500 to-gray-700',
-}
-
-const DEFAULT_GRADIENT = 'from-green-500 to-emerald-600'
 
 type SortKey = 'newest' | 'most_products' | 'top_rated'
 
@@ -49,18 +30,15 @@ interface Props {
 }
 
 function CoachCard({ coach }: { coach: CoachData }) {
-  const primaryCat = coach.categories[0] ?? coach.category
-  const gradient   = primaryCat ? (CATEGORY_GRADIENTS[primaryCat] ?? DEFAULT_GRADIENT) : DEFAULT_GRADIENT
   const allCats    = coach.categories.length ? coach.categories : coach.category ? [coach.category] : []
 
   return (
     <div className="relative group h-full">
       <HeartButton type="coach" itemId={coach.id} className="absolute top-3 right-3 z-10" />
       <Link href={`/creators/${coach.slug}`} className="group block h-full">
-      <div className="rounded-2xl overflow-hidden border border-gray-100 bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-200 h-full flex flex-col">
+      <div className="surface-card interactive-card overflow-hidden h-full flex flex-col">
         {/* Gradient banner */}
-        <div className={`h-20 bg-gradient-to-br ${gradient} relative overflow-hidden flex-shrink-0`}>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        <div className="h-20 bg-brand-soft relative overflow-hidden flex-shrink-0">
           <div className="absolute -bottom-4 -right-4 h-16 w-16 rounded-full bg-white/10" />
           <div className="absolute -top-4 left-1/3 h-12 w-12 rounded-full bg-white/10" />
           {coach.rating && (
@@ -85,26 +63,17 @@ function CoachCard({ coach }: { coach: CoachData }) {
           {/* Name + category badges */}
           <div className="mb-2.5">
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <h3 className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">
+              <h3 className="card-title text-gray-900 group-hover:text-green-700 transition-colors">
                 {coach.display_name}
               </h3>
               {coach.is_verified && (
-                <span className="inline-flex items-center gap-1 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  <ShieldCheck className="h-3 w-3" />
-                  Verifiziert
-                </span>
+                <Badge variant="success" icon={<ShieldCheck />}>Verifiziert</Badge>
               )}
               {coach.hasVideoCoaching && (
-                <span className="inline-flex items-center gap-1 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  <Video className="h-3 w-3" />
-                  1:1 Sessions
-                </span>
+                <Badge variant="info" icon={<Video />}>1:1 Sessions</Badge>
               )}
               {coach.hasGroupClasses && (
-                <span className="inline-flex items-center gap-1 bg-violet-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  <Users className="h-3 w-3" />
-                  Gruppen-Sessions
-                </span>
+                <Badge variant="info" icon={<Users />}>Gruppen-Sessions</Badge>
               )}
             </div>
             {allCats.length > 0 && (
@@ -265,7 +234,7 @@ export default function CoachesPageClient({ coaches }: Props) {
             <Users className="h-3.5 w-3.5" />
             {coaches.length} qualifizierte Coaches
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight leading-tight">
+          <h1 className="page-title text-white mb-4">
             Finde deinen Coach
           </h1>
           <p className="text-green-100/70 text-base mb-8 max-w-md mx-auto">
@@ -295,10 +264,10 @@ export default function CoachesPageClient({ coaches }: Props) {
 
       {/* ── Sticky filter bar ─────────────────────────────────────── */}
       <div className="sticky top-16 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-2.5">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="ardore-container py-2.5">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             {/* Scrollable primary pills */}
-            <div className="flex items-center gap-2 overflow-x-auto flex-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden min-w-0">
+            <div className="flex items-center gap-2 overflow-x-auto flex-1 basis-full md:basis-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden min-w-0">
               <button
                 onClick={() => go({ category: 'all', videocoaching: false })}
                 className={cn(
@@ -442,7 +411,7 @@ export default function CoachesPageClient({ coaches }: Props) {
       </div>
 
       {/* ── Results ───────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="ardore-container py-8">
         <p className="text-sm text-gray-500 mb-6">
           <span className="font-semibold text-gray-900">{filtered.length}</span>{' '}
           {filtered.length === 1 ? 'Coach' : 'Coaches'} gefunden

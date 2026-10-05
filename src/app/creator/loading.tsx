@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 
 export default function Loading() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="ardore-workspace py-8">
       <div className="flex items-start justify-between mb-6">
         <div className="space-y-2">
           <Skeleton className="h-3 w-36" />

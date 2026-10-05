@@ -32,6 +32,8 @@ export default async function CreatorDashboardPage() {
     supabase.from('subscriptions').select('*, tier:subscription_tiers(price_monthly)').eq('creator_id', creator.id).eq('status', 'active'),
     loadCoachEarnings(supabase, user.id).catch(() => null),
   ])
+  if (productsRes.error || subscriptionsRes.error) throw new Error('Dein Coach-Bereich konnte nicht geladen werden')
+
   const products = productsRes.data ?? []
   const subscriptions = subscriptionsRes.data ?? []
   const dateLabel = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Berlin' })
@@ -39,16 +41,16 @@ export default async function CreatorDashboardPage() {
 
   return (
     <div className="bg-gray-50/40 min-h-full">
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="ardore-workspace py-8 space-y-8">
 
         {/* Header */}
-        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm text-gray-400 mb-0.5">{dateLabel}</p>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{creator.display_name}</h1>
+            <h1 className="section-title text-gray-900 tracking-tight">{creator.display_name}</h1>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center flex-shrink-0">
-            <Link href="/creator/calendar" className="rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-800 focus-visible:ring-2 focus-visible:ring-green-600">Kalender öffnen</Link>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto min-w-0">
+            <Link href="/creator/calendar" className="button-base button-secondary">Kalender öffnen</Link>
             {creator.is_published && <Link href={`/creators/${creator.slug}`} target="_blank" rel="noopener noreferrer">
               <Button size="sm" variant="outline" className="w-full sm:w-auto">
                 <ExternalLink className="h-4 w-4" />
@@ -82,12 +84,12 @@ export default async function CreatorDashboardPage() {
           {[
             { Icon: Users, label: 'Abonnenten', value: subscriptions.length.toString(), sub: 'Aktiv – keine Umsatzprognose' },
             { Icon: ShoppingBag, label: 'Produkte', value: products.length.toString(), sub: `${products.filter((p: { is_published: boolean }) => p.is_published).length} veröffentlicht` },
-          ].map(({ Icon, label, value, sub }) => <div key={label} className="rounded-xl border border-gray-100 bg-white p-5">
+          ].map(({ Icon, label, value, sub }) => <div key={label} className="surface-card p-5">
             <Icon className="mb-2 h-4 w-4 text-gray-400" aria-hidden="true" />
             <p className="text-sm text-gray-600">{label}</p><p className="text-2xl font-bold">{value}</p><p className="mt-1 text-xs text-gray-500">{sub}</p>
           </div>)}
         </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-6">
+        <div className="surface-card p-6">
           <h2 className="mb-4 text-sm font-semibold">Bruttoumsatz nach Erstattungen – letzte 7 Tage</h2>
           {earnings && <RevenueChart data={earnings.days} />}
           <p className="mt-3 text-xs text-gray-500">Alle Zahlungsquellen im Ledger; Zuordnung nach Erfassungsdatum in Europe/Berlin.</p>
@@ -97,7 +99,7 @@ export default async function CreatorDashboardPage() {
         <div className="grid lg:grid-cols-2 gap-6">
 
           {/* Products */}
-          <div className="min-w-0 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
+          <div className="surface-card min-w-0 flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">Meine Produkte</h2>
               <Link href="/creator/products" className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">
@@ -133,7 +135,7 @@ export default async function CreatorDashboardPage() {
           </div>
 
           {/* Subscribers */}
-          <div className="min-w-0 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
+          <div className="surface-card min-w-0 flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">Aktive Abonnenten</h2>
               <Link href="/creator/settings/tiers" className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">

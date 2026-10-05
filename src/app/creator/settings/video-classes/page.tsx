@@ -185,7 +185,7 @@ export default function VideoClassesPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Video Classes</h1>
+          <h1 className="section-title text-gray-900">Video Classes</h1>
           <p className="text-sm text-gray-500 mt-0.5">Gruppen-Videosessions für mehrere Teilnehmer gleichzeitig</p>
         </div>
         <Button onClick={openCreate} className="gap-1.5">

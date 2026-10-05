@@ -88,7 +88,7 @@ export default async function BuyerVideoClassesPage({
         <div className="h-10 w-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-sm">
           <Users className="h-5 w-5 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Meine Video Classes</h1>
+        <h1 className="section-title text-gray-900">Meine Video Classes</h1>
       </div>
 
       {success && (

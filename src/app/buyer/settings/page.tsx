@@ -41,7 +41,7 @@ export default async function BuyerSettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Kontoeinstellungen</h1>
+      <h1 className="section-title text-gray-900 mb-2">Kontoeinstellungen</h1>
       <p className="text-gray-500 mb-8">{profileRes.data?.full_name ?? user.email}</p>
 
       <div className="space-y-6">

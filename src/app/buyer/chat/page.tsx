@@ -37,7 +37,7 @@ export default async function BuyerChatInboxPage() {
   if (error) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Nachrichten</h1>
+        <h1 className="section-title text-gray-900 mb-2">Nachrichten</h1>
         <Card className="mt-8">
           <CardContent className="py-12 text-center text-sm text-gray-500">
             Deine Nachrichten konnten gerade nicht geladen werden. Bitte versuche es später erneut.
@@ -85,7 +85,7 @@ export default async function BuyerChatInboxPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Nachrichten</h1>
+          <h1 className="section-title text-gray-900">Nachrichten</h1>
           <p className="text-gray-500 mt-1">Deine Unterhaltungen mit Coaches.</p>
         </div>
         <Card>
@@ -110,7 +110,7 @@ export default async function BuyerChatInboxPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Nachrichten</h1>
+        <h1 className="section-title text-gray-900">Nachrichten</h1>
         <p className="text-gray-500 mt-1">{conversationList.length} {conversationList.length === 1 ? 'Unterhaltung' : 'Unterhaltungen'}</p>
       </div>
 

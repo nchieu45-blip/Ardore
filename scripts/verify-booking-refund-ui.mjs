@@ -1,3 +1,4 @@
+import { loadUiComponent } from './fixtures/load-ui-component.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -16,6 +17,8 @@ function load(path, overrides = {}, globals = {}) {
   const loadedModule = { exports: {} }
   const mockedRequire = name => {
     if (name in overrides) return overrides[name]
+    if (name === '@/components/ui/StatePanel') return loadUiComponent('src/components/ui/StatePanel.tsx')
+    if (name === '@/components/ui/StatusBadge') return loadUiComponent('src/components/ui/StatusBadge.tsx')
     if (name === 'next/link') return { __esModule: true, default: passthrough }
     if (name === 'lucide-react') return new Proxy({}, { get: () => () => null })
     if (name === '@/components/ui/Button') return { Button: props => React.createElement('button', props) }
@@ -311,7 +314,7 @@ test('booking form discloses cutoff before CTA and sends it only as a server com
         return [states[slot], value => { states[slot] = value }]
       },
     },
-    '@/components/ui/Input': { Input: props => React.createElement('input', props) },
+    '@/components/ui/Input': loadUiComponent('src/components/ui/Input.tsx'),
     '@/lib/utils': { cn: (...values) => values.filter(Boolean).join(' '), formatCurrency: amount => `${amount} €` },
   }, {
     fetch: async (path, options) => {

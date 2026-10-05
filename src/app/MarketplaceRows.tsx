@@ -84,7 +84,7 @@ function categoryLabel(categories: string[], fallback: string | null): string | 
 function CoachCard({ creator, productCount }: { creator: Creator; productCount: number }) {
   return (
     <Link href={`/creators/${creator.slug}`} className="flex-shrink-0 w-40 [scroll-snap-align:start] block">
-      <div className="hp-card relative rounded-2xl border border-gray-100 bg-white p-4 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-200">
+      <div className="surface-card interactive-card relative p-4 text-center">
         <HeartButton type="coach" itemId={creator.id} className="absolute top-2 right-2" />
         <Avatar
           src={creator.avatar_url}
@@ -116,7 +116,7 @@ function AboCoachCard({ coach }: { coach: SubscriptionCoach }) {
 
   return (
     <Link href={`/creators/${coach.slug}`} className="flex-shrink-0 w-48 [scroll-snap-align:start] block">
-      <div className="hp-card relative rounded-2xl border border-gray-100 bg-white p-4 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col items-center text-center">
+      <div className="surface-card interactive-card relative p-4 flex flex-col items-center text-center">
         <HeartButton type="coach" itemId={coach.id} className="absolute top-2 right-2" />
         <Avatar
           src={coach.avatar_url}
@@ -180,7 +180,7 @@ function ScrollRow({
               {icon}
             </div>
           )}
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+          <h2 className="card-title text-foreground">{title}</h2>
         </div>
         {showAllHref && (
           <Link
@@ -196,7 +196,7 @@ function ScrollRow({
         {canScrollLeft && (
           <button
             onClick={() => scrollRef.current?.scrollBy({ left: -340, behavior: 'smooth' })}
-            className="absolute left-1 top-[calc(50%-1.125rem)] z-10 hidden md:flex items-center justify-center h-9 w-9 bg-white shadow-lg rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="absolute left-1 top-[calc(50%-1.125rem)] z-10 hidden md:flex items-center justify-center icon-button bg-white shadow-sm rounded-full border border-border hover:bg-surface-muted transition-colors"
             aria-label="Scroll links"
           >
             <ChevronLeft className="h-4 w-4 text-gray-600" />
@@ -213,7 +213,7 @@ function ScrollRow({
         {canScrollRight && (
           <button
             onClick={() => scrollRef.current?.scrollBy({ left: 340, behavior: 'smooth' })}
-            className="absolute right-1 top-[calc(50%-1.125rem)] z-10 hidden md:flex items-center justify-center h-9 w-9 bg-white shadow-lg rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="absolute right-1 top-[calc(50%-1.125rem)] z-10 hidden md:flex items-center justify-center icon-button bg-white shadow-sm rounded-full border border-border hover:bg-surface-muted transition-colors"
             aria-label="Scroll rechts"
           >
             <ChevronRight className="h-4 w-4 text-gray-600" />

@@ -28,7 +28,7 @@ export default function FavoritesPageClient({ products, coaches }: Props) {
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Meine Favoriten</h1>
+        <h1 className="section-title text-gray-900 mb-1">Meine Favoriten</h1>
         <p className="text-sm text-gray-500">Deine gespeicherten Coaches und Produkte</p>
       </div>
 
@@ -75,7 +75,7 @@ export default function FavoritesPageClient({ products, coaches }: Props) {
             title="Noch keine Produkte gespeichert"
             desc="Klicke auf das Herz-Symbol auf einem Produkt, um es hier zu speichern."
             href="/marketplace"
-            cta="Zum Marketplace"
+            cta="Zum Marktplatz"
           />
         ) : (
           <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">

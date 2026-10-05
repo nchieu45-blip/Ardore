@@ -109,7 +109,7 @@ export default function RescheduleModal({ bookingId, creatorId, coachName, onClo
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }}
     onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); if (event.target === event.currentTarget && !busy.current && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) onClose() }}
-    style={{ width: 'min(28rem, calc(100% - 2rem))' }} className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm">
+    style={{ width: 'min(28rem, calc(100% - 2rem))' }} className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] overflow-y-auto surface-dialog p-0 text-foreground backdrop:bg-black/40 backdrop:backdrop-blur-sm">
     <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
       <h2 id={`${id}-title`} className="font-semibold">Session verschieben</h2>
       <button type="button" aria-label="Dialog schließen" disabled={submitting} className={control} onClick={onClose}><X className="h-4 w-4" aria-hidden="true" /></button>

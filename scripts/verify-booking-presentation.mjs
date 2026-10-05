@@ -1,3 +1,4 @@
+import { loadUiComponent } from './fixtures/load-ui-component.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -38,6 +39,7 @@ function pageFixture(rows){
  const client={auth:{getUser:async()=>({data:{user}})},from(table){return {select(){return this},eq(){return this},order:async()=>({data:table==='bookings'?rows:[]}),single:async()=>({data:{id:'coach'}}),in:async()=>({data:[]}),then(resolve){resolve({data:[]})}}}}
  const empty=()=>null
  return {
+  '@/components/ui/StatusBadge':loadUiComponent('src/components/ui/StatusBadge.tsx'),
   '@/lib/supabase/server':{createClient:async()=>client},'@/lib/booking-presentation':presentation,
   'next/navigation':{redirect:()=>assert.fail('Unexpected redirect')},'next/link':{__esModule:true,default:({children,...props})=>React.createElement('a',props,children)},
   '@/lib/coaching-payment':{hasValidCoachingPayment:()=>false},'@/lib/features':{VIDEO_CALLS_ENABLED:false},

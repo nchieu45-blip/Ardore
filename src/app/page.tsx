@@ -37,6 +37,8 @@ export default async function MarketplacePage() {
       .limit(200),
   ])
 
+  if (productsData.error || coachingOffersData.error || subTiersData.error) throw new Error('Angebote konnten nicht geladen werden')
+
   const products: MarketplaceProduct[] = (productsData.data ?? []).map((p: {
     id: string
     title: string

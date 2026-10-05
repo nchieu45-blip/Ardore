@@ -16,11 +16,11 @@ function Toast({ toast }: { toast: ToastItem }) {
   const { icon: Icon, color, bg } = CONFIG[toast.type]
   return (
     <div className={cn(
-      'flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg',
-      'min-w-[260px] max-w-sm animate-slide-up-sm pointer-events-auto',
+      'surface-elevated flex items-start gap-3 px-4 py-3',
+      'w-full max-w-sm animate-slide-up-sm pointer-events-auto',
       bg
     )}>
-      <Icon className={cn('h-4 w-4 flex-shrink-0 mt-0.5', color)} />
+      <Icon className={cn('h-5 w-5 flex-shrink-0', color)} />
       <p className="text-sm text-gray-800 font-medium leading-snug">{toast.message}</p>
     </div>
   )
@@ -34,7 +34,7 @@ export function Toaster() {
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 pointer-events-none">
+    <div role="status" aria-live="polite" className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-96 z-[9999] flex flex-col gap-2 pointer-events-none">
       {toasts.map(t => <Toast key={t.id} toast={t} />)}
     </div>
   )

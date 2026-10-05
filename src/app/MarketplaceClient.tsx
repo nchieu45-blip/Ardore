@@ -195,7 +195,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
 
           {/* H1: word spans use hero-word (inline-block). Space inside each span
               prevents collapse; non-breaking space ( ) guarantees it survives. */}
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
+          <h1 className="page-title text-white mb-4">
             {(['Finde', 'den', 'Coach,'] as const).map((w, i) => (
               <span key={w} className="hero-word" style={{ animationDelay: `${0.15 + i * 0.07}s` }}>
                 {w}{'\u00A0'}
@@ -252,7 +252,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
       </section>
 
       {showGridView ? (
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="ardore-container py-8">
           {/* Back to rows */}
           <div className="mb-6">
             <button
@@ -335,7 +335,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                   className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    Equipment / Voraussetzungen
+                    Ausstattung / Voraussetzungen
                     {equipment.length > 0 && (
                       <span className="h-4 w-4 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">{equipment.length}</span>
                     )}
@@ -481,7 +481,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
       <section className="bg-gray-50 border-t border-gray-100 py-16 px-4">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Du bist Coach?</h2>
+            <h2 className="section-title text-foreground mb-2">Du bist Coach?</h2>
             <p className="text-gray-500 text-sm">Bau dein Coaching-Business auf — ohne eigene Website.</p>
           </Reveal>
           <Reveal stagger className="grid md:grid-cols-2 gap-6">
@@ -523,7 +523,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
                   <Video className="h-3.5 w-3.5" />
                   1:1 Videocoaching
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-3 leading-tight">
+                <h2 className="section-title text-white mb-3 leading-tight">
                   Persönliche Sessions —<br />direkt mit deinem Coach
                 </h2>
                 <p className="text-blue-100/80 text-sm leading-relaxed mb-6">
@@ -568,7 +568,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
       <section className="bg-gradient-to-br from-green-950 to-green-800 py-16 px-4">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-white">So funktioniert Ardore</h2>
+            <h2 className="section-title text-white">So funktioniert Ardore</h2>
           </Reveal>
           <Reveal stagger className="grid md:grid-cols-3 gap-6">
             {[
@@ -607,7 +607,7 @@ export default function MarketplaceClient({ products, salesCounts, ratings, favo
       {/* ── Final CTA ───────────────────────────────────────────────── */}
       <section className="bg-white py-16 px-4">
         <Reveal className="max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Bereit loszulegen?</h2>
+          <h2 className="section-title text-foreground mb-3">Bereit loszulegen?</h2>
           <p className="text-gray-500 text-sm mb-8 max-w-xl mx-auto">
             Entdecke Kurse, Trainingspläne und persönliches Coaching — oder starte selbst als Coach auf Ardore.
           </p>

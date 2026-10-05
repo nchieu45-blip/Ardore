@@ -1,0 +1,174 @@
+/* Ardore Phase 1. Existing Tailwind utilities inherit this palette; semantic
+   tokens/classes are the foundation for subsequent surface migrations. */
+:root {
+  --background: #f7f8f5;
+  --foreground: #16251d;
+  --primary: #1e6847;
+  --primary-dark: #154b34;
+  --primary-light: #c9dfce;
+  --secondary: #eaf3ec;
+  --surface: #ffffff;
+  --surface-muted: #f1f4ef;
+  --text-secondary: #546258;
+  --border: #e2e7df;
+  --border-control: #87948b;
+  --focus: #1e6847;
+  --danger: #b42332;
+  --danger-soft: #fff1f2;
+  --success: #195439;
+  --warning: #80520c;
+  --warning-soft: #fff8e7;
+  --info: #245a87;
+  --info-soft: #eef5fb;
+  --radius-card: 1rem;
+  --radius-control: .75rem;
+  --radius-dialog: 1.25rem;
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --page-gutter: 1rem;
+  --container-public: 80rem;
+  --container-workspace: 75rem;
+  --shadow-card: 0 4px 12px rgb(22 37 29 / .06);
+  --shadow-floating: 0 12px 32px rgb(22 37 29 / .12);
+  --skeleton-base: #e2e7df;
+  --skeleton-highlight: #f1f4ef;
+}
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--primary);
+  --color-brand-dark: var(--primary-dark);
+  --color-brand-soft: var(--secondary);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-muted: var(--text-secondary);
+  --color-border: var(--border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-gray-50: #f7f8f5;
+  --color-gray-100: #edf1e9;
+  --color-gray-200: #e2e7df;
+  --color-gray-300: #c4cec2;
+  --color-gray-400: #69756d;
+  --color-gray-500: #647168;
+  --color-gray-600: #546258;
+  --color-gray-700: #3c4c41;
+  --color-gray-800: #283c2f;
+  --color-gray-900: #16251d;
+  --color-gray-950: #101b15;
+  --color-green-50: #eaf3ec;
+  --color-green-100: #dcebdd;
+  --color-green-200: #c9dfce;
+  --color-green-300: #a4c8af;
+  --color-green-400: #72a786;
+  --color-green-500: #34815b;
+  --color-green-600: #1e6847;
+  --color-green-700: #195439;
+  --color-green-800: #17432f;
+  --color-green-900: #143826;
+  --color-green-950: #102b1e;
+  --text-xs: .75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: .875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --radius-lg: .75rem;
+  --radius-xl: .75rem;
+  --radius-2xl: 1rem;
+  --shadow-sm: 0 1px 3px rgb(22 37 29 / .04);
+  --shadow-md: var(--shadow-card);
+  --shadow-lg: var(--shadow-floating);
+  --shadow-xl: var(--shadow-floating);
+  --shadow-2xl: var(--shadow-floating);
+}
+@media (min-width: 640px) { :root { --page-gutter: 1.5rem; } }
+@media (min-width: 1024px) { :root { --page-gutter: 2rem; } }
+
+@layer base {
+  body { font-size: 1rem; line-height: 1.5; }
+  :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  :where(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=file]), select, textarea) {
+    border-radius: var(--radius-control);
+    accent-color: var(--primary);
+  }
+  :where(input[type=checkbox], input[type=radio]) { accent-color: var(--primary); }
+  :where(dialog, [role=dialog]) { border-radius: var(--radius-dialog); }
+  :where(svg.lucide) { stroke-width: 1.75; }
+}
+@utility ardore-container {
+  width: 100%; max-width: var(--container-public); margin-inline: auto; padding-inline: var(--page-gutter);
+}
+@utility ardore-workspace {
+  width: 100%; max-width: var(--container-workspace); margin-inline: auto; padding-inline: var(--page-gutter);
+}
+@utility page-title {
+  font-size: 2rem; line-height: 1.15; font-weight: 600; letter-spacing: -.025em;
+  @media (min-width: 768px) { font-size: 3rem; }
+  @media (min-width: 1024px) { font-size: 3.5rem; }
+}
+@utility section-title {
+  font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -.02em;
+  @media (min-width: 768px) { font-size: 1.75rem; }
+  @media (min-width: 1024px) { font-size: 2rem; }
+}
+@utility card-title { font-size: 1rem; line-height: 1.375rem; font-weight: 600; overflow-wrap: anywhere; }
+@utility section-space {
+  padding-block: 2.5rem;
+  @media (min-width: 768px) { padding-block: 4rem; }
+}
+@utility surface-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+}
+@utility surface-panel {
+  background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--radius-card);
+}
+@utility surface-elevated {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-floating);
+}
+@utility surface-dialog {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-dialog); box-shadow: var(--shadow-floating);
+}
+@utility interactive-card {
+  transition: border-color .15s, box-shadow .15s;
+  &:hover, &:focus-within { border-color: var(--primary-light); box-shadow: var(--shadow-card); }
+}
+@utility field-control {
+  width: 100%; min-height: 2.75rem; border: 1px solid var(--border-control); border-radius: var(--radius-control);
+  padding: .625rem .75rem; font-size: 1rem; line-height: 1.5rem; color: var(--foreground); background: var(--surface);
+  transition: border-color .15s;
+  &::placeholder { color: var(--text-secondary); }
+  &:hover:not(:disabled) { border-color: var(--text-secondary); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  &:disabled { background: var(--surface-muted); opacity: .65; cursor: not-allowed; }
+  &[aria-invalid=true] { border-color: var(--danger); }
+}
+@utility button-base {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem;
+  border: 1px solid transparent; border-radius: var(--radius-control); padding: .625rem 1rem;
+  font-size: .875rem; line-height: 1.25rem; font-weight: 500; transition: background-color .15s, border-color .15s, color .15s;
+  &:disabled, &[aria-disabled=true] { opacity: .5; cursor: not-allowed; }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+}
+@utility button-primary { background: var(--primary); color: white; &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--primary-dark); } }
+@utility button-secondary { background: var(--surface); color: var(--foreground); border-color: var(--border-control); &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--surface-muted); } }
+@utility button-tertiary { color: var(--text-secondary); &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--surface-muted); color: var(--foreground); } }
+@utility button-soft { background: var(--secondary); color: var(--primary-dark); &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--primary-light); } }
+@utility button-destructive { background: var(--danger); color: white; &:hover:not(:disabled):not([aria-disabled=true]) { background: #931d29; } }
+@utility icon-button { min-height: 2.75rem; min-width: 2.75rem; padding: .5rem; }
+
+/* A two-tone focus indicator stays visible on both white controls and dark heroes. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px var(--surface);
+}

@@ -18,14 +18,14 @@ export default function Loading() {
           <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
           <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
         </div>
-        <div className="hidden md:flex max-w-7xl mx-auto px-4 py-3 gap-2">
+        <div className="hidden md:flex ardore-container py-3 gap-2">
           {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="h-7 w-20 bg-gray-100 rounded-full animate-pulse flex-shrink-0" />
           ))}
         </div>
       </div>
       {/* Results */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8">
+      <div className="ardore-container py-5 sm:py-8">
         <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mb-4 sm:mb-6" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
           {Array.from({ length: 10 }).map((_, i) => (

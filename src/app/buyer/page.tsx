@@ -61,6 +61,8 @@ export default async function BuyerDashboardPage() {
       .order('created_at', { ascending: false }),
   ])
 
+  if (purchasesRes.error || subscriptionsRes.error) throw new Error('Dein Bereich konnte nicht geladen werden')
+
   const purchases = purchasesRes.data ?? []
   const subscriptions = subscriptionsRes.data ?? []
   const priceLabels = await subscriptionPriceLabels(await createServiceClient(), user.id, subscriptions)
@@ -127,7 +129,7 @@ export default async function BuyerDashboardPage() {
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 py-10">
+      <div className="ardore-workspace py-10">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-10">
           {[
@@ -137,7 +139,7 @@ export default async function BuyerDashboardPage() {
           ].map((stat, i) => (
             <Link key={stat.label} href={stat.href}>
               <Card className={`animate-slide-up cursor-pointer hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md animate-delay-${(i + 1) * 100}`}>
-                <CardContent className="p-5">
+                <CardContent className="p-3 sm:p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
                       {stat.icon}
@@ -145,16 +147,16 @@ export default async function BuyerDashboardPage() {
                     <ArrowRight className="h-4 w-4 text-gray-300" />
                   </div>
                   <p className="text-2xl font-bold text-gray-900 mb-0.5">{stat.value}</p>
-                  <p className="text-sm text-gray-500">{stat.label} <span className="text-gray-400">· {stat.sub}</span></p>
+                  <p className="text-sm text-gray-500 break-words hyphens-auto">{stat.label} <span className="text-gray-400">· {stat.sub}</span></p>
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Active Subscriptions */}
-          <div id="subscriptions">
+          <div id="subscriptions" className="min-w-0">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Meine Abonnements</h2>
               <Link href="/buyer/subscriptions" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors flex items-center gap-1">
@@ -234,7 +236,7 @@ export default async function BuyerDashboardPage() {
           </div>
 
           {/* Recent Purchases */}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Letzte Käufe</h2>
               <Link href="/buyer/library" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors flex items-center gap-1">

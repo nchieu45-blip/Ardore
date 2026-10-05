@@ -66,7 +66,7 @@ export default async function SubscriptionsPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Meine Abonnements</h1>
+      <h1 className="section-title text-gray-900 mb-2">Meine Abonnements</h1>
       <p className="text-gray-500 mb-8">{subList.filter((s: { status: string }) => s.status === 'active').length} aktive Abonnements</p>
 
       {subList.length === 0 ? (

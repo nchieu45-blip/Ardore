@@ -62,8 +62,8 @@ export default function CoachCalendar() {
   const current = result?.key === key ? result : null
   const dates = calendarDates(date, view)
   const data = current?.data
-  return <div className="mx-auto max-w-7xl px-4 py-8">
-    <h1 className="text-2xl font-bold">Dein Kalender</h1>
+  return <div className="ardore-workspace py-8">
+    <h1 className="section-title">Dein Kalender</h1>
     <p className="mt-2 text-sm text-gray-600">Verfügbarkeit und 1:1 Termine · Europe/Berlin. Terminaktionen und Meeting-Status findest du in den Details.</p>
     <div className="mt-4 flex flex-wrap gap-3 text-sm text-green-700">
       <Link className="underline focus-visible:ring-2" href="/creator/settings/videocoaching">Verfügbarkeit bearbeiten</Link>
@@ -90,7 +90,7 @@ export default function CoachCalendar() {
           const bookings = bookingsForDate(d, data.bookings)
           const segments = calendarSegments(d, data)
           const history = bookings.filter(b => !['confirmed', 'pending_payment'].includes(b.status))
-          return <section key={d} aria-label={calendarDateLabel(d)} className="min-w-0 rounded-xl border border-gray-200 bg-white p-3">
+          return <section key={d} aria-label={calendarDateLabel(d)} className="min-w-0 surface-card p-3">
             <h3 className="mb-3 text-sm font-semibold">{calendarDateLabel(d)}</h3>
             {!bookings.length && <p className="mb-2 text-xs text-gray-600">Keine Termine</p>}
             {!segments.some(s => s.kind === 'available') && <p className="mb-2 text-xs text-gray-600">Keine freie Verfügbarkeit</p>}

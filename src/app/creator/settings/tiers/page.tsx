@@ -261,7 +261,7 @@ export default function TiersPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Abo-Preisstufen</h1>
+          <h1 className="section-title text-gray-900">Abo-Preisstufen</h1>
           <p className="text-gray-500">Monatliche Abonnements — optional mit inkludierten Video-Sessions</p>
         </div>
         <Button onClick={() => { setShowCreateForm(true); setEditingId(null) }}>

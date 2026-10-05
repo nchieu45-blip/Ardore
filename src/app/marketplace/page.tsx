@@ -8,10 +8,10 @@ import { aggregateProductRatings } from '@/lib/productRatings'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Marketplace',
+  title: 'Marktplatz',
   description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von qualifizierten Coaches.',
   openGraph: {
-    title: 'Marketplace – Ardore',
+    title: 'Marktplatz – Ardore',
     description: 'Digitale Produkte von Fitness- und Gesundheitscoaches.',
   },
 }
@@ -19,12 +19,14 @@ export const metadata: Metadata = {
 export default async function MarketplacePage() {
   const supabase = await createClient()
 
-  const { data: productsData } = await supabase
+  const { data: productsData, error: productsError } = await supabase
     .from('products')
     .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, show_sales_count, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
     .eq('is_published', true)
       .eq('creator_profiles.is_published', true)
     .order('created_at', { ascending: false })
+
+  if (productsError) throw new Error('Produkte konnten nicht geladen werden')
 
   const products: MarketplaceProduct[] = (productsData ?? []).map((p: {
     id: string

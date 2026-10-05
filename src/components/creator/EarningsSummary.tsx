@@ -11,7 +11,7 @@ function Metrics({ totals }: { totals: EarningsTotals }) {
     ['Übertragung ausstehend', totals.pending, 'Noch nicht übertragen; kann bei fehlender Auszahlungsbereitschaft oder offener Klärung zurückgestellt sein.'],
     ['An Kunden erstattet', totals.refunded, 'Nur bestätigte Kunden-Erstattungen. Bereits im Bruttoumsatz und Nettoerlös berücksichtigt.'],
   ] as const
-  return <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{metrics.map(([label, value, explanation]) => <div key={label} className="min-w-0 rounded-xl border border-gray-200 bg-white p-4">
+  return <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{metrics.map(([label, value, explanation]) => <div key={label} className="surface-card min-w-0 p-4">
     <dt className="text-sm font-medium text-gray-600">{label}</dt><dd className="mt-2 text-2xl font-bold break-words">{money(value)}</dd><p className="mt-2 text-xs text-gray-500">{explanation}</p>
   </div>)}</dl>
 }

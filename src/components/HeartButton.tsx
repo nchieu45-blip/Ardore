@@ -26,12 +26,14 @@ export default function HeartButton({ type, itemId, className = '' }: HeartButto
 
   return (
     <button
+      type="button"
+      aria-pressed={favorited}
       onClick={handleClick}
-      className={`flex items-center justify-center h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm shadow-sm hover:bg-white transition-all ${className}`}
+      className={`flex items-center justify-center button-base button-tertiary icon-button rounded-full border border-border bg-white hover:bg-surface-muted ${className}`}
       aria-label={favorited ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'}
     >
       <Heart
-        className={`h-3.5 w-3.5 transition-colors ${
+        className={`h-5 w-5 transition-colors ${
           favorited ? 'fill-red-500 text-red-500' : 'text-gray-500'
         }`}
       />
