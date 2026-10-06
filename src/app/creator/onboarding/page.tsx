@@ -8,6 +8,7 @@ import { z } from 'zod'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { CoachSetupProfile } from '@/lib/coach-publication'
+import { ImageAssetGuide } from '@/components/ui/ImageAssetGuide'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { CategoryPicker } from '@/components/ui/CategoryPicker'
@@ -206,8 +207,8 @@ export default function CreatorOnboardingPage() {
     if (!file.type.startsWith('image/')) { setImageError('Nur Bilddateien sind erlaubt.'); return }
     if (file.size > maxBytes) { setImageError(`Bild zu groß. Max.: ${maxLabel}.`); return }
     const preview = URL.createObjectURL(file)
-    if (type === 'avatar') { setAvatarFile(file); setAvatarPreview(preview) }
-    else { setBannerFile(file); setBannerPreview(preview) }
+    if (type === 'avatar') { if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview); setAvatarFile(file); setAvatarPreview(preview) }
+    else { if (bannerPreview?.startsWith('blob:')) URL.revokeObjectURL(bannerPreview); setBannerFile(file); setBannerPreview(preview) }
   }
 
   async function uploadImage(file: File, path: string): Promise<string> {
@@ -384,9 +385,10 @@ export default function CreatorOnboardingPage() {
               </div>
             </div>
 
-            <p className="text-xs text-gray-400 mt-12 mb-5">
-              Profilbild: max. 5 MB · Banner: max. 10 MB
-            </p>
+            <div className="mt-12 mb-5">
+              <ImageAssetGuide kind="portrait" src={avatarPreview} />
+              <ImageAssetGuide kind="banner" src={bannerPreview} />
+            </div>
 
             {imageError && (
               <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 mb-4">

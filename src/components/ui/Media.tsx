@@ -19,7 +19,7 @@ export function Media({ src, alt, className, sizes = '(max-width: 640px) 50vw, (
   const usable = src && failedSrc !== src
   const ratios = { product: 'aspect-video', portrait: 'aspect-[4/5]', square: 'aspect-square' }
   return <div className={cn('relative shrink-0 overflow-hidden bg-surface-muted', ratios[ratio], className)}>
-    {usable ? <Image src={src} alt={alt} fill sizes={sizes} className="object-cover" onError={() => setFailedSrc(src)} />
+    {usable ? <Image src={src} alt={alt} fill sizes={sizes} className="object-cover object-center" onError={() => setFailedSrc(src)} />
       : <div className="absolute inset-0 flex items-center justify-center text-muted" aria-hidden="true">
           {fallback ?? (ratio === 'portrait' ? <UserRound className="h-8 w-8" /> : <ImageIcon className="h-8 w-8" />)}
         </div>}

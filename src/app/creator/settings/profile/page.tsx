@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
+import { ImageAssetGuide } from '@/components/ui/ImageAssetGuide'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
@@ -139,9 +140,11 @@ export default function ProfileSettingsPage() {
 
     const preview = URL.createObjectURL(file)
     if (type === 'avatar') {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview)
       setAvatarFile(file)
       setAvatarPreview(preview)
     } else {
+      if (bannerPreview) URL.revokeObjectURL(bannerPreview)
       setBannerFile(file)
       setBannerPreview(preview)
     }
@@ -321,11 +324,9 @@ export default function ProfileSettingsPage() {
               </div>
             </div>
 
-            {/* Spacer for avatar overlap */}
-            <div className="mt-14 flex gap-3 text-xs text-gray-500">
-              <span>Profilbild: max. 5 MB</span>
-              <span>·</span>
-              <span>Banner: max. 10 MB</span>
+            <div className="mt-14">
+              <ImageAssetGuide kind="portrait" src={avatarSrc} />
+              <ImageAssetGuide kind="banner" src={bannerSrc} />
             </div>
 
             {imageError && (

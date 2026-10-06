@@ -1,5 +1,7 @@
 'use client'
 
+import { ImageAssetGuide } from '@/components/ui/ImageAssetGuide'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -266,7 +268,7 @@ export default function EditProductForm({ product }: { product: Product }) {
             {displayThumbUrl ? (
               <div className="relative rounded-xl overflow-hidden border border-gray-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={displayThumbUrl} alt="Vorschau" className="w-full h-52 object-cover" />
+                <img src={displayThumbUrl} alt="Vorschau" className="w-full aspect-video object-cover object-center" />
                 <button
                   type="button"
                   onClick={handleRemoveThumbnail}
@@ -293,6 +295,7 @@ export default function EditProductForm({ product }: { product: Product }) {
                 <input type="file" className="hidden" accept={THUMB_ACCEPT} onChange={handleThumbnailChange} />
               </label>
             )}
+            <ImageAssetGuide kind="cover" src={displayThumbUrl} />
             {thumbError && <p className="mt-1.5 text-xs text-red-600">{thumbError}</p>}
           </div>
 

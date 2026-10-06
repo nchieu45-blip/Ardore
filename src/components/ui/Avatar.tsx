@@ -23,7 +23,7 @@ export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
   if (src && src !== failedSrc) {
     return (
       <div className={cn('relative rounded-full overflow-hidden flex-shrink-0', sizes[size], className)}>
-        <Image src={src} alt={name} fill sizes="80px" className="object-cover" onError={() => setFailedSrc(src)} />
+        <Image src={src} alt={name} fill sizes="80px" className="object-cover object-center" onError={() => setFailedSrc(src)} />
       </div>
     )
   }

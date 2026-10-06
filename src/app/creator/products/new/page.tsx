@@ -1,5 +1,7 @@
 'use client'
 
+import { ImageAssetGuide } from '@/components/ui/ImageAssetGuide'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -274,7 +276,7 @@ export default function NewProductPage() {
             {thumbnailPreview ? (
               <div className="relative rounded-xl overflow-hidden border border-gray-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumbnailPreview} alt="Vorschau" className="w-full h-52 object-cover" />
+                <img src={thumbnailPreview} alt="Vorschau" className="w-full aspect-video object-cover object-center" />
                 <button
                   type="button"
                   onClick={() => {
@@ -306,6 +308,7 @@ export default function NewProductPage() {
                 <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp" onChange={handleThumbnailChange} />
               </label>
             )}
+            <ImageAssetGuide kind="cover" src={thumbnailPreview} />
             {thumbnailError && <p className="mt-1.5 text-xs text-red-600">{thumbnailError}</p>}
           </div>
 
