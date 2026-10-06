@@ -63,6 +63,7 @@ export function ProductCard({
   ].filter(Boolean)
   return (
     <article
+      data-ardore-pilot="product-card"
       className={`surface-card interactive-card group relative flex h-full min-w-0 flex-col overflow-hidden ${compact ? 'w-72 shrink-0' : 'w-full'} ${scrollSnap ? '[scroll-snap-align:start]' : ''}`}
     >
       <ProductThumbnail
@@ -74,11 +75,11 @@ export function ProductCard({
             : '(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 25vw'
         }
       />
-      <div className="flex flex-1 flex-col p-4">
-        <p className="mb-2 text-xs font-semibold text-brand">
+      <div className="flex flex-1 flex-col p-5">
+        <p className="mb-2 text-sm font-medium text-brand">
           {PRODUCT_OFFER_LABELS[product.type]}
         </p>
-        <h3 className="card-title mb-3 min-h-11 line-clamp-2 text-foreground">
+        <h3 className="card-title mb-3 min-h-11 line-clamp-2 text-foreground text-lg leading-snug tracking-tight">
           <Link
             href={`/products/${product.id}`}
             className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-brand focus-visible:after:-outline-offset-4"
@@ -88,26 +89,21 @@ export function ProductCard({
         </h3>
         <Link
           href={`/creators/${product.creator.slug}`}
-          className="relative z-10 mb-3 flex min-w-0 items-center gap-2 text-sm text-muted hover:text-brand"
+          className="relative z-10 mb-3 flex min-h-11 min-w-0 items-center gap-2 text-sm text-muted hover:text-brand"
         >
           <span aria-hidden="true">
             <Avatar
               src={product.creator.avatar_url}
               name={product.creator.display_name}
               size="sm"
-              className="h-6 w-6 shrink-0 text-xs"
+              className="h-8 w-8 shrink-0 text-xs"
             />
           </span>
-          <span className="truncate">{product.creator.display_name}</span>
+          <span className="min-w-0"><span className="block text-xs text-muted">Von</span><span className="block truncate font-medium text-foreground">{product.creator.display_name}</span></span>
         </Link>
-        <p className="mb-4 text-xs leading-relaxed text-muted">
+        <p className="mb-4 text-sm leading-relaxed text-muted">
           {metadata.join(' · ')}
         </p>
-        {rating && rating.count > 0 && (
-          <div className="mb-3">
-            <StarRating rating={rating.avg} count={rating.count} size="sm" />
-          </div>
-        )}
         {showSalesCount(product, salesCount) && salesCount >= 50 && (
           <p className="mb-2 text-xs text-muted">{salesCount}× gekauft</p>
         )}
@@ -119,6 +115,11 @@ export function ProductCard({
             {product.price === 0 ? 'Digitaler Inhalt' : 'Einmaliger Kauf'}
           </p>
         </div>
+        {rating && rating.count > 0 && (
+          <div className="mt-3">
+            <StarRating rating={rating.avg} count={rating.count} size="sm" />
+          </div>
+        )}
       </div>
       <HeartButton
         type="product"

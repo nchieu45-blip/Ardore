@@ -3,9 +3,11 @@ import type { ComponentType } from 'react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
+import { ProductCard } from '@/components/ui/ProductCard'
+import { CreatorStorefrontIdentity, StorefrontVerification } from '@/components/pilot/CreatorStorefrontIdentity'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { Button, ButtonLink } from '@/components/ui/Button'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency, cn } from '@/lib/utils'
 import {
@@ -358,6 +360,8 @@ export default async function CreatorProfilePage({
   const qualifications: string[] = (creator.qualifications as string[] | null) ?? []
   const languages: string[] = (creator.languages as string[] | null) ?? []
 
+  // Deliberately limited to one existing demo storefront; no publication/data changes.
+  const isStorefrontPilot = creator.slug === 'jonas-weber'
   const isOwner = user?.id === creator.user_id
 
   const socialLinksRaw = (creator.social_links as Record<string, string> | null) ?? {}
@@ -374,6 +378,39 @@ export default async function CreatorProfilePage({
 
   return (
     <div className="min-h-screen bg-gray-50/40 overflow-x-hidden">
+      {isStorefrontPilot ? (
+        <div className="ardore-container pt-8 pb-8" data-ardore-pilot="storefront">
+          <CreatorStorefrontIdentity
+            name={creator.display_name} portrait={creator.avatar_url} bio={creator.bio}
+            specialties={allCategories.map(cat => CATEGORY_LABELS[cat] ?? cat)}
+            languages={languages.map(l => LANGUAGE_LABEL_MAP[l] ?? l)}
+            products={products.length} subscriptions={tiers.length} coaching={!!coachingOffer}
+            actions={<><StorefrontVerification verified={creator.is_verified} />
+              {!isOwner && <HeartButton type="coach" itemId={creator.id} />}
+              {user && activeSubscription && <Link className="button-base button-secondary" href={`/chat/${creator.id}`}>Nachricht</Link>}
+              {isOwner && <Link className="button-base button-secondary" href="/creator/settings/profile">Profil bearbeiten</Link>}
+            </>}
+            socialLinks={socialIconLinks.map(({key, href, label, Icon}) => <a key={key} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="icon-button text-muted hover:text-brand"><Icon className="h-4 w-4" /></a>)}
+          />
+          {products.length > 0 && <section id="pilot-products" aria-labelledby="pilot-products-title" className="scroll-mt-24 pt-8">
+            <div className="mb-5"><p className="mb-1 text-sm text-brand">Wissen für deinen Alltag</p><h2 id="pilot-products-title" className="section-title">Digitale Produkte von {creator.display_name}</h2></div>
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null; is_demo?: boolean }) => {
+                const owned = purchasedIds.has(product.id)
+                return <div key={product.id} className="flex min-w-0 flex-col">
+                  <ProductCard product={{...product, creator: {id: creator.id, display_name: creator.display_name, avatar_url: creator.avatar_url, slug: creator.slug, category: creator.category, categories: allCategories}}} rating={ratingStats[product.id]} salesCount={productSalesCounts[product.id] ?? 0} />
+                  <div className="flex items-center justify-between gap-3 px-1 py-3">
+                    {owned ? <span className="text-sm font-medium text-brand">Gekauft</span> : <BuyButton productId={product.id} price={product.price} title={product.title} type={product.type} thumbnailUrl={product.thumbnail_url} creatorId={creator.id} creatorName={creator.display_name} creatorSlug={creator.slug} isDemo={(creator.is_demo ?? false) || (product.is_demo ?? false)} />}
+                    <Link href={`/products/${product.id}`} className="inline-flex min-h-11 items-center text-sm text-brand underline">Details</Link>
+                  </div>
+                  <ReviewSection productId={product.id} reviews={reviewsByProduct[product.id] ?? []} hasPurchased={owned} currentUserId={user?.id ?? null} currentUserName={currentProfile?.full_name ?? null} currentUserAvatar={currentProfile?.avatar_url ?? null} />
+                </div>
+              })}
+            </div>
+          </section>}
+        </div>
+      ) : <>
+      {/* Existing presentation remains for all non-pilot profiles. */}
       {/* Full-width banner */}
       <div className="relative w-full bg-brand-soft h-44 md:h-56 lg:h-64 overflow-hidden animate-fade-in">
         {creator.banner_url && (
@@ -499,7 +536,7 @@ export default async function CreatorProfilePage({
           {/* Stats */}
           {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null || avgSessionRating !== null) && (
             <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-gray-100 animate-slide-up animate-delay-100">
-              {products.length > 0 && (
+              {!isStorefrontPilot && products.length > 0 && (
                 <div className="flex items-center gap-2 text-sm">
                   <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center">
                     <ShoppingBag className="h-4 w-4 text-green-600" />
@@ -557,14 +594,17 @@ export default async function CreatorProfilePage({
             </div>
           )}
         </div>
-
+      </div>
+      </>}
+      <div className="ardore-container">
+        {isStorefrontPilot && coachingOffer && <div id="booking" className="scroll-mt-24 mb-5"><h2 className="section-title">1:1 Coaching & Termine</h2><p className="mt-2 text-sm text-muted">Wähle einen freien Termin · Europe/Berlin</p></div>}
         {/* Main content: two-column on desktop when booking widget exists */}
         <div className={cn('pb-16', coachingOffer && 'lg:grid lg:grid-cols-5 lg:gap-8')}>
 
           {/* Left column: qualifications, services, [mobile booking], tiers, products, reviews */}
           <div className={cn('space-y-8', coachingOffer && 'lg:col-span-3')}>
 
-            {qualifications.length > 0 && (
+            {!isStorefrontPilot && qualifications.length > 0 && (
               <div className="animate-slide-up animate-delay-100">
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Qualifikationen</h2>
@@ -582,7 +622,7 @@ export default async function CreatorProfilePage({
 
             {/* Booking widget — mobile only (desktop shows it in the sticky right column) */}
             {coachingOffer && (
-              <div className="lg:hidden animate-slide-up animate-delay-100">
+              <div id={isStorefrontPilot ? 'booking-mobile' : undefined} className="lg:hidden scroll-mt-24 animate-slide-up animate-delay-100">
                 <BookingWidget
                   creatorId={creator.id}
                   offer={coachingOffer}
@@ -594,8 +634,9 @@ export default async function CreatorProfilePage({
             )}
 
             {tiers.length > 0 && (
-              <div className="space-y-4 animate-slide-up animate-delay-100">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Abonnements</h2>
+              <div id={isStorefrontPilot ? 'pilot-subscriptions' : undefined} className="scroll-mt-24 space-y-4 animate-slide-up animate-delay-100">
+                <h2 className={isStorefrontPilot ? 'section-title' : 'text-sm font-semibold text-gray-500 uppercase tracking-wide'}>Abonnements</h2>
+                <div className={isStorefrontPilot ? 'grid gap-5 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-4'}>
                 {tiers.map((tier: {
                   id: string
                   name: string
@@ -607,7 +648,7 @@ export default async function CreatorProfilePage({
                   included_session_duration_minutes?: number | null
                 }, i: number) => {
                   const isSubscribed     = activeSubscription?.tier_id === tier.id
-                  const isFeatured       = i === 0 && tiers.length > 1
+                  const isFeatured       = !isStorefrontPilot && i === 0 && tiers.length > 1
                   const tierSessions     = tier.included_video_sessions ?? 0
                   const sessionPeriod    = tier.video_session_period ?? 'month'
                   const periodLabel      = sessionPeriod === 'week' ? 'pro Woche' : 'pro Monat'
@@ -619,8 +660,9 @@ export default async function CreatorProfilePage({
                     <div
                       key={tier.id}
                       className={cn(
-                        'rounded-2xl border-2 overflow-hidden transition-all duration-200',
-                        isSubscribed ? 'border-green-400 shadow-md shadow-green-100'
+                        isStorefrontPilot ? 'surface-card overflow-hidden' : 'rounded-2xl border-2 overflow-hidden transition-all duration-200',
+                        isStorefrontPilot ? (isSubscribed ? 'border-brand' : 'border-border')
+                        : isSubscribed ? 'border-green-400 shadow-md shadow-green-100'
                         : isFeatured ? 'border-green-300 shadow-md'
                         : 'border-gray-100 hover:border-gray-200'
                       )}
@@ -631,7 +673,7 @@ export default async function CreatorProfilePage({
                         </div>
                       )}
                       {isSubscribed && (
-                        <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
+                        <div className={isStorefrontPilot ? "bg-brand-soft text-brand text-sm font-medium px-5 py-3 flex items-center gap-2" : "bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1"}>
                           <Check className="h-3 w-3" /> Aktives Abo
                         </div>
                       )}
@@ -684,14 +726,14 @@ export default async function CreatorProfilePage({
                         </div>
                         {isSubscribed ? (
                           <div className="space-y-2">
-                            <Link href={`/chat/${creator.id}`} className="block">
+                            {isStorefrontPilot ? <ButtonLink href={`/chat/${creator.id}`} className="w-full gap-2"><MessageCircle className="h-4 w-4" aria-hidden="true" />Zum Chat</ButtonLink> : <Link href={`/chat/${creator.id}`} className="block">
                               <Button className="w-full gap-2">
                                 <MessageCircle className="h-4 w-4" />
                                 Zum Chat
                               </Button>
-                            </Link>
+                            </Link>}
                             {tierSessions > 0 && (
-                              <Link href="#booking" className="block" onClick={e => { e.preventDefault(); document.querySelector('[data-booking-widget]')?.scrollIntoView({ behavior: 'smooth' }) }}>
+                              isStorefrontPilot ? <ButtonLink href="#booking" variant="secondary" size="sm" className="w-full gap-1.5"><Video className="h-3.5 w-3.5" aria-hidden="true" />Session buchen</ButtonLink> : <Link href="#booking" className="block" onClick={e => { e.preventDefault(); document.querySelector('[data-booking-widget]')?.scrollIntoView({ behavior: 'smooth' }) }}>
                                 <Button variant="outline" size="sm" className="w-full gap-1.5">
                                   <Video className="h-3.5 w-3.5" />
                                   Session buchen
@@ -701,6 +743,8 @@ export default async function CreatorProfilePage({
                           </div>
                         ) : user ? (
                           <SubscribeButton tierId={tier.id} creatorId={creator.id} priceMonthly={tier.price_monthly} autoDiscount={tierAutoDiscount} />
+                        ) : isStorefrontPilot ? (
+                          <ButtonLink href={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`} size="sm" className="w-full gap-1.5"><Lock className="h-3.5 w-3.5" aria-hidden="true" />Anmelden zum Abonnieren</ButtonLink>
                         ) : (
                           <Link href={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`} className="block">
                             <Button size="sm" className="w-full gap-1.5">
@@ -713,6 +757,7 @@ export default async function CreatorProfilePage({
                     </div>
                   )
                 })}
+                </div>
               </div>
             )}
 
@@ -790,7 +835,7 @@ export default async function CreatorProfilePage({
               </div>
             )}
 
-            {products.length > 0 && (
+            {!isStorefrontPilot && products.length > 0 && (
               <div className="space-y-4 animate-slide-up animate-delay-100">
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Produkte</h2>
                 {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null; is_demo?: boolean }) => {
@@ -868,6 +913,12 @@ export default async function CreatorProfilePage({
               </div>
             )}
 
+            {isStorefrontPilot && <section aria-labelledby="pilot-about-title" className="border-t border-border pt-6">
+              <h2 id="pilot-about-title" className="section-title mb-4">Über {creator.display_name}</h2>
+              {creator.bio && <p className="max-w-2xl text-muted leading-relaxed">{creator.bio}</p>}
+              {qualifications.length > 0 && <div className="mt-6"><h3 className="mb-2 font-semibold">Qualifikationen</h3><p className="mb-3 text-sm text-muted">Angaben des Coaches. Eine Ardore-Verifizierung wird separat angezeigt.</p><ul className="space-y-2 text-sm">{qualifications.map((q,i) => <li key={i} className="flex gap-2"><GraduationCap className="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />{q}</li>)}</ul></div>}
+              {services.length > 0 && <p className="mt-4 text-sm text-muted">Schwerpunkte des Angebots: {services.map(s => SERVICE_LABELS[s] ?? s).join(' · ')}</p>}
+            </section>}
             <div className="animate-slide-up">
               <div className="flex items-center gap-3 mb-5">
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Bewertungen</h2>
@@ -932,7 +983,7 @@ export default async function CreatorProfilePage({
 
           {/* Right column: sticky booking widget (desktop only) */}
           {coachingOffer && (
-            <div className="hidden lg:block lg:col-span-2">
+            <div id={isStorefrontPilot ? 'booking-desktop' : undefined} className="hidden lg:block lg:col-span-2 scroll-mt-24">
               <div className="sticky top-24">
                 <BookingWidget
                   creatorId={creator.id}

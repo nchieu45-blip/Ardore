@@ -8,7 +8,7 @@ import ts from 'typescript'
 
 const require = createRequire(import.meta.url)
 const passThrough = ({ children }) => children
-const ui = { Button: passThrough, Card: passThrough, CardContent: passThrough, CardHeader: passThrough, Badge: passThrough }
+const ui = { Button: passThrough, ButtonLink: passThrough, Avatar: passThrough, CoachDayOverview: passThrough, Card: passThrough, CardContent: passThrough, CardHeader: passThrough, Badge: passThrough }
 
 function loadPage(path, overrides, globals = {}) {
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
@@ -37,7 +37,7 @@ function creatorFixture({ signedIn = true, hasCreator = true, purchaseError = fa
   const client = { auth: { getUser: async () => ({ data: { user: signedIn ? { id: 'authenticated-owner' } : null } }) }, from(table) {
     const filters = []
     const single = async () => { assert.equal(table, 'creator_profiles'); assert.deepEqual(filters, [['user_id', 'authenticated-owner']]); ownerResolved = hasCreator; return { data: hasCreator ? creator : null } }
-    return { select() { return this }, eq(k,v) { filters.push([k,v]); return this }, order() { return this }, single, maybeSingle: single, then(resolve) { resolve({ data: [] }) } }
+    return { select() { return this }, eq(k,v) { filters.push([k,v]); return this }, order() { return this }, in() { return this }, gte() { return this }, lt() { return this }, limit() { return this }, single, maybeSingle: single, then(resolve) { resolve({ data: [] }) } }
   } }
   const totals = {payments:1,gross:4200,refunded:0,retained:4200,fee:420,net:3780,transferred:3780,pending:0,reversalPending:0,reversed:0,refundPending:0}
   const report = {all:totals,month:totals,sources:{products:totals,booking:{...totals,payments:0},subscription:{...totals,payments:0}},days:[],testMode:true,legacy:{products:0,bookings:0,subscriptions:0,knownProductGross:0,knownBookingGross:0,unclear:0}}
