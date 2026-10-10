@@ -8,11 +8,13 @@ export function CreatorStorefrontIdentity({ name, portrait, bio, specialties, la
   name: string; portrait: string | null; bio: string | null; specialties: string[]; languages: string[];
   products: number; subscriptions: number; coaching: boolean; actions: ReactNode; socialLinks: ReactNode;
 }) {
-  return <header className="grid gap-6 border-b border-border pb-8 md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)]">
-    <CoachPortrait src={portrait} alt={name} className="w-36 rounded-xl md:w-full" sizes="(max-width: 767px) 144px, 220px" />
+  return <header className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-4 gap-y-6 border-b border-border pb-8 md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)]">
+    <CoachPortrait src={portrait} alt={name} className="w-full rounded-xl md:row-span-2" sizes="(max-width: 767px) 96px, 220px" />
     <div className="min-w-0">
-      <p className="mb-2 text-sm font-medium text-brand">Dein direkter Weg zu {name}</p>
-      <h1 className="mb-3 break-words text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{name}</h1>
+      <h1 className="mb-3 break-words text-2xl font-semibold leading-tight tracking-tight sm:text-3xl lg:text-4xl">{name}</h1>
+      <p className="mb-4 text-sm font-medium text-brand">Dein direkter Weg zu {name}</p>
+    </div>
+    <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2 md:row-start-2">
       {bio && <p className="mb-4 max-w-2xl line-clamp-3 text-base leading-relaxed text-muted">{bio}</p>}
       <ul aria-label="Schwerpunkte" className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-brand">{specialties.slice(0,3).map(s => <li key={s}>{s}</li>)}</ul>
       {languages.length > 0 && <p className="mb-4 text-sm text-muted">Sprachen: {languages.join(', ')}</p>}

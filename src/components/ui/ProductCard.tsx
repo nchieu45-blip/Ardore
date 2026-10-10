@@ -108,7 +108,7 @@ export function ProductCard({
           <p className="mb-2 text-xs text-muted">{salesCount}× gekauft</p>
         )}
         <div className="mt-auto border-t border-border pt-3">
-          <p className="text-xl font-semibold text-foreground">
+          <p className="text-xl font-semibold tabular-nums text-foreground">
             {product.price === 0 ? 'Kostenlos' : formatCurrency(product.price)}
           </p>
           <p className="mt-1 text-xs text-muted">

@@ -230,12 +230,12 @@ export default function CoachesPageClient({
     )
   }
   const sortControl = (
-    <label>
+    <label className="min-w-0">
       <span className="sr-only">Coaches sortieren</span>
       <select
         value={sort}
         onChange={(e) => go({ sort: e.target.value })}
-        className="field-control w-full"
+        className="field-control min-w-0 w-full text-sm"
       >
         <option value="newest">Neueste Profile</option>
         <option value="most_products">Meiste Produkte</option>
@@ -248,11 +248,13 @@ export default function CoachesPageClient({
   return (
     <div className="min-h-screen">
       <section className="border-b border-border bg-surface">
-        <div className="ardore-container py-6 sm:py-8">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="ardore-container py-8 sm:py-10">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-5">
             <div>
-              <h1 className="section-title">Marktplatz entdecken</h1>
-              <p className="mt-2 text-sm text-muted">
+              <h1 className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                Marktplatz entdecken
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
                 Coaches kennenlernen. Digitale Produkte vergleichen.
               </p>
             </div>
@@ -262,7 +264,7 @@ export default function CoachesPageClient({
               category={category}
             />
           </div>
-          <label className="relative block max-w-2xl">
+          <label className="relative block max-w-3xl">
             <span className="sr-only">
               Coaches nach Name, Thema oder Kategorie suchen
             </span>
@@ -275,7 +277,7 @@ export default function CoachesPageClient({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Name, Thema oder Ziel suchen"
-              className="field-control w-full pl-12 pr-12"
+              className="field-control min-h-12 w-full pl-12 pr-12"
             />
             {normalizedSearch && (
               <button
@@ -287,26 +289,26 @@ export default function CoachesPageClient({
               </button>
             )}
           </label>
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-muted">
             Hier findest du Coach-Profile.{' '}
             <ButtonLink
               href={discoveryHref('/marketplace', normalizedSearch, category)}
               variant="tertiary"
-              className="min-h-0 p-0 text-xs font-semibold text-brand underline underline-offset-2"
+              className="min-h-11 px-0 text-sm font-semibold text-brand underline underline-offset-2"
             >
               Passende Produkte ansehen
             </ButtonLink>
           </p>
         </div>
       </section>
-      <div className="ardore-container py-6">
+      <div className="ardore-container py-6 sm:py-8">
         <div className="hidden md:block">{filters()}</div>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 md:mt-6">
+        <div className="mb-6 flex flex-col gap-4 md:mt-6 md:flex-row md:items-center md:justify-between">
           <p role="status" aria-live="polite" className="text-sm text-muted">
             <strong className="text-foreground">{filtered.length}</strong>{' '}
             {filtered.length === 1 ? 'Coach' : 'Coaches'} gefunden
           </p>
-          <div className="flex min-w-0 gap-3">
+          <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 md:block md:w-auto">
             <Button
               ref={trigger}
               variant="secondary"
@@ -327,7 +329,7 @@ export default function CoachesPageClient({
               <button
                 key={chip.key}
                 aria-label={`${chip.label} entfernen`}
-                className="button-base max-w-full border border-border bg-brand-soft px-3 text-xs text-brand"
+                className="button-base max-w-full border border-border bg-brand-soft px-3 text-sm text-brand"
                 onClick={() => {
                   if (chip.key === 'q') setSearch('')
                   go({ [chip.key]: null })
@@ -380,9 +382,9 @@ export default function CoachesPageClient({
           onClick={(e) => {
             if (e.target === e.currentTarget) setFiltersOpen(false)
           }}
-          className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[88svh] w-full max-w-none rounded-t-[var(--radius-dialog)] bg-surface p-0 text-foreground shadow-[var(--shadow-floating)] backdrop:bg-gray-950/45"
+          className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[88svh] w-full max-w-none flex-col overflow-hidden rounded-t-[var(--radius-dialog)] bg-surface p-0 text-foreground shadow-[var(--shadow-floating)] open:flex backdrop:bg-gray-950/45"
         >
-          <div className="flex items-center justify-between border-b border-border p-4">
+          <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
             <h2 id={titleId} className="card-title">
               Coaches filtern
             </h2>
@@ -394,8 +396,8 @@ export default function CoachesPageClient({
               <X className="h-5 w-5" aria-hidden="true" />
             </Button>
           </div>
-          <div className="overflow-y-auto p-4">{filters()}</div>
-          <div className="flex gap-3 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">{filters()}</div>
+          <div className="flex shrink-0 gap-3 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <Button variant="secondary" onClick={reset}>
               Zurücksetzen
             </Button>

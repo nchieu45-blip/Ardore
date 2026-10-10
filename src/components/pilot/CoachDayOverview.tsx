@@ -16,7 +16,7 @@ export function CoachDayOverview({ bookings, error, meetingReadyIds, meetingErro
   const upcoming = bookings.filter(b => new Date(b.scheduled_at).getTime() + b.duration_minutes * 60_000 > now)
   return <section aria-labelledby="workspace-appointments-title" className="surface-card min-w-0">
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-5">
-      <div><p className="mb-1 text-sm text-brand">Dein Coaching-Alltag</p><h2 id="workspace-appointments-title" className="text-xl font-semibold tracking-tight">Heute & nächste Termine</h2></div>
+      <div><h2 id="workspace-appointments-title" className="text-xl font-semibold tracking-tight">Heute & nächste Termine</h2><p className="mt-2 text-sm text-muted">Dein Coaching-Alltag</p></div>
       <Link href="/creator/calendar" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-brand">Kalender <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
     </div>
     {error ? <p role="alert" className="p-5 text-sm text-red-800">Termine konnten nicht geladen werden. Bitte lade die Seite erneut oder öffne den Kalender.</p>

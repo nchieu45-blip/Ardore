@@ -246,7 +246,7 @@ export default function CartDrawer() {
     <>
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-[59] backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-gray-950/45 z-[59]"
           onClick={() => setOpen(false)}
         />
       )}
@@ -256,10 +256,11 @@ export default function CartDrawer() {
         role="dialog"
         aria-modal={open ? true : undefined}
         aria-labelledby="cart-drawer-title"
+        data-open={open}
         inert={!open}
         aria-hidden={!open}
         tabIndex={-1}
-        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-[60] flex flex-col transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        className="cart-drawer fixed inset-y-0 right-0 z-[60] flex w-full flex-col bg-surface shadow-2xl sm:w-96"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -276,14 +277,14 @@ export default function CartDrawer() {
             ref={closeButtonRef}
             onClick={() => setOpen(false)}
             aria-label="Warenkorb schließen"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="button-base button-tertiary icon-button text-muted"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Item list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-16 px-6 text-center">
               <div className="h-16 w-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
@@ -291,7 +292,7 @@ export default function CartDrawer() {
               </div>
               <p className="text-gray-700 font-semibold mb-1">Dein Warenkorb ist leer</p>
               <p className="text-sm text-gray-400 mb-6">Füge Produkte aus dem Marketplace hinzu.</p>
-              <button onClick={() => setOpen(false)} className="text-sm font-medium text-green-600 hover:text-green-700 transition-colors">
+              <button onClick={() => setOpen(false)} className="button-base button-tertiary text-brand">
                 Weiter einkaufen →
               </button>
             </div>
@@ -311,11 +312,11 @@ export default function CartDrawer() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug mb-0.5">{item.title}</p>
                     <p className="text-xs text-gray-400">{item.creatorName} · {TYPE_LABELS[item.type] ?? item.type}</p>
-                    <p className="text-sm font-bold text-green-700 mt-1">{formatCurrency(item.price)}</p>
+                    <p className="text-sm font-semibold tabular-nums text-brand mt-1">{formatCurrency(item.price)}</p>
                   </div>
                   <button
                     onClick={() => removeFromCart(item.id)}
-                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                    className="button-base icon-button text-muted hover:text-red-600 hover:bg-red-50"
                     aria-label="Entfernen"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -328,7 +329,7 @@ export default function CartDrawer() {
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="border-t border-gray-100 px-5 py-4 space-y-3 bg-white">
+          <div className="max-h-[70svh] shrink-0 overflow-y-auto overscroll-contain border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3 bg-surface">
             {/* Auto-discount banner */}
             {autoDiscount && !codeDiscount && (
               <div className="flex items-center gap-2 text-xs text-violet-700 bg-violet-50 border border-violet-100 px-3 py-2 rounded-xl">
@@ -353,7 +354,7 @@ export default function CartDrawer() {
                     </div>
                     <button
                       onClick={() => { setCodeDiscount(null); setVoucher('') }}
-                      className="text-gray-400 hover:text-gray-600 text-xs"
+                      className="button-base button-tertiary text-sm"
                     >
                       Entfernen
                     </button>
@@ -366,14 +367,15 @@ export default function CartDrawer() {
                         value={voucher}
                         onChange={e => { setVoucher(e.target.value.toUpperCase()); setDiscountError('') }}
                         onKeyDown={e => e.key === 'Enter' && applyVoucher()}
+                        aria-label="Gutscheincode"
                         placeholder="Gutscheincode"
-                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 font-mono tracking-wider"
+                        className="field-control w-full pl-9 pr-3"
                       />
                     </div>
                     <button
                       onClick={applyVoucher}
                       disabled={!voucher.trim() || voucherLoading}
-                      className="px-3 py-2 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                      className="button-base button-secondary px-3"
                     >
                       {voucherLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Anwenden'}
                     </button>
@@ -407,21 +409,21 @@ export default function CartDrawer() {
             ) : (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Gesamt</span>
-                <span className="text-xl font-bold text-gray-900">{formatCurrency(subtotalCents / 100)}</span>
+                <span className="text-xl font-semibold tabular-nums text-foreground">{formatCurrency(subtotalCents / 100)}</span>
               </div>
             )}
 
-            <p className="text-[11px] text-gray-400">inkl. MwSt. · Einmalzahlung</p>
+            <p className="text-sm text-muted">inkl. MwSt. · Einmalzahlung</p>
 
             {hasDigital && (
-              <label className="flex items-start gap-2.5 cursor-pointer group">
+              <label className="flex min-h-11 items-start gap-3 cursor-pointer group py-2">
                 <input
                   type="checkbox"
                   checked={withdrawalConsent}
                   onChange={e => setWithdrawalConsent(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 accent-green-600 cursor-pointer"
+                  className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-gray-300 accent-green-600 cursor-pointer"
                 />
-                <span className="text-[11px] text-gray-500 leading-relaxed group-hover:text-gray-700 transition-colors">
+                <span className="text-sm text-muted leading-relaxed group-hover:text-gray-700 transition-colors">
                   Ich stimme ausdrücklich zu, dass mit der Ausführung des Vertrags vor Ablauf der Widerrufsfrist begonnen wird. Mir ist bekannt, dass ich dadurch mein Widerrufsrecht verliere, sobald die Bereitstellung der digitalen Inhalte begonnen hat.
                 </span>
               </label>
@@ -438,7 +440,7 @@ export default function CartDrawer() {
             <button
               onClick={handleCheckout}
               disabled={checkoutDisabled}
-              className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl text-sm transition-colors shadow-sm"
+              className="button-base button-primary w-full min-h-12 font-semibold"
             >
               {loading ? (
                 <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -447,7 +449,7 @@ export default function CartDrawer() {
               )}
             </button>
 
-            <button onClick={clearCart} className="w-full text-center text-xs text-gray-400 hover:text-red-500 transition-colors py-1">
+            <button onClick={clearCart} className="button-base w-full text-center text-sm text-muted hover:text-red-600">
               Warenkorb leeren
             </button>
           </div>

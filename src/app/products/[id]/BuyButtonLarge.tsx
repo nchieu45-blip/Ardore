@@ -90,14 +90,14 @@ export default function BuyButtonLarge({
       {!isDemo && (
         <>
           {isDigital && (
-            <label className="flex items-start gap-2.5 cursor-pointer group pt-1">
+            <label className="flex min-h-11 items-start gap-3 cursor-pointer group py-2">
               <input
                 type="checkbox"
                 checked={withdrawalConsent}
                 onChange={e => setWithdrawalConsent(e.target.checked)}
-                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 accent-green-600 cursor-pointer"
+                className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-gray-300 accent-green-600 cursor-pointer"
               />
-              <span className="text-[11px] text-gray-500 leading-relaxed group-hover:text-gray-700 transition-colors">
+              <span className="text-sm text-muted leading-relaxed group-hover:text-gray-700 transition-colors">
                 Ich stimme ausdrücklich zu, dass mit der Ausführung des Vertrags vor Ablauf der Widerrufsfrist begonnen wird. Mir ist bekannt, dass ich dadurch mein Widerrufsrecht verliere, sobald die Bereitstellung der digitalen Inhalte begonnen hat.
               </span>
             </label>
@@ -107,7 +107,7 @@ export default function BuyButtonLarge({
             disabled={loading || (isDigital && !withdrawalConsent)}
             aria-busy={loading}
             aria-label={loading ? 'Checkout wird geöffnet' : 'Direkt kaufen'}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+            className="button-base button-secondary w-full"
           >
             {loading ? (
               <span className="h-4 w-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />

@@ -12,11 +12,13 @@ const profile = { id:'synthetic-ui-user',full_name:'UI Test',email:'ui@example.i
 const coach = { id:'synthetic-ui-coach',user_id:profile.id,display_name:'UI Test Coach',slug:'synthetic-ui-coach',category:'yoga',categories:['yoga'],is_published:true,stripe_account_active:true }
 const product = { id:'synthetic-ui-product',title:'Trainingsplan für einen aktiven Alltag',price:39,amount_paid:39,type:'pdf',created_at:`${date}T08:00:00Z`,is_published:true,creator_id:coach.id,product:{title:'Trainingsplan für einen aktiven Alltag',type:'pdf',creator:{display_name:coach.display_name,slug:coach.slug}},payment_status:'paid',stripe_livemode:true }
 const totals = { gross:10000,retained:10000,fee:1000,net:9000,transferred:9000,pending:0,refunded:0,reversalPending:0,refundPending:0,reversed:0,payments:1 }
+const previewNow = Date.now()
+const previewBookings = [{id:'synthetic-ui-booking',buyer_name:'UI Test Customer mit bewusst langem Namen',scheduled_at:new Date(previewNow+3600000).toISOString(),duration_minutes:60,status:'confirmed',payment_status:'paid',price_cents:6900,is_subscription_session:false},{id:'synthetic-ui-pending',buyer_name:'UI Test Customer 2',scheduled_at:new Date(previewNow+86400000).toISOString(),duration_minutes:45,status:'pending_payment',payment_status:'pending',price_cents:4900,is_subscription_session:false}]
 const earnings = {all:totals,month:totals,testMode:true,legacy:{products:0,bookings:0,subscriptions:0,unclear:0,knownProductGross:0,knownBookingGross:0},days:[],sources:[]}
 function client(role) {
   return {auth:{getUser:async()=>({data:{user:profile}})},from(table){
-    const data=table==='profiles'?{...profile,role}:table==='creator_profiles'?coach:table==='products'||table==='purchases'?[product]:[]
-    return { select(){return this},eq(){return this},neq(){return this},gte(){return this},order(){return this},limit(){return this},in(){return this},single:async()=>({data}),maybeSingle:async()=>({data}),then(resolve){resolve({data,error:null,count:0})} }
+    const data=table==='profiles'?{...profile,role}:table==='creator_profiles'?coach:table==='products'||table==='purchases'?[product]:table==='bookings'?previewBookings:[]
+    return { select(){return this},eq(){return this},neq(){return this},gte(){return this},lt(){return this},order(){return this},limit(){return this},in(){return this},single:async()=>({data}),maybeSingle:async()=>({data}),then(resolve){resolve({data,error:null,count:0})} }
   }
 }
 }

@@ -4,7 +4,7 @@ import { ProductThumbnail } from '@/components/ui/Media'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
+import { ButtonLink } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency } from '@/lib/utils'
@@ -141,113 +141,45 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   ]
 
   return (
-    <div className="ardore-container py-8">
+    <div className="ardore-container py-6 sm:py-10">
       <Breadcrumb items={[{ label: 'Marktplatz', href: '/marketplace' }, { label: creator.display_name, href: `/creators/${creator.slug}` }, { label: product.title }]} />
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* ── Left: hero + description + reviews ─── */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Hero image */}
-          <ProductThumbnail src={product.thumbnail_url} alt={product.title} fallback={TYPE_ICONS[type]}
-            className="rounded-2xl border border-border" sizes="(max-width: 1024px) 100vw, 66vw">
-            <Badge className="absolute left-4 top-4 bg-white" icon={TYPE_ICONS[type]}>{TYPE_LABELS[type]}</Badge>
-          </ProductThumbnail>
-
-          {/* Title + meta */}
-          <div className="animate-slide-up">
-            <h1 className="section-title text-foreground mb-3">{product.title}</h1>
-            <div className="flex items-center gap-4 flex-wrap">
-              {avgRating !== null && (
-                <span className="flex items-center gap-1.5">
-                  <StarRating rating={avgRating} count={reviews.length} />
-                </span>
-              )}
-              {showSalesCount(product, salesCount) && salesCount >= 10 && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500">
-                  <ShoppingBag className="h-4 w-4 text-gray-400" />
-                  {salesCount} mal gekauft
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Description */}
-          {product.description && (
-            <div className="animate-slide-up animate-delay-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Beschreibung</h2>
-              <p className="text-gray-600 leading-relaxed whitespace-pre-line">{product.description}</p>
-            </div>
-          )}
-
-          {/* Tags */}
-          {(product.equipment?.length > 0 || product.level || product.duration) && (
-            <div className="animate-slide-up animate-delay-150">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Details</h2>
-              <div className="flex flex-wrap gap-2">
-                {product.level && (
-                  <Badge variant="outline">Level: {product.level}</Badge>
-                )}
-                {product.duration && (
-                  <Badge variant="outline">Dauer: {product.duration}</Badge>
-                )}
-                {(product.equipment ?? []).map((eq: string) => (
-                  <Badge key={eq} variant="outline">{eq}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Reviews */}
-          <div className="animate-slide-up animate-delay-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              Bewertungen
-              {reviews.length > 0 && (
-                <span className="text-sm font-normal text-gray-400">({reviews.length})</span>
-              )}
-            </h2>
-            {avgRating !== null && (
-              <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-4">
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-gray-900">{avgRating.toFixed(1)}</p>
-                  <div className="flex justify-center mt-1">
-                    {[1,2,3,4,5].map(s => (
-                      <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{reviews.length} Bewertung{reviews.length !== 1 ? 'en' : ''}</p>
-                </div>
-              </div>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)] lg:gap-x-8">
+        <header className="min-w-0 lg:col-span-2">
+          <h1 className="max-w-4xl break-words text-balance text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">{product.title}</h1>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <Badge icon={TYPE_ICONS[type]}>{TYPE_LABELS[type]}</Badge>
+            {avgRating !== null && <StarRating rating={avgRating} count={reviews.length} />}
+            {showSalesCount(product, salesCount) && salesCount >= 10 && (
+              <span className="flex items-center gap-1.5 text-sm text-muted">
+                <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                {salesCount} mal gekauft
+              </span>
             )}
-            <Card>
-              <ReviewSection
-                productId={id}
-                reviews={reviews}
-                hasPurchased={hasPurchased}
-                currentUserId={user?.id ?? null}
-                currentUserName={currentProfile?.full_name ?? null}
-                currentUserAvatar={currentProfile?.avatar_url ?? null}
-              />
-            </Card>
           </div>
-        </div>
+        </header>
 
-        {/* ── Right: sticky buy box + coach card ─── */}
-        <div className="space-y-4">
-          {/* Sticky buy box */}
-          <div className="lg:sticky lg:top-24 space-y-4">
-            <Card className="overflow-hidden animate-slide-up">
-              <div className="h-2 bg-brand" />
-              <CardContent className="p-5 space-y-4">
+        <ProductThumbnail
+          src={product.thumbnail_url}
+          alt={product.title}
+          fallback={TYPE_ICONS[type]}
+          className="rounded-2xl border border-border lg:col-start-1 lg:row-start-2"
+          sizes="(max-width: 1023px) 100vw, 66vw"
+        />
+
+        <aside className="min-w-0 lg:col-start-2 lg:row-start-2 lg:row-span-2">
+          <div className="space-y-4 lg:sticky lg:top-24">
+            <Card>
+              <CardContent className="space-y-5">
                 <div>
-                  <p className="text-4xl font-bold text-gray-900">{formatCurrency(product.price)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">inkl. MwSt. · Einmalzahlung</p>
+                  <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground sm:text-4xl">{formatCurrency(product.price)}</p>
+                  <p className="mt-2 text-sm text-muted">inkl. MwSt. · Einmalzahlung</p>
                 </div>
-
                 {alreadyOwned ? (
-                  <Link href="/buyer/library" className="flex items-center justify-center gap-2 w-full py-3 bg-green-50 rounded-xl border border-green-200 text-green-700 font-semibold text-sm">
-                    <Check className="h-4 w-4" />
+                  <ButtonLink href="/buyer/library" variant="soft" className="w-full">
+                    <Check className="h-4 w-4" aria-hidden="true" />
                     {testPurchase ? 'Testkauf in deiner Bibliothek' : 'In deiner Bibliothek'}
-                  </Link>
+                  </ButtonLink>
                 ) : (
                   <BuyButtonLarge
                     productId={id}
@@ -261,78 +193,109 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                     isDemo={creator.is_demo ?? false}
                   />
                 )}
-
-                {/* Trust badges */}
-                <div className="space-y-2.5 pt-1">
+                <ul className="space-y-3 border-t border-border pt-4">
                   {trust.map(({ icon: Icon, label, sub }) => (
-                    <div key={`${label}-${sub}`} className="flex items-center gap-3 text-xs text-gray-500">
-                      <div className="h-7 w-7 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-                        <Icon className="h-3.5 w-3.5 text-green-600" />
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-700">{label}</span>
-                        <span className="text-gray-400"> · {sub}</span>
-                      </div>
-                    </div>
+                    <li key={`${label}-${sub}`} className="flex items-start gap-3 text-sm text-muted">
+                      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden="true" />
+                      <span><span className="font-medium text-foreground">{label}</span> · {sub}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </CardContent>
             </Card>
 
-            {/* Coach card */}
-            <Card className="animate-slide-up animate-delay-100">
-              <CardContent className="p-5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Dein Coach</p>
-                <Link href={`/creators/${creator.slug}`} className="flex items-center gap-3 group mb-3">
+            <Card>
+              <CardContent>
+                <h2 className="mb-4 text-lg font-semibold">Dein Coach</h2>
+                <Link href={`/creators/${creator.slug}`} className="group mb-4 flex min-h-11 items-center gap-3">
                   <Avatar src={creator.avatar_url} name={creator.display_name} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 group-hover:text-green-700 transition-colors">{creator.display_name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words font-semibold text-foreground group-hover:text-brand">{creator.display_name}</p>
                     {allCategories.length > 0 && (
-                      <p className="text-xs text-gray-400 truncate">
-                        {allCategories.slice(0, 2).map(c => CATEGORY_LABELS[c] ?? c).join(' · ')}
-                      </p>
+                      <p className="mt-1 text-sm text-muted">{allCategories.slice(0, 2).map(c => CATEGORY_LABELS[c] ?? c).join(' · ')}</p>
                     )}
                   </div>
-                  <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-green-600 transition-colors flex-shrink-0" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
                 </Link>
-                {creator.bio && (
-                  <p className="text-sm text-gray-500 line-clamp-3 leading-relaxed mb-3">{creator.bio}</p>
-                )}
-                <Link href={`/creators/${creator.slug}`} className="block">
-                  <Button variant="outline" size="sm" className="w-full gap-1.5">
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    Profil ansehen
-                  </Button>
-                </Link>
+                {creator.bio && <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-muted">{creator.bio}</p>}
+                <ButtonLink href={`/creators/${creator.slug}`} variant="secondary" className="w-full">
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                  Profil ansehen
+                </ButtonLink>
               </CardContent>
             </Card>
           </div>
+        </aside>
+
+        <div className="min-w-0 space-y-8 lg:col-start-1">
+          {product.description && (
+            <section className="border-t border-border pt-6">
+              <h2 className="mb-3 text-xl font-semibold tracking-tight">Beschreibung</h2>
+              <p className="max-w-prose whitespace-pre-line text-base leading-relaxed text-muted">{product.description}</p>
+            </section>
+          )}
+          {(product.equipment?.length > 0 || product.level || product.duration) && (
+            <section className="border-t border-border pt-6">
+              <h2 className="mb-3 text-xl font-semibold tracking-tight">Details</h2>
+              <div className="flex flex-wrap gap-2">
+                {product.level && <Badge variant="outline">Level: {product.level}</Badge>}
+                {product.duration && <Badge variant="outline">Dauer: {product.duration}</Badge>}
+                {(product.equipment ?? []).map((eq: string) => <Badge key={eq} variant="outline">{eq}</Badge>)}
+              </div>
+            </section>
+          )}
+          <section className="border-t border-border pt-6">
+            <h2 className="mb-4 flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
+              Bewertungen
+              {reviews.length > 0 && <span className="text-sm font-normal text-muted">({reviews.length})</span>}
+            </h2>
+            {avgRating !== null && (
+              <div className="mb-4 flex items-center gap-4 rounded-xl border border-border bg-surface-muted p-4">
+                <p className="text-3xl font-semibold tabular-nums">{avgRating.toFixed(1)}</p>
+                <div>
+                  <div className="flex gap-1">
+                    {[1,2,3,4,5].map(s => <Star key={s} aria-hidden="true" className={`h-4 w-4 ${s <= Math.round(avgRating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`} />)}
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{reviews.length} Bewertung{reviews.length !== 1 ? 'en' : ''}</p>
+                </div>
+              </div>
+            )}
+            <Card>
+              <ReviewSection
+                productId={id}
+                reviews={reviews}
+                hasPurchased={hasPurchased}
+                currentUserId={user?.id ?? null}
+                currentUserName={currentProfile?.full_name ?? null}
+                currentUserAvatar={currentProfile?.avatar_url ?? null}
+              />
+            </Card>
+          </section>
         </div>
       </div>
 
-      {/* Related products */}
       {related.length > 0 && (
-        <div className="mt-16 animate-slide-up animate-delay-300">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="section-title text-foreground">Weitere Produkte von {creator.display_name}</h2>
-            <Link href={`/creators/${creator.slug}`} className="text-sm text-green-600 hover:text-green-700 font-medium flex items-center gap-1 transition-colors">
-              Alle anzeigen <ArrowRight className="h-4 w-4" />
+        <section className="mt-10 border-t border-border pt-8 sm:mt-16">
+          <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <h2 className="section-title max-w-3xl">Weitere Produkte von {creator.display_name}</h2>
+            <Link href={`/creators/${creator.slug}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-medium text-brand hover:text-brand-dark">
+              Alle anzeigen <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {related.map(p => (
-              <Link key={p.id} href={`/products/${p.id}`} className="group">
-                <Card className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full">
+              <Link key={p.id} href={`/products/${p.id}`} className="group min-w-0">
+                <Card hover className="h-full overflow-hidden">
                   <ProductThumbnail src={p.thumbnail_url} alt={p.title} fallback={TYPE_ICONS[p.type]} />
-                  <CardContent className="p-3">
-                    <p className="font-medium text-gray-900 text-sm line-clamp-2 leading-snug mb-1">{p.title}</p>
-                    <p className="font-bold text-green-700 text-sm">{formatCurrency(p.price)}</p>
+                  <CardContent className="p-4">
+                    <p className="mb-2 line-clamp-2 text-base font-semibold leading-snug">{p.title}</p>
+                    <p className="font-semibold tabular-nums text-brand">{formatCurrency(p.price)}</p>
                   </CardContent>
                 </Card>
               </Link>
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   )

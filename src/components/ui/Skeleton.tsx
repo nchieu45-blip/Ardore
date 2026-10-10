@@ -46,5 +46,18 @@ export function ProductCardSkeleton({ compact, marketplace }: { compact?: boolea
 }
 
 export function CoachCardSkeleton() {
-  return <div className="surface-card overflow-hidden"><Skeleton className="aspect-[4/5] rounded-none" /><div className="space-y-3 p-4"><Skeleton className="h-5 w-2/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /><Skeleton className="h-11 w-full" /></div></div>
+  return (
+    <div className="surface-card grid grid-cols-[5rem_minmax(0,1fr)] gap-4 overflow-hidden p-4 sm:block sm:p-0">
+      <Skeleton className="aspect-[4/5] rounded-xl sm:rounded-none" />
+      <div className="space-y-3 self-center pr-10 sm:p-5 sm:pb-0 sm:pr-5">
+        <Skeleton className="h-5 w-full sm:w-2/3" />
+        <Skeleton className="h-4 w-4/5" />
+      </div>
+      <div className="col-span-2 space-y-3 sm:p-5">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-11 w-full" />
+      </div>
+    </div>
+  )
 }

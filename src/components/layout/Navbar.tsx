@@ -96,6 +96,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
   const dropdownId = useId()
   const mobileMenuId = useId()
   const dropdownTriggerRef = useRef<HTMLButtonElement>(null)
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -105,18 +106,24 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
     if (menuOpen) setOpenGroup(defaultOpenGroup(pathname)) // eslint-disable-line react-hooks/set-state-in-effect
   }, [menuOpen, pathname])
 
+  function isNavActive(href: string) {
+    if (href === '/' || href === '/buyer') return pathname === href
+    if (href.startsWith('/creator')) return isCreatorRouteActive(href, pathname)
+    return pathname === href || pathname.startsWith(href + '/')
+  }
+
   function navCls(href: string) {
-    const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    const active = isNavActive(href)
     return active
-      ? 'nav-link min-h-11 inline-flex items-center px-3 py-2 text-sm rounded-xl font-medium bg-green-50 text-green-700 transition-all'
-      : 'nav-link min-h-11 inline-flex items-center px-3 py-2 text-sm rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all'
+      ? 'nav-link min-h-11 inline-flex items-center px-3 py-2 text-sm rounded-xl font-medium bg-green-50 text-green-700 transition-colors'
+      : 'nav-link min-h-11 inline-flex items-center px-3 py-2 text-sm rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors'
   }
 
   function mobileNavCls(href: string) {
-    const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
+    const active = isNavActive(href)
     return active
-      ? 'flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
-      : 'flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
+      ? 'min-h-11 flex items-center px-3 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-700 transition-colors'
+      : 'min-h-11 flex items-center px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl transition-colors'
   }
 
   async function handleSignOut() {
@@ -128,11 +135,21 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
   const dashboardPath = user?.role === 'creator' ? '/creator' : '/buyer'
 
   return (
-    <nav aria-label="Hauptnavigation" className="bg-surface border-b border-border sticky top-0 z-50">
+    <nav
+      aria-label="Hauptnavigation"
+      className="bg-surface border-b border-border sticky top-0 z-50"
+      onKeyDown={event => {
+        if (event.key === 'Escape' && menuOpen) {
+          event.preventDefault()
+          setMenuOpen(false)
+          mobileMenuTriggerRef.current?.focus()
+        }
+      }}
+    >
       <div className="ardore-container">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-green-600 hover:opacity-80 transition-opacity">
+          <Link href="/" className="min-h-11 flex items-center gap-2 font-bold text-xl text-green-600 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 rounded-xl bg-green-600 flex items-center justify-center shadow-sm">
               <Flame className="h-4 w-4 text-white" />
             </div>
@@ -141,27 +158,27 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-1">
-            <Link href="/" className={navCls('/')}>
+            <Link href="/" aria-current={isNavActive('/') ? 'page' : undefined} className={navCls('/')}>
               Startseite
             </Link>
-            <Link href="/marketplace" className={navCls('/marketplace')}>
+            <Link href="/marketplace" aria-current={isNavActive('/marketplace') ? 'page' : undefined} className={navCls('/marketplace')}>
               Marktplatz
             </Link>
-            <Link href="/coaches" className={navCls('/coaches')}>
+            <Link href="/coaches" aria-current={isNavActive('/coaches') ? 'page' : undefined} className={navCls('/coaches')}>
               Coaches
             </Link>
             {!user && (
-              <Link href="/landing" className={navCls('/landing')}>
+              <Link href="/landing" aria-current={isNavActive('/landing') ? 'page' : undefined} className={navCls('/landing')}>
                 Für Coaches
               </Link>
             )}
-            <Link href="/hilfe" className={navCls('/hilfe')}>
+            <Link href="/hilfe" aria-current={isNavActive('/hilfe') ? 'page' : undefined} className={navCls('/hilfe')}>
               Hilfe
             </Link>
 
             {user ? (
               <>
-                <Link href={dashboardPath} className="min-h-11 inline-flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
+                <Link href={dashboardPath} aria-current={isNavActive(dashboardPath) ? 'page' : undefined} className={navCls(dashboardPath)}>
                   Dashboard
                 </Link>
                 <NavbarCartIcon />
@@ -192,7 +209,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                     <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {dropdownOpen && (
-                    <div id={dropdownId} className="surface-elevated absolute right-0 mt-2 w-56 py-2 z-50 animate-scale-in">
+                    <div id={dropdownId} className="surface-elevated absolute right-0 mt-2 w-56 py-2 z-50 popover-enter">
                       <div className="px-4 py-2.5 border-b border-gray-100 mb-1">
                         <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
@@ -202,12 +219,12 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                       {user.role === 'creator' && (
                         <>
                           {creatorSlug && (
-                            <Link href={`/creators/${creatorSlug}`} className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                            <Link href={`/creators/${creatorSlug}`} aria-current={isNavActive(`/creators/${creatorSlug}`) ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                               <User className="h-4 w-4 text-gray-400" />
                               Mein Profil
                             </Link>
                           )}
-                          <Link href="/creator/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/creator/settings" aria-current={isNavActive('/creator/settings') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Settings className="h-4 w-4 text-gray-400" />
                             Einstellungen
                           </Link>
@@ -217,27 +234,27 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                       {/* Buyer links */}
                       {user.role === 'buyer' && (
                         <>
-                          <Link href="/buyer" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/buyer" aria-current={isNavActive('/buyer') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <User className="h-4 w-4 text-gray-400" />
                             Mein Profil
                           </Link>
-                          <Link href="/buyer/library" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/buyer/library" aria-current={isNavActive('/buyer/library') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <ShoppingBag className="h-4 w-4 text-gray-400" />
                             Meine Käufe
                           </Link>
-                          <Link href="/buyer/sessions" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/buyer/sessions" aria-current={isNavActive('/buyer/sessions') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Video className="h-4 w-4 text-gray-400" />
                             Meine Buchungen
                           </Link>
-                          <Link href="/buyer/chat" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/buyer/chat" aria-current={isNavActive('/buyer/chat') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <MessageCircle className="h-4 w-4 text-gray-400" />
                             Nachrichten
                           </Link>
-                          <Link href="/buyer/favorites" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/buyer/favorites" aria-current={isNavActive('/buyer/favorites') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Heart className="h-4 w-4 text-gray-400" />
                             Favoriten
                           </Link>
-                          <Link href="/buyer/settings" className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
+                          <Link href="/buyer/settings" aria-current={isNavActive('/buyer/settings') ? 'page' : undefined} className="min-h-11 flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                             <Settings className="h-4 w-4 text-gray-400" />
                             Einstellungen
                           </Link>
@@ -245,7 +262,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                       )}
 
                       <div className="border-t border-gray-100 mt-1 pt-1">
-                        <button onClick={handleSignOut} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <button onClick={handleSignOut} className="min-h-11 w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
                           <LogOut className="h-4 w-4" />
                           Abmelden
                         </button>
@@ -268,6 +285,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
             <NavbarCartIcon />
             {user && <NavbarNotificationBell userId={user.id} />}
             <button
+              ref={mobileMenuTriggerRef}
               type="button"
               aria-label={menuOpen ? 'Menü schließen' : 'Menü öffnen'}
               aria-expanded={menuOpen}
@@ -283,12 +301,12 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div id={mobileMenuId} className="lg:hidden border-t border-gray-100 bg-surface max-h-[calc(100svh-4rem)] overflow-y-auto">
-          <div className="px-4 py-3 space-y-1">
-            <Link href="/marketplace" className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
+        <div id={mobileMenuId} className="lg:hidden border-t border-gray-100 bg-surface max-h-[calc(100svh-4rem)] overflow-y-auto overscroll-contain">
+          <div className="ardore-container py-3 space-y-1">
+            <Link href="/marketplace" aria-current={isNavActive('/marketplace') ? 'page' : undefined} className={mobileNavCls('/marketplace')} onClick={() => setMenuOpen(false)}>
               Marktplatz
             </Link>
-            <Link href="/coaches" className={mobileNavCls('/coaches')} onClick={() => setMenuOpen(false)}>
+            <Link href="/coaches" aria-current={isNavActive('/coaches') ? 'page' : undefined} className={mobileNavCls('/coaches')} onClick={() => setMenuOpen(false)}>
               Coaches
             </Link>
 
@@ -296,27 +314,27 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
               <>
                 {user.role === 'buyer' && (
                   <>
-                    <Link href="/buyer" className={mobileNavCls('/buyer')} onClick={() => setMenuOpen(false)}>
+                    <Link href="/buyer" aria-current={isNavActive('/buyer') ? 'page' : undefined} className={mobileNavCls('/buyer')} onClick={() => setMenuOpen(false)}>
                       <User className="h-4 w-4 mr-2" />
                       Mein Profil
                     </Link>
-                    <Link href="/buyer/library" className={mobileNavCls('/buyer/library')} onClick={() => setMenuOpen(false)}>
+                    <Link href="/buyer/library" aria-current={isNavActive('/buyer/library') ? 'page' : undefined} className={mobileNavCls('/buyer/library')} onClick={() => setMenuOpen(false)}>
                       <ShoppingBag className="h-4 w-4 mr-2" />
                       Meine Käufe
                     </Link>
-                    <Link href="/buyer/sessions" className={mobileNavCls('/buyer/sessions')} onClick={() => setMenuOpen(false)}>
+                    <Link href="/buyer/sessions" aria-current={isNavActive('/buyer/sessions') ? 'page' : undefined} className={mobileNavCls('/buyer/sessions')} onClick={() => setMenuOpen(false)}>
                       <Video className="h-4 w-4 mr-2" />
                       Meine Buchungen
                     </Link>
-                    <Link href="/buyer/chat" className={mobileNavCls('/buyer/chat')} onClick={() => setMenuOpen(false)}>
+                    <Link href="/buyer/chat" aria-current={isNavActive('/buyer/chat') ? 'page' : undefined} className={mobileNavCls('/buyer/chat')} onClick={() => setMenuOpen(false)}>
                       <MessageCircle className="h-4 w-4 mr-2" />
                       Nachrichten
                     </Link>
-                    <Link href="/buyer/favorites" className={mobileNavCls('/buyer/favorites')} onClick={() => setMenuOpen(false)}>
+                    <Link href="/buyer/favorites" aria-current={isNavActive('/buyer/favorites') ? 'page' : undefined} className={mobileNavCls('/buyer/favorites')} onClick={() => setMenuOpen(false)}>
                       <Heart className="h-4 w-4 mr-2" />
                       Favoriten
                     </Link>
-                    <Link href="/buyer/settings" className={mobileNavCls('/buyer/settings')} onClick={() => setMenuOpen(false)}>
+                    <Link href="/buyer/settings" aria-current={isNavActive('/buyer/settings') ? 'page' : undefined} className={mobileNavCls('/buyer/settings')} onClick={() => setMenuOpen(false)}>
                       <Settings className="h-4 w-4 mr-2" />
                       Einstellungen
                     </Link>
@@ -332,7 +350,9 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                           <button
                             type="button"
                             onClick={() => setOpenGroup(isOpen ? null : idx)}
-                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                            aria-expanded={isOpen}
+                            aria-controls={`${mobileMenuId}-group-${idx}`}
+                            className={`min-h-11 w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-colors ${
                               hasActive
                                 ? 'text-green-700'
                                 : 'text-gray-700 hover:bg-gray-50'
@@ -345,15 +365,16 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                             <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                           </button>
                           {isOpen && (
-                            <div className="pl-8 pb-1 space-y-0.5">
+                            <div id={`${mobileMenuId}-group-${idx}`} className="pl-8 pb-1 space-y-0.5">
                               {group.items.map(item => {
                                 const active = isCreatorRouteActive(item.href, pathname)
                                 return (
                                   <div key={item.href} className="flex items-center gap-1">
                                     <Link
                                       href={item.href}
+                                      aria-current={active ? 'page' : undefined}
                                       onClick={() => setMenuOpen(false)}
-                                      className={`flex-1 flex items-center px-3 py-2 rounded-xl text-sm transition-colors ${
+                                      className={`min-h-11 flex-1 flex items-center px-3 py-2 rounded-xl text-sm transition-colors ${
                                         active
                                           ? 'bg-green-50 text-green-700 font-medium'
                                           : 'text-gray-600 hover:bg-gray-50'
@@ -367,7 +388,8 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={() => setMenuOpen(false)}
-                                        className="p-1.5 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                                        className="min-h-11 min-w-11 flex items-center justify-center p-2 rounded-lg text-gray-500 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+                                        aria-label="Profil ansehen"
                                         title="Profil ansehen"
                                       >
                                         <ExternalLink className="h-3.5 w-3.5" />
@@ -382,7 +404,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={() => setMenuOpen(false)}
-                                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                                  className="min-h-11 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                                 >
                                   Mein öffentliches Profil
                                   <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
@@ -396,7 +418,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                   </div>
                 )}
                 <div className="pt-1 border-t border-gray-100 mt-1">
-                  <button onClick={handleSignOut} className="w-full flex items-center px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors">
+                  <button onClick={handleSignOut} className="min-h-11 w-full flex items-center px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors">
                     <LogOut className="h-4 w-4 mr-2" />
                     Abmelden
                   </button>
@@ -404,10 +426,10 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
               </>
             ) : (
               <>
-                <Link href="/landing" className={mobileNavCls('/landing')} onClick={() => setMenuOpen(false)}>
+                <Link href="/landing" aria-current={isNavActive('/landing') ? 'page' : undefined} className={mobileNavCls('/landing')} onClick={() => setMenuOpen(false)}>
                   Für Coaches
                 </Link>
-                <Link href="/hilfe" className={mobileNavCls('/hilfe')} onClick={() => setMenuOpen(false)}>
+                <Link href="/hilfe" aria-current={isNavActive('/hilfe') ? 'page' : undefined} className={mobileNavCls('/hilfe')} onClick={() => setMenuOpen(false)}>
                   Hilfe
                 </Link>
                 <div className="flex gap-2 pt-1">

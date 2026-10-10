@@ -72,7 +72,8 @@ function SidebarNav({
       <div className="flex items-center gap-1">
         <Link
           href={item.href}
-          className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+          aria-current={active ? 'page' : undefined}
+          className={`min-h-11 min-w-0 flex-1 flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
             active
               ? 'bg-green-50 text-green-700'
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -86,7 +87,7 @@ function SidebarNav({
             href={`/creators/${creatorSlug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-lg text-gray-300 hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
+            className="icon-button rounded-lg text-muted hover:text-green-600 hover:bg-gray-50 transition-colors flex-shrink-0"
             title="Profil ansehen"
             aria-label="Profil öffentlich ansehen"
           >
@@ -99,7 +100,7 @@ function SidebarNav({
 
   return (
     <div className="flex flex-col h-full py-4">
-      <nav className="flex-1 px-3 space-y-0.5">
+      <nav aria-label="Coach-Bereich" className="flex-1 px-3 space-y-0.5">
         {PRIMARY_ITEMS.map(item => <NavRow key={item.href} item={item} />)}
       </nav>
       <div className="px-3 pt-3 mt-3 border-t border-gray-100 space-y-0.5">
@@ -119,9 +120,9 @@ export default function CreatorShell({
   const pathname = usePathname()
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
+    <div className="flex min-h-[calc(100svh-4rem)]">
       {/* Desktop sidebar — hidden on mobile; Navbar hamburger handles mobile nav */}
-      <aside className="hidden md:flex flex-col w-56 border-r border-gray-100 bg-white sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto flex-shrink-0">
+      <aside className="hidden lg:flex flex-col w-56 border-r border-gray-100 bg-white sticky top-16 h-[calc(100svh-4rem)] overflow-y-auto flex-shrink-0">
         <SidebarNav pathname={pathname} creatorSlug={creatorSlug} />
       </aside>
 

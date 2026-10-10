@@ -36,6 +36,10 @@
   --container-workspace: 75rem;
   --shadow-card: 0 4px 12px rgb(22 37 29 / .06);
   --shadow-floating: 0 12px 32px rgb(22 37 29 / .12);
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  --duration-press: 120ms;
+  --duration-ui: 180ms;
   --skeleton-base: #e2e7df;
   --skeleton-highlight: #f1f4ef;
 }
@@ -93,6 +97,9 @@
 
 @layer base {
   body { font-size: 1rem; line-height: 1.5; }
+  html { scrollbar-color: var(--border-control) var(--background); }
+  ::selection { background: var(--primary-light); color: var(--foreground); }
+  :where(input, textarea) { caret-color: var(--primary); }
   :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 3px;
@@ -112,12 +119,12 @@
   width: 100%; max-width: var(--container-workspace); margin-inline: auto; padding-inline: var(--page-gutter);
 }
 @utility page-title {
-  font-size: 2rem; line-height: 1.15; font-weight: 600; letter-spacing: -.025em;
+  font-size: 2rem; line-height: 1.15; font-weight: 600; letter-spacing: -.025em; text-wrap: balance;
   @media (min-width: 768px) { font-size: 3rem; }
   @media (min-width: 1024px) { font-size: 3.5rem; }
 }
 @utility section-title {
-  font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -.02em;
+  font-size: 1.5rem; line-height: 1.25; font-weight: 600; letter-spacing: -.02em; text-wrap: balance;
   @media (min-width: 768px) { font-size: 1.75rem; }
   @media (min-width: 1024px) { font-size: 2rem; }
 }
@@ -139,8 +146,11 @@
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-dialog); box-shadow: var(--shadow-floating);
 }
 @utility interactive-card {
-  transition: border-color .15s, box-shadow .15s;
-  &:hover, &:focus-within { border-color: var(--primary-light); box-shadow: var(--shadow-card); }
+  transition: border-color var(--duration-ui) ease, box-shadow var(--duration-ui) ease;
+  &:focus-within { border-color: var(--primary); }
+  @media (hover: hover) and (pointer: fine) {
+    &:hover { border-color: var(--primary-light); box-shadow: var(--shadow-card); }
+  }
 }
 @utility field-control {
   width: 100%; min-height: 2.75rem; border: 1px solid var(--border-control); border-radius: var(--radius-control);
@@ -155,16 +165,20 @@
 @utility button-base {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem;
   border: 1px solid transparent; border-radius: var(--radius-control); padding: .625rem 1rem;
-  font-size: .875rem; line-height: 1.25rem; font-weight: 500; transition: background-color .15s, border-color .15s, color .15s;
+  font-size: .875rem; line-height: 1.25rem; font-weight: 500;
+  transition: background-color var(--duration-ui) ease, border-color var(--duration-ui) ease, color var(--duration-ui) ease, transform var(--duration-press) var(--ease-out);
   &:disabled, &[aria-disabled=true] { opacity: .5; cursor: not-allowed; }
   &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  @media (prefers-reduced-motion: no-preference) {
+    &:active:not(:focus-visible):not(:disabled):not([aria-disabled=true]) { transform: scale(.98); }
+  }
 }
 @utility button-primary { background: var(--primary); color: white; &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--primary-dark); } }
 @utility button-secondary { background: var(--surface); color: var(--foreground); border-color: var(--border-control); &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--surface-muted); } }
 @utility button-tertiary { color: var(--text-secondary); &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--surface-muted); color: var(--foreground); } }
 @utility button-soft { background: var(--secondary); color: var(--primary-dark); &:hover:not(:disabled):not([aria-disabled=true]) { background: var(--primary-light); } }
 @utility button-destructive { background: var(--danger); color: white; &:hover:not(:disabled):not([aria-disabled=true]) { background: #931d29; } }
-@utility icon-button { min-height: 2.75rem; min-width: 2.75rem; padding: .5rem; }
+@utility icon-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 2.75rem; min-width: 2.75rem; padding: .5rem; }
 
 /* A two-tone focus indicator stays visible on both white controls and dark heroes. */
 :where(a, button, input, select, textarea, summary):focus-visible {

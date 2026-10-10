@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { Button } from '@/components/ui/Button'
+import Image from 'next/image'
+import { ButtonLink } from '@/components/ui/Button'
 import {
   Globe, ArrowRight, Share2, Rocket, CheckCircle2,
   Target, RefreshCw, Zap, BadgePercent,
@@ -17,72 +17,103 @@ export const metadata: Metadata = {
   },
 }
 
+
+// The existing booking example stays illustrative and has no checkout action.
+function BookingExample() {
+  return (
+    <div className="surface-card w-full max-w-md p-4 sm:p-6">
+      <p className="mb-4 text-sm font-medium text-muted">Beispiel einer Buchung</p>
+      <div className="border-b border-border pb-4 mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Video className="h-4 w-4 text-foreground" />
+          <span className="text-foreground font-bold text-sm">1:1 Videocoaching</span>
+        </div>
+        <p className="text-foreground text-3xl font-semibold tabular-nums">80,00 €</p>
+        <p className="text-muted text-sm">60 Minuten · Erstes Beratungsgespräch</p>
+      </div>
+      <div className="mb-4">
+        <p className="text-sm font-semibold text-gray-500 mb-2">Datum wählen</p>
+        <div className="grid grid-cols-7 gap-1">
+          {['Mo','Di','Mi','Do','Fr','Sa','So'].map((d, i) => (
+            <div key={d} className={`text-center text-sm font-medium py-1 rounded-lg ${i === 2 ? 'bg-brand-soft text-brand-dark' : 'text-muted'}`}>{d}</div>
+          ))}
+          {[' ',' ','9','10','11','12','13'].map((d, i) => (
+            <div key={i} className={`text-center text-sm py-2 rounded-lg font-medium ${d === '11' ? 'bg-brand-soft text-brand-dark' : d === ' ' ? '' : 'text-muted'}`}>{d}</div>
+          ))}
+        </div>
+      </div>
+      <div className="mb-4">
+        <p className="text-sm font-semibold text-gray-500 mb-2">Uhrzeit</p>
+        <div className="grid grid-cols-3 gap-2">
+          {['09:00','10:00','11:00','14:00','15:00','16:00'].map((t, i) => (
+            <div key={t} className={`text-center text-sm min-h-11 py-2 rounded-xl border font-medium ${i === 2 ? 'bg-brand-soft text-brand-dark border-green-200' : 'border-gray-200 text-gray-600'}`}>{t}</div>
+          ))}
+        </div>
+      </div>
+      <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-soft text-brand-dark">
+        <Video className="h-4 w-4 text-brand" />
+        <span className="text-brand-dark text-sm font-semibold">Session für 80,00 € buchen</span>
+      </div>
+    </div>
+  )
+}
+
 export default function LandingPage() {
   return (
-    <div className="flex flex-col">
+    <div className="min-w-0">
 
-      {/* ── Hero ──────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-green-800 py-24 px-4">
-        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-green-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-emerald-400/10 blur-3xl" />
-
-        <div className="relative max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 text-green-100 text-xs font-medium px-3.5 py-1.5 rounded-full border border-white/20 mb-6">
-            <Globe className="h-3.5 w-3.5" />
-            Für Health Coaches in Deutschland
+      <section className="border-b border-border bg-brand-soft">
+        <div className="ardore-container grid grid-cols-1 items-center gap-8 py-10 sm:py-16 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
+          <div className="min-w-0">
+            <h1 className="max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl xl:text-5xl">
+              Bau dein Coaching-Business auf — <span className="text-brand">ohne eigene Website</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+              Shop, Buchungssystem, Bezahlung und Kundenverwaltung — Ardore übernimmt die Technik, du konzentrierst dich aufs Coaching.
+            </p>
+            <p className="mt-4 flex items-center gap-2 text-sm text-brand">
+              <Globe className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Für Health Coaches in Deutschland
+            </p>
+            <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <ButtonLink href="/register?role=creator" size="lg">
+                Jetzt kostenlos starten <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </ButtonLink>
+              <ButtonLink href="/" size="lg" variant="secondary">Marktplatz ansehen</ButtonLink>
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-muted">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
           </div>
-
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight tracking-tight">
-            Bau dein Coaching-Business auf —<br className="hidden md:block" />
-            <span className="text-green-300"> ohne eigene Website</span>
-          </h1>
-
-          <p className="text-green-100/80 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Shop, Buchungssystem, Bezahlung und Kundenverwaltung — Ardore übernimmt die Technik, du konzentrierst dich aufs Coaching.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
-            <Link href="/register?role=creator">
-              <Button size="lg" className="bg-white text-green-800 hover:bg-green-50 w-full sm:w-auto gap-2 font-semibold shadow-lg">
-                Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button size="lg" variant="outline" className="border-white/30 text-white bg-transparent hover:bg-white/10 w-full sm:w-auto">
-                Marktplatz ansehen
-              </Button>
-            </Link>
-          </div>
-
-          <p className="text-green-200/50 text-sm">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
+          <figure className="relative aspect-[4/3] w-full min-w-0 overflow-hidden rounded-2xl lg:aspect-[4/5]">
+            <Image src="/media/coach-workspace.webp" alt="Illustration mit Notizbuch und Trainingsmaterial auf einem hellen Arbeitsplatz" fill loading="eager" fetchPriority="high" sizes="(min-width: 1280px) 460px, (min-width: 1024px) 38vw, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" className="object-cover object-center" />
+          </figure>
         </div>
       </section>
 
       {/* ── Early adopter banner ──────────────────────────────────── */}
-      <section className="border-b border-green-100 bg-green-50 py-8 px-4">
-        <div className="max-w-3xl mx-auto text-center">
+      <section className="border-b border-border py-6 sm:py-8">
+        <div className="ardore-container">
           <p className="text-green-800 font-semibold text-lg mb-1">Frisch gestartet — werde einer der ersten Coaches</p>
-          <p className="text-green-700/70 text-sm leading-relaxed">
+          <p className="text-muted text-sm leading-relaxed">
             Ardore ist im Aufbau. Frühe Coaches profitieren von maximaler Sichtbarkeit, direktem Feedback und einer Plattform, die mit dir wächst.
           </p>
         </div>
       </section>
 
       {/* ── Two segments ──────────────────────────────────────────── */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Ardore passt zu dir — egal wo du stehst</h2>
-            <p className="text-gray-500 max-w-xl mx-auto">Ob du eine bestehende Community mitbringst oder neu anfängst.</p>
+      <section className="section-space bg-surface">
+        <div className="ardore-container">
+          <div className="mb-8 sm:mb-12">
+            <h2 className="section-title mb-3">Ardore passt zu dir — egal wo du stehst</h2>
+            <p className="text-muted max-w-xl leading-relaxed">Ob du eine bestehende Community mitbringst oder neu anfängst.</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Existing community */}
-            <div className="rounded-3xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-8">
-              <div className="h-12 w-12 rounded-2xl bg-green-600 flex items-center justify-center mb-5 shadow-md">
+            <div className="surface-panel p-5 sm:p-8">
+              <div className="h-12 w-12 rounded-xl bg-brand flex items-center justify-center mb-5 shadow-md">
                 <Share2 className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Du hast schon eine Community?</h3>
+              <h3 className="text-xl font-semibold tracking-tight text-foreground mb-3">Du hast schon eine Community?</h3>
               <p className="text-gray-600 leading-relaxed mb-6">
                 Nutze Ardore als zweiten Vertriebskanal. Deine bestehende Community kauft über einen professionellen Marktplatz mit Bewertungen und Vertrauen. Du behältst dein Publikum, gewinnst aber zusätzlich Sichtbarkeit auf Ardore.
               </p>
@@ -101,11 +132,11 @@ export default function LandingPage() {
             </div>
 
             {/* Just starting */}
-            <div className="rounded-3xl bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 p-8">
-              <div className="h-12 w-12 rounded-2xl bg-gray-900 flex items-center justify-center mb-5 shadow-md">
+            <div className="border-t border-border p-5 sm:p-8 md:border-t-0 md:border-l">
+              <div className="h-12 w-12 rounded-xl bg-brand flex items-center justify-center mb-5 shadow-md">
                 <Rocket className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Du startest gerade erst?</h3>
+              <h3 className="text-xl font-semibold tracking-tight text-foreground mb-3">Du startest gerade erst?</h3>
               <p className="text-gray-600 leading-relaxed mb-6">
                 Spar dir tausende Euro für eine eigene Website, Stripe-Integration und Marketing. Auf Ardore bist du in 10 Minuten live und Kunden finden dich automatisch über Suche, Kategorien und unseren KI-Coach-Finder.
               </p>
@@ -127,18 +158,16 @@ export default function LandingPage() {
       </section>
 
       {/* ── Wie es funktioniert ───────────────────────────────────── */}
-      <section className="py-20 px-4 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Wie es funktioniert</h2>
-            <p className="text-gray-500 max-w-lg mx-auto">In vier Schritten vom Profil zum ersten Verkauf.</p>
+      <section className="section-space border-t border-border">
+        <div className="ardore-container">
+          <div className="mb-8 sm:mb-12">
+            <h2 className="section-title mb-3">Wie es funktioniert</h2>
+            <p className="text-muted max-w-2xl leading-relaxed">In vier Schritten vom Profil zum ersten Verkauf.</p>
           </div>
 
           <div className="relative">
-            {/* Connecting line (desktop) */}
-            <div className="hidden md:block absolute top-8 left-[calc(12.5%+1rem)] right-[calc(12.5%+1rem)] h-0.5 bg-gradient-to-r from-green-200 via-green-400 to-green-200" />
 
-            <div className="grid md:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
               {[
                 {
                   step: 1,
@@ -165,40 +194,38 @@ export default function LandingPage() {
                   desc: 'Kunden finden dich über Suche, Filter und KI-Coach-Finder.',
                 },
               ].map(s => (
-                <div key={s.step} className="flex flex-col items-center text-center">
-                  <div className="relative mb-5">
-                    <div className="h-16 w-16 rounded-2xl bg-white border-2 border-green-200 flex items-center justify-center shadow-sm">
+                <div key={s.step} className="border-t border-border pt-6">
+                  <div className="relative mb-4 w-fit">
+                    <div className="h-12 w-12 rounded-xl bg-brand-soft flex items-center justify-center">
                       {s.icon}
                     </div>
-                    <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-green-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-green-600 text-white text-xs font-semibold flex items-center justify-center">
                       {s.step}
                     </span>
                   </div>
-                  <h3 className="font-bold text-gray-900 mb-1.5">{s.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
+                  <h3 className="font-semibold text-foreground mb-1.5">{s.title}</h3>
+                  <p className="text-sm text-muted leading-relaxed">{s.desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="text-center mt-12">
-            <Link href="/register?role=creator">
-              <Button size="lg" className="gap-2">
+            <ButtonLink href="/register?role=creator" size="lg" className="gap-2">
                 Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </ButtonLink>
           </div>
         </div>
       </section>
 
       {/* ── Why coaches love Ardore ───────────────────────────────── */}
-      <section className="py-20 px-4 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Warum Coaches Ardore lieben</h2>
-            <p className="text-gray-500 max-w-lg mx-auto">Die Plattform, die Coaches wirklich brauchen — nicht nur eine weitere Website.</p>
+      <section className="section-space border-t border-border">
+        <div className="ardore-container">
+          <div className="mb-8 sm:mb-12">
+            <h2 className="section-title mb-3">Warum Coaches Ardore lieben</h2>
+            <p className="text-muted max-w-2xl leading-relaxed">Die Plattform, die Coaches wirklich brauchen — nicht nur eine weitere Website.</p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {[
               {
                 icon: <Target className="h-5 w-5 text-green-600" />,
@@ -221,13 +248,13 @@ export default function LandingPage() {
                 desc: 'Nur 10% pro Verkauf, keine monatlichen Kosten. Du zahlst nur, wenn du verdienst.',
               },
             ].map(reason => (
-              <div key={reason.title} className="bg-white rounded-2xl p-6 border border-gray-100 flex gap-4 hover:shadow-md transition-shadow duration-200">
+              <div key={reason.title} className="flex gap-4 border-t border-border pt-6">
                 <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
                   {reason.icon}
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 mb-1">{reason.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{reason.desc}</p>
+                  <h3 className="font-semibold text-foreground mb-1">{reason.title}</h3>
+                  <p className="text-sm text-muted leading-relaxed">{reason.desc}</p>
                 </div>
               </div>
             ))}
@@ -236,13 +263,13 @@ export default function LandingPage() {
       </section>
 
       {/* ── What you can offer ───────────────────────────────────── */}
-      <section className="py-20 px-4 bg-white border-t border-gray-100">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Alles, was du als Coach brauchst</h2>
-            <p className="text-gray-500 max-w-lg mx-auto">Von der Produkterstellung bis zur Auszahlung — Ardore macht es einfach.</p>
+      <section className="section-space bg-surface border-t border-gray-100">
+        <div className="ardore-container">
+          <div className="mb-8 sm:mb-12">
+            <h2 className="section-title mb-3">Alles, was du als Coach brauchst</h2>
+            <p className="text-muted max-w-2xl leading-relaxed">Von der Produkterstellung bis zur Auszahlung — Ardore macht es einfach.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
             {[
               {
                 icon: <Users className="h-6 w-6 text-green-600" />,
@@ -275,12 +302,12 @@ export default function LandingPage() {
                 desc: 'Kunden finden dich über Suche, Kategoriefilter und den KI-Coach-Finder.',
               },
             ].map(feature => (
-              <div key={feature.title} className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-                <div className="h-11 w-11 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+              <div key={feature.title} className="flex flex-col border-t border-border pt-6">
+                <div className="h-11 w-11 bg-brand-soft rounded-xl flex items-center justify-center mb-4">
                   {feature.icon}
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{feature.desc}</p>
+                <p className="text-sm text-muted leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -288,17 +315,17 @@ export default function LandingPage() {
       </section>
 
       {/* ── Video coaching upsell ─────────────────────────────────── */}
-      <section className="py-20 px-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-t border-blue-100">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <section className="section-space border-t border-border bg-brand-soft">
+        <div className="ardore-container">
+          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-12">
             <div>
-              <div className="inline-flex items-center gap-2 bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full mb-5">
-                <Video className="h-3.5 w-3.5" />
-                Neu: 1:1 Videocoaching
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
+              <h2 className="section-title mb-4 text-balance">
                 Biete 1:1 Video-Sessions direkt über dein Profil an
               </h2>
+              <p className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand">
+                <Video className="h-4 w-4" aria-hidden="true" />
+                Neu: 1:1 Videocoaching
+              </p>
               <p className="text-gray-600 leading-relaxed mb-6">
                 {VIDEO_CALLS_ENABLED
                   ? 'Kunden buchen eine Session, du nimmst sie an — der Videoraum wird automatisch erstellt. Kein externes Tool, keine komplizierte Einrichtung.'
@@ -306,86 +333,47 @@ export default function LandingPage() {
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  { icon: <CalendarCheck className="h-4 w-4 text-blue-600" />, text: 'Wöchentliche Verfügbarkeit selbst festlegen' },
-                  { icon: <Euro className="h-4 w-4 text-blue-600" />, text: 'Preis und Dauer (30–90 Min.) frei wählbar' },
-                  { icon: <Video className="h-4 w-4 text-blue-600" />, text: VIDEO_CALLS_ENABLED ? 'Videoraum wird automatisch erstellt und per Mail versendet' : 'Privaten Meeting-Link direkt bei der Buchung verwalten' },
+                  { icon: <CalendarCheck className="h-4 w-4 text-brand" />, text: 'Wöchentliche Verfügbarkeit selbst festlegen' },
+                  { icon: <Euro className="h-4 w-4 text-brand" />, text: 'Preis und Dauer (30–90 Min.) frei wählbar' },
+                  { icon: <Video className="h-4 w-4 text-brand" />, text: VIDEO_CALLS_ENABLED ? 'Videoraum wird automatisch erstellt und per Mail versendet' : 'Privaten Meeting-Link direkt bei der Buchung verwalten' },
                 ].map(item => (
                   <li key={item.text} className="flex items-start gap-3 text-sm text-gray-700">
-                    <span className="h-7 w-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <span className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
                       {item.icon}
                     </span>
                     {item.text}
                   </li>
                 ))}
               </ul>
-              <Link href="/register?role=creator">
-                <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <ButtonLink href="/register?role=creator" className="gap-2">
                   <Video className="h-4 w-4" />
                   Kostenlos starten
-                </Button>
-              </Link>
+                </ButtonLink>
             </div>
-            <div className="bg-white rounded-3xl border border-blue-100 shadow-xl p-6">
-              {/* Mockup of booking widget */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-4 mb-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Video className="h-4 w-4 text-white" />
-                  <span className="text-white font-bold text-sm">1:1 Videocoaching</span>
-                </div>
-                <p className="text-white text-xl font-bold">80,00 €</p>
-                <p className="text-blue-100 text-xs">60 Minuten · Erstes Beratungsgespräch</p>
-              </div>
-              <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Datum wählen</p>
-                <div className="grid grid-cols-7 gap-1">
-                  {['Mo','Di','Mi','Do','Fr','Sa','So'].map((d, i) => (
-                    <div key={d} className={`text-center text-[10px] font-medium py-1 rounded-lg ${i === 2 ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>{d}</div>
-                  ))}
-                  {[' ',' ','9','10','11','12','13'].map((d, i) => (
-                    <div key={i} className={`text-center text-xs py-1.5 rounded-lg font-medium ${d === '11' ? 'bg-blue-600 text-white' : d === ' ' ? '' : 'text-gray-600 hover:bg-gray-50'}`}>{d}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Uhrzeit</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {['09:00','10:00','11:00','14:00','15:00','16:00'].map((t, i) => (
-                    <div key={t} className={`text-center text-xs py-2 rounded-xl border font-medium ${i === 2 ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>{t}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="h-9 rounded-xl bg-blue-600 flex items-center justify-center gap-2">
-                <Video className="h-3.5 w-3.5 text-white" />
-                <span className="text-white text-xs font-semibold">Session für 80,00 € buchen</span>
-              </div>
-            </div>
+            <aside aria-label="Beispiel einer Buchung" className="min-w-0 lg:justify-self-end"><BookingExample /></aside>
           </div>
         </div>
       </section>
 
       {/* ── CTA ───────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden py-24 px-4 bg-gradient-to-br from-green-950 via-green-900 to-green-800 text-white">
-        <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-green-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
+      <section className="section-space border-t border-border bg-surface">
 
-        <div className="relative max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Bereit, loszulegen?</h2>
-          <p className="text-green-100/80 mb-10 text-lg max-w-xl mx-auto leading-relaxed">
+
+
+        <div className="relative ardore-container">
+          <h2 className="section-title mb-4">Bereit, loszulegen?</h2>
+          <p className="text-muted mb-6 text-base max-w-xl leading-relaxed sm:text-lg">
             Erstelle dein Coach-Profil in 10 Minuten und starte dein Coaching-Business noch heute.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-5">
-            <Link href="/register?role=creator">
-              <Button size="lg" className="bg-white text-green-800 hover:bg-green-50 w-full sm:w-auto gap-2 font-semibold shadow-lg">
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <ButtonLink href="/register?role=creator" size="lg" className="w-full sm:w-auto gap-2">
                 Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button size="lg" className="bg-green-700 text-white hover:bg-green-800 border border-green-600 w-full sm:w-auto">
+              </ButtonLink>
+            <ButtonLink href="/" size="lg" variant="secondary" className="w-full sm:w-auto">
                 Marktplatz ansehen
-              </Button>
-            </Link>
+              </ButtonLink>
           </div>
-          <p className="text-green-200/50 text-sm">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
+          <p className="text-muted text-sm leading-relaxed">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
         </div>
       </section>
 

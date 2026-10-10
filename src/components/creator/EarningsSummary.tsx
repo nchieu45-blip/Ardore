@@ -11,8 +11,8 @@ function Metrics({ totals }: { totals: EarningsTotals }) {
     ['Übertragung ausstehend', totals.pending, 'Noch nicht übertragen; kann bei fehlender Auszahlungsbereitschaft oder offener Klärung zurückgestellt sein.'],
     ['An Kunden erstattet', totals.refunded, 'Nur bestätigte Kunden-Erstattungen. Bereits im Bruttoumsatz und Nettoerlös berücksichtigt.'],
   ] as const
-  return <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{metrics.map(([label, value, explanation]) => <div key={label} className="surface-card min-w-0 p-4">
-    <dt className="text-sm font-medium text-gray-600">{label}</dt><dd className="mt-2 text-2xl font-bold break-words">{money(value)}</dd><p className="mt-2 text-xs text-gray-500">{explanation}</p>
+  return <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{metrics.map(([label, value, explanation]) => <div key={label} className="min-w-0 border-t border-border py-4">
+    <dt className="text-sm font-medium text-gray-600">{label}</dt><dd className="mt-2 text-2xl font-semibold tabular-nums break-words">{money(value)}</dd><p className="mt-2 text-sm leading-relaxed text-muted">{explanation}</p>
   </div>)}</dl>
 }
 export default function EarningsSummary({ report, compact = false }: { report: EarningsReport; compact?: boolean }) {
@@ -28,15 +28,15 @@ export default function EarningsSummary({ report, compact = false }: { report: E
     </div>}
     <section data-testid="earnings-all"><h2 className="mb-3 font-semibold">Alle Zeit · Settlement-Ledger</h2><Metrics totals={all} />
       <p className="mt-3 text-sm text-gray-600">Erfasste Kundenzahlungen vor Erstattungen: {money(all.gross)} · {all.payments} bezahlte Transaktionen/Zyklen. Bruttoumsatz = Ardore-Gebühr + Coach-Nettoerlös.</p>
-      <p className="mt-2 text-xs text-gray-500">Eine Übertragung auf Stripe-Guthaben bestätigt keine Bankauszahlung. Stripe-Zahlungsgebühren und Steuerberechnung sind hier nicht enthalten.</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted">Eine Übertragung auf Stripe-Guthaben bestätigt keine Bankauszahlung. Stripe-Zahlungsgebühren und Steuerberechnung sind hier nicht enthalten.</p>
       {all.reversalPending > 0 && <p role="status" className="mt-3 text-sm text-amber-900">Rückübertragung noch offen: {money(all.reversalPending)}. Coach-Nettoerlös = übertragen + ausstehend − offene Rückübertragung.</p>}
       {all.refundPending > 0 && <p role="status" className="mt-3 text-sm text-amber-900">Erstattung in Bearbeitung: {money(all.refundPending)}. Noch nicht als erstattet abgezogen.</p>}
       {all.reversed > 0 && <p className="mt-3 text-sm text-gray-600">Bestätigte Rückübertragungen: {money(all.reversed)}; bereits in „Auf Stripe-Guthaben übertragen“ abgezogen.</p>}
     </section>
     <section data-testid="earnings-month"><h2 className="mb-3 font-semibold">Dieser Monat · erfasste Zahlungen (Europe/Berlin)</h2>
       {compact ? <p className="text-sm">Bruttoumsatz nach Erstattungen: <strong>{money(month.retained)}</strong> · Coach-Nettoerlös: <strong>{money(month.net)}</strong></p> : <Metrics totals={month} />}
-      <p className="mt-2 text-xs text-gray-500">Zuordnung nach Erfassungsdatum der erfolgreichen Zahlung im Ledger; Erstattungen korrigieren die ursprüngliche Transaktion. Keine künftig fälligen Abo-Beträge und kein MRR.</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted">Zuordnung nach Erfassungsdatum der erfolgreichen Zahlung im Ledger; Erstattungen korrigieren die ursprüngliche Transaktion. Keine künftig fälligen Abo-Beträge und kein MRR.</p>
     </section>
-    <Link href={compact ? '/creator/earnings' : '/creator/settings/payout'} className="inline-block text-sm text-green-700 underline focus-visible:ring-2">{compact ? 'Einnahmen nach Quelle ansehen' : 'Abrechnungsstatus und Stripe Connect verwalten'} →</Link>
+    <Link href={compact ? '/creator/earnings' : '/creator/settings/payout'} className="inline-flex min-h-11 items-center text-sm text-brand underline underline-offset-2">{compact ? 'Einnahmen nach Quelle ansehen' : 'Abrechnungsstatus und Stripe Connect verwalten'} →</Link>
   </div>
 }

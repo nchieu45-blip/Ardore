@@ -67,12 +67,12 @@ export default async function CreatorDashboardPage() {
 
   return (
     <div className="bg-background min-h-full" data-ardore-pilot="workspace">
-      <div className="ardore-workspace py-6 space-y-6">
+      <div className="ardore-workspace py-6 space-y-6 sm:py-8">
 
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar src={creator.avatar_url} name={creator.display_name} size="md" />
-            <div className="min-w-0"><p className="mb-1 text-sm text-muted">{dateLabel} · Europe/Berlin</p><h1 className="break-words text-2xl font-semibold tracking-tight">Dein Arbeitsbereich</h1><p className="mt-1 text-sm text-muted">{creator.display_name}</p></div>
+            <div className="min-w-0"><h1 className="break-words text-2xl font-semibold tabular-nums tracking-tight sm:text-3xl">Dein Arbeitsbereich</h1><p className="mt-2 text-sm font-medium">{creator.display_name}</p><p className="mt-1 text-sm text-muted">{dateLabel} · Europe/Berlin</p></div>
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <ButtonLink href="/creator/calendar" size="sm">Kalender öffnen</ButtonLink>
@@ -82,7 +82,7 @@ export default async function CreatorDashboardPage() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <CoachDayOverview bookings={bookings} error={bookingsError} meetingReadyIds={meetingReadyIds} meetingError={!!meetingRes.error} now={now} />
           <section aria-labelledby="workspace-actions-title" className="surface-card min-w-0 p-5">
-            <p className="mb-1 text-sm text-brand">Nächster Schritt</p><h2 id="workspace-actions-title" className="mb-4 text-xl font-semibold tracking-tight">Im Blick behalten</h2>
+            <h2 id="workspace-actions-title" className="mb-2 text-xl font-semibold tracking-tight">Im Blick behalten</h2><p className="mb-4 text-sm text-muted">Nächster Schritt</p>
             {!creator.is_published && <div className="mb-4 border-b border-border pb-4"><Badge variant="outline">Profil im Entwurf</Badge><p className="mt-2 text-sm text-muted">Dein Profil ist noch nicht öffentlich sichtbar.</p><Link href="/creator/onboarding" className="inline-flex min-h-11 items-center text-sm font-medium text-brand">Profil-Setup fortsetzen →</Link></div>}
             {bookingsError || meetingRes.error ? <p role="status" className="mb-3 text-sm text-muted">Session-Aufgaben konnten nicht vollständig geprüft werden.</p>
               : bookings.some(b => b.status === 'confirmed' && new Date(b.scheduled_at).getTime() + b.duration_minutes * 60_000 > now && !meetingReadyIds.has(b.id)) && <p className="mb-3 text-sm text-amber-800">Bei einem bevorstehenden Termin fehlt der Meeting-Link. Öffne die Sessiondetails im Terminbereich.</p>}
@@ -96,7 +96,7 @@ export default async function CreatorDashboardPage() {
 
         {/* Stripe Connect banner — slim, low-weight */}
         {!creator.stripe_account_active && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 border-l-4 border-l-amber-400 rounded-lg">
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center">
             <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
             <p className="text-sm text-amber-800 flex-1">
               Stripe-Auszahlungen derzeit nicht freigegeben. Prüfe den Status deines Connect-Kontos.
@@ -110,7 +110,7 @@ export default async function CreatorDashboardPage() {
           {earnings.testMode && <p className="mb-4 text-sm text-amber-800">Stripe-Testmodus · keine echten Einnahmen</p>}
           <dl className="grid gap-4 sm:grid-cols-3">{[
             ['Coach-Nettoerlös', earnings.all.net], ['Auf Stripe-Guthaben übertragen', earnings.all.transferred], ['Übertragung ausstehend', earnings.all.pending],
-          ].map(([label,value]) => <div key={label} className="min-w-0"><dt className="text-sm text-muted">{label}</dt><dd className="mt-1 break-words text-2xl font-semibold tracking-tight">{formatCurrency(Number(value) / 100)}</dd></div>)}</dl>
+          ].map(([label,value]) => <div key={label} className="min-w-0"><dt className="text-sm text-muted">{label}</dt><dd className="mt-1 break-words text-2xl font-semibold tabular-nums tracking-tight">{formatCurrency(Number(value) / 100)}</dd></div>)}</dl>
           <p className="mt-3 text-sm text-muted">Alle Zeit · Settlement-Ledger, nach bestätigten Erstattungen. Übertragungen sind keine Bankauszahlungen.</p>
           <details className="mt-4 border-t border-border pt-3"><summary className="min-h-11 cursor-pointer text-sm font-medium text-brand">Abrechnung, Erstattungen & Hinweise</summary><div className="mt-4"><EarningsSummary report={earnings} compact /></div></details>
         </section> : <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">Einnahmen konnten nicht vollständig geladen werden. Bitte lade die Seite erneut; es werden keine unvollständigen Summen angezeigt.</p>}
@@ -128,9 +128,9 @@ export default async function CreatorDashboardPage() {
 
           {/* Products */}
           <div className="surface-card min-w-0 flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Meine Produkte</h2>
-              <Link href="/creator/products" className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border sm:px-6">
+              <h2 className="text-base font-semibold text-foreground">Meine Produkte</h2>
+              <Link href="/creator/products" className="inline-flex min-h-11 items-center gap-1 text-sm text-brand hover:text-brand-dark transition-colors">
                 Alle anzeigen <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
@@ -143,13 +143,13 @@ export default async function CreatorDashboardPage() {
             ) : (
               <ul className="flex-1 divide-y divide-gray-50">
                 {recentProducts.map((product: { id: string; title: string; price: number; is_published: boolean; created_at: string }) => (
-                  <li key={product.id} className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between px-6 py-3.5">
+                  <li key={product.id} className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-4 sm:px-6">
                     <div className="min-w-0 w-full sm:w-auto">
-                      <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{formatDate(product.created_at)}</p>
+                      <p className="text-sm font-medium text-foreground break-words">{product.title}</p>
+                      <p className="text-sm text-muted mt-1">{formatDate(product.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4">
-                      <span className="text-sm font-medium text-gray-900">{formatCurrency(product.price)}</span>
+                      <span className="text-sm font-medium tabular-nums text-foreground">{formatCurrency(product.price)}</span>
                       <Badge variant={product.is_published ? 'success' : 'outline'}>
                         {product.is_published ? 'Live' : 'Entwurf'}
                       </Badge>
@@ -162,9 +162,9 @@ export default async function CreatorDashboardPage() {
 
           {/* Subscribers */}
           <div className="surface-card min-w-0 flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Aktive Abonnenten</h2>
-              <Link href="/creator/settings/tiers" className="flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border sm:px-6">
+              <h2 className="text-base font-semibold text-foreground">Aktive Abonnenten</h2>
+              <Link href="/creator/settings/tiers" className="inline-flex min-h-11 items-center gap-1 text-sm text-brand hover:text-brand-dark transition-colors">
                 Alle anzeigen <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
@@ -177,10 +177,10 @@ export default async function CreatorDashboardPage() {
             ) : (
               <ul className="flex-1 divide-y divide-gray-50">
                 {subscriptions.slice(0, 5).map((sub: { id: string; tier: { price_monthly: number } | null; current_period_end: string }) => (
-                  <li key={sub.id} className="flex items-center justify-between px-6 py-3.5">
+                  <li key={sub.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Abonnent</p>
-                      <p className="text-xs text-gray-400 mt-0.5">bis {formatDate(sub.current_period_end)}</p>
+                      <p className="text-sm font-medium tabular-nums text-foreground">Abonnent</p>
+                      <p className="text-sm text-muted mt-1">bis {formatDate(sub.current_period_end)}</p>
                     </div>
                     <span className="text-sm font-semibold text-green-600">
                       Tarifpreis: {formatCurrency(sub.tier?.price_monthly ?? 0)}/Mo.

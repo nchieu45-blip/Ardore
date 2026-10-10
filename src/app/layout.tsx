@@ -8,6 +8,7 @@ import CookieBanner from '@/components/CookieBanner'
 import { FavoritesProvider } from '@/components/FavoritesProvider'
 import CartDrawer from '@/components/CartDrawer'
 import SessionGuard from '@/components/SessionGuard'
+import InteractionMode from '@/components/InteractionMode'
 import { createClient } from '@/lib/supabase/server'
 
 const geistSans = Geist({
@@ -80,6 +81,7 @@ export default async function RootLayout({
   return (
     <html lang="de" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
+        <InteractionMode />
         <Navbar user={profile} creatorSlug={creatorSlug} />
         <FavoritesProvider userId={profile?.id ?? null}>
           <main className="flex-1">

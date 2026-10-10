@@ -7,7 +7,8 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { CreatorStorefrontIdentity, StorefrontVerification } from '@/components/pilot/CreatorStorefrontIdentity'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Button, ButtonLink } from '@/components/ui/Button'
+import { ButtonLink } from '@/components/ui/Button'
+import ScrollToBookingLink from '@/components/ScrollToBookingLink'
 import { StarRating } from '@/components/ui/StarRating'
 import { formatCurrency, cn } from '@/lib/utils'
 import {
@@ -377,7 +378,7 @@ export default async function CreatorProfilePage({
   )
 
   return (
-    <div className="min-h-screen bg-gray-50/40 overflow-x-hidden">
+    <div className="min-h-screen min-w-0 bg-background">
       {isStorefrontPilot ? (
         <div className="ardore-container pt-8 pb-8" data-ardore-pilot="storefront">
           <CreatorStorefrontIdentity
@@ -393,7 +394,7 @@ export default async function CreatorProfilePage({
             socialLinks={socialIconLinks.map(({key, href, label, Icon}) => <a key={key} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="icon-button text-muted hover:text-brand"><Icon className="h-4 w-4" /></a>)}
           />
           {products.length > 0 && <section id="pilot-products" aria-labelledby="pilot-products-title" className="scroll-mt-24 pt-8">
-            <div className="mb-5"><p className="mb-1 text-sm text-brand">Wissen für deinen Alltag</p><h2 id="pilot-products-title" className="section-title">Digitale Produkte von {creator.display_name}</h2></div>
+            <div className="mb-5"><h2 id="pilot-products-title" className="section-title">Digitale Produkte von {creator.display_name}</h2><p className="mt-3 text-sm text-muted">Wissen für deinen Alltag</p></div>
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null; is_demo?: boolean }) => {
                 const owned = purchasedIds.has(product.id)
@@ -412,40 +413,38 @@ export default async function CreatorProfilePage({
       ) : <>
       {/* Existing presentation remains for all non-pilot profiles. */}
       {/* Full-width banner */}
-      <div className="relative w-full bg-brand-soft h-44 md:h-56 lg:h-64 overflow-hidden animate-fade-in">
+      <div className={cn('relative w-full overflow-hidden bg-brand-soft', creator.banner_url ? 'h-44 md:h-56 lg:h-64' : 'h-20 sm:h-24')}>
         {creator.banner_url && (
           <Image src={creator.banner_url} alt="" fill className="object-cover" />
         )}
         {creator.banner_url && <div className="absolute inset-0 bg-black/20" />}
-        <div className="absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-white/10" />
-        <div className="absolute -top-12 -left-12 h-44 w-44 rounded-full bg-white/10" />
+
+
       </div>
 
       <div className="ardore-container">
         {/* Avatar + action buttons — overlaps banner */}
-        <div className="-mt-16 mb-4 flex items-end justify-between gap-4 flex-wrap animate-fade-in relative z-10">
+        <div className="-mt-12 mb-6 flex items-end justify-between gap-4 flex-wrap relative z-10">
           <Avatar
             src={creator.avatar_url}
             name={creator.display_name}
             size="xl"
-            className="ring-4 ring-white shadow-xl flex-shrink-0"
+            className="ring-4 ring-surface flex-shrink-0"
           />
           <div className="flex items-center gap-2 pb-1 flex-shrink-0">
             {!isOwner && (
               <HeartButton type="coach" itemId={creator.id} className="h-9 w-9" />
             )}
             {user && activeSubscription && (
-              <Link href={`/chat/${creator.id}`}>
-                <Button size="sm" className="gap-1.5 shadow-sm">
+              <ButtonLink href={`/chat/${creator.id}`} size="sm" className="gap-1.5 shadow-sm">
                   <MessageCircle className="h-3.5 w-3.5" />
                   Nachricht
-                </Button>
-              </Link>
+                </ButtonLink>
             )}
             {isOwner && (
               <Link
                 href="/creator/settings/profile"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm transition-all"
+                className="button-base button-secondary gap-1.5 px-3 text-sm"
               >
                 <Pencil className="h-3.5 w-3.5" />
                 Profil bearbeiten
@@ -455,10 +454,10 @@ export default async function CreatorProfilePage({
         </div>
 
         {/* Profile info */}
-        <div className="mb-8 animate-slide-up">
+        <div className="mb-8 ">
           {/* Name + verification badge */}
           <div className="flex items-center gap-3 flex-wrap mb-2 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight break-words min-w-0">{creator.display_name}</h1>
+            <h1 className="text-3xl sm:text-4xl font-semibold text-foreground tracking-tight break-words min-w-0">{creator.display_name}</h1>
             {creator.is_verified && (
               <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -485,7 +484,7 @@ export default async function CreatorProfilePage({
                   rel="noopener noreferrer"
                   aria-label={label}
                   title={label}
-                  className="h-8 w-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                  className="icon-button rounded-xl bg-surface-muted text-muted hover:text-brand hover:bg-brand-soft transition-colors"
                 >
                   <Icon className="h-4 w-4" />
                 </a>
@@ -497,7 +496,7 @@ export default async function CreatorProfilePage({
           {allCategories.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {allCategories.slice(0, 4).map(cat => (
-                <span key={cat} className="bg-green-50 border border-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                <span key={cat} className="bg-brand-soft border border-green-100 text-brand text-sm font-medium px-3 py-1.5 rounded-full">
                   {CATEGORY_LABELS[cat] ?? cat}
                 </span>
               ))}
@@ -507,7 +506,7 @@ export default async function CreatorProfilePage({
           {/* Languages */}
           {languages.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
-              <span className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 text-gray-500 text-xs font-medium px-3 py-1 rounded-full">
+              <span className="inline-flex items-center gap-1.5 bg-surface-muted border border-border text-muted text-sm font-medium px-3 py-1.5 rounded-full">
                 <Languages className="h-3.5 w-3.5" />
                 Spricht: {languages.map(l => LANGUAGE_LABEL_MAP[l] ?? l).join(', ')}
               </span>
@@ -522,7 +521,7 @@ export default async function CreatorProfilePage({
           {/* Dienstleistungen */}
           {(services.length > 0 || videoClasses.length > 0) && (
             <div className="mb-6">
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Dienstleistungen</h2>
+              <h2 className="text-xl font-semibold tracking-tight text-foreground mb-3">Dienstleistungen</h2>
               <div className="flex flex-wrap gap-2">
                 {[...services, ...(videoClasses.length > 0 && !services.includes('gruppen_sessions') ? ['gruppen_sessions'] : [])].map(s => (
                   <span key={s} className="inline-flex items-center px-3 py-1 bg-green-50 border border-green-200 text-green-800 text-sm font-medium rounded-full">
@@ -535,7 +534,7 @@ export default async function CreatorProfilePage({
 
           {/* Stats */}
           {(products.length > 0 || tiers.length > 0 || totalSales >= 10 || overallAvgRating !== null || avgSessionRating !== null) && (
-            <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-gray-100 animate-slide-up animate-delay-100">
+            <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-gray-100 ">
               {!isStorefrontPilot && products.length > 0 && (
                 <div className="flex items-center gap-2 text-sm">
                   <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center">
@@ -605,9 +604,9 @@ export default async function CreatorProfilePage({
           <div className={cn('space-y-8', coachingOffer && 'lg:col-span-3')}>
 
             {!isStorefrontPilot && qualifications.length > 0 && (
-              <div className="animate-slide-up animate-delay-100">
+              <div className="">
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Qualifikationen</h2>
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">Qualifikationen</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {qualifications.map((q, i) => (
@@ -622,7 +621,7 @@ export default async function CreatorProfilePage({
 
             {/* Booking widget — mobile only (desktop shows it in the sticky right column) */}
             {coachingOffer && (
-              <div id={isStorefrontPilot ? 'booking-mobile' : undefined} className="lg:hidden scroll-mt-24 animate-slide-up animate-delay-100">
+              <div id={isStorefrontPilot ? 'booking-mobile' : undefined} className="lg:hidden scroll-mt-24 ">
                 <BookingWidget
                   creatorId={creator.id}
                   offer={coachingOffer}
@@ -634,8 +633,8 @@ export default async function CreatorProfilePage({
             )}
 
             {tiers.length > 0 && (
-              <div id={isStorefrontPilot ? 'pilot-subscriptions' : undefined} className="scroll-mt-24 space-y-4 animate-slide-up animate-delay-100">
-                <h2 className={isStorefrontPilot ? 'section-title' : 'text-sm font-semibold text-gray-500 uppercase tracking-wide'}>Abonnements</h2>
+              <div id={isStorefrontPilot ? 'pilot-subscriptions' : undefined} className="scroll-mt-24 space-y-4 ">
+                <h2 className={isStorefrontPilot ? 'section-title' : 'text-xl font-semibold tracking-tight text-foreground'}>Abonnements</h2>
                 <div className={isStorefrontPilot ? 'grid gap-5 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-4'}>
                 {tiers.map((tier: {
                   id: string
@@ -660,25 +659,25 @@ export default async function CreatorProfilePage({
                     <div
                       key={tier.id}
                       className={cn(
-                        isStorefrontPilot ? 'surface-card overflow-hidden' : 'rounded-2xl border-2 overflow-hidden transition-all duration-200',
+                        isStorefrontPilot ? 'surface-card overflow-hidden' : 'surface-card overflow-hidden transition-colors',
                         isStorefrontPilot ? (isSubscribed ? 'border-brand' : 'border-border')
-                        : isSubscribed ? 'border-green-400 shadow-md shadow-green-100'
-                        : isFeatured ? 'border-green-300 shadow-md'
+                        : isSubscribed ? 'border-brand'
+                        : isFeatured ? 'border-green-200'
                         : 'border-gray-100 hover:border-gray-200'
                       )}
                     >
                       {isFeatured && !isSubscribed && (
-                        <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
+                        <div className="bg-brand text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1">
                           <Sparkles className="h-3 w-3" /> Beliebt
                         </div>
                       )}
                       {isSubscribed && (
-                        <div className={isStorefrontPilot ? "bg-brand-soft text-brand text-sm font-medium px-5 py-3 flex items-center gap-2" : "bg-gradient-to-r from-green-600 to-emerald-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1"}>
+                        <div className={isStorefrontPilot ? "bg-brand-soft text-brand text-sm font-medium px-5 py-3 flex items-center gap-2" : "bg-brand text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-1"}>
                           <Check className="h-3 w-3" /> Aktives Abo
                         </div>
                       )}
                       <div className="bg-white p-5">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                           <h3 className="font-bold text-gray-900">{tier.name}</h3>
                           <div className="text-right">
                             {tier.price_monthly === 0 ? (
@@ -687,7 +686,7 @@ export default async function CreatorProfilePage({
                               <>
                                 <div className="flex items-baseline gap-1 justify-end">
                                   <span className="text-sm text-gray-400 line-through">{tier.price_monthly}€</span>
-                                  <span className="text-2xl font-bold text-green-600">{formatCurrency(discountedCents / 100)}</span>
+                                  <span className="text-2xl font-semibold tabular-nums text-brand">{formatCurrency(discountedCents / 100)}</span>
                                   <span className="text-xs text-gray-400">/Mo</span>
                                 </div>
                                 <span className="inline-block mt-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full">
@@ -698,7 +697,7 @@ export default async function CreatorProfilePage({
                               </>
                             ) : (
                               <>
-                                <span className="text-2xl font-bold text-gray-900">{tier.price_monthly}€</span>
+                                <span className="text-2xl font-semibold tabular-nums text-foreground">{tier.price_monthly}€</span>
                                 <span className="text-xs text-gray-400">/Mo</span>
                               </>
                             )}
@@ -726,19 +725,12 @@ export default async function CreatorProfilePage({
                         </div>
                         {isSubscribed ? (
                           <div className="space-y-2">
-                            {isStorefrontPilot ? <ButtonLink href={`/chat/${creator.id}`} className="w-full gap-2"><MessageCircle className="h-4 w-4" aria-hidden="true" />Zum Chat</ButtonLink> : <Link href={`/chat/${creator.id}`} className="block">
-                              <Button className="w-full gap-2">
+                            {isStorefrontPilot ? <ButtonLink href={`/chat/${creator.id}`} className="w-full gap-2"><MessageCircle className="h-4 w-4" aria-hidden="true" />Zum Chat</ButtonLink> : <ButtonLink href={`/chat/${creator.id}`} className="w-full gap-2">
                                 <MessageCircle className="h-4 w-4" />
                                 Zum Chat
-                              </Button>
-                            </Link>}
+                              </ButtonLink>}
                             {tierSessions > 0 && (
-                              isStorefrontPilot ? <ButtonLink href="#booking" variant="secondary" size="sm" className="w-full gap-1.5"><Video className="h-3.5 w-3.5" aria-hidden="true" />Session buchen</ButtonLink> : <Link href="#booking" className="block" onClick={e => { e.preventDefault(); document.querySelector('[data-booking-widget]')?.scrollIntoView({ behavior: 'smooth' }) }}>
-                                <Button variant="outline" size="sm" className="w-full gap-1.5">
-                                  <Video className="h-3.5 w-3.5" />
-                                  Session buchen
-                                </Button>
-                              </Link>
+                              isStorefrontPilot ? <ButtonLink href="#booking" variant="secondary" size="sm" className="w-full gap-1.5"><Video className="h-3.5 w-3.5" aria-hidden="true" />Session buchen</ButtonLink> : <ScrollToBookingLink />
                             )}
                           </div>
                         ) : user ? (
@@ -746,12 +738,10 @@ export default async function CreatorProfilePage({
                         ) : isStorefrontPilot ? (
                           <ButtonLink href={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`} size="sm" className="w-full gap-1.5"><Lock className="h-3.5 w-3.5" aria-hidden="true" />Anmelden zum Abonnieren</ButtonLink>
                         ) : (
-                          <Link href={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`} className="block">
-                            <Button size="sm" className="w-full gap-1.5">
+                          <ButtonLink href={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`} size="sm" className="w-full gap-1.5">
                               <Lock className="h-3.5 w-3.5" />
                               Anmelden zum Abonnieren
-                            </Button>
-                          </Link>
+                            </ButtonLink>
                         )}
                       </div>
                     </div>
@@ -762,8 +752,8 @@ export default async function CreatorProfilePage({
             )}
 
             {videoClasses.length > 0 && (
-              <div className="space-y-4 animate-slide-up animate-delay-100">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Gruppen-Videokurse</h2>
+              <div className="space-y-4 ">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Gruppen-Videokurse</h2>
                 {videoClasses.map((vc: VideoClass) => {
                   const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
                   const scheduleLabel = vc.schedule_type === 'recurring' && vc.recurring_weekday !== null && vc.recurring_time
@@ -836,17 +826,17 @@ export default async function CreatorProfilePage({
             )}
 
             {!isStorefrontPilot && products.length > 0 && (
-              <div className="space-y-4 animate-slide-up animate-delay-100">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Produkte</h2>
+              <div className="space-y-4 ">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Produkte</h2>
                 {products.map((product: { id: string; title: string; description: string | null; type: ProductType; price: number; thumbnail_url: string | null; is_demo?: boolean }) => {
                   const owned = purchasedIds.has(product.id)
                   const stats = ratingStats[product.id]
                   const productReviews = reviewsByProduct[product.id] ?? []
                   return (
-                    <Card key={product.id} className="overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                    <Card key={product.id} className="overflow-hidden interactive-card">
                       <div className="flex gap-0">
-                        <div className="w-2 bg-brand-soft flex-shrink-0 rounded-l-2xl" />
-                        <CardContent className="flex items-start gap-4 p-5 flex-1">
+
+                        <CardContent className="grid min-w-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] items-start gap-4 p-4 sm:flex sm:p-5">
                           <Link href={`/products/${product.id}`} aria-label={product.title} className="relative h-14 w-14 rounded-xl overflow-hidden flex-shrink-0 shadow-sm block">
                             {product.thumbnail_url ? (
                               <Image src={product.thumbnail_url} alt="" fill sizes="56px" className="object-cover" />
@@ -857,7 +847,7 @@ export default async function CreatorProfilePage({
                             )}
                           </Link>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
                               <Link href={`/products/${product.id}`} className="hover:text-green-700 transition-colors">
                                 <h3 className="font-semibold text-gray-900 leading-snug">{product.title}</h3>
                               </Link>
@@ -877,7 +867,7 @@ export default async function CreatorProfilePage({
                               <p className="text-xs text-gray-400 mt-1">{productSalesCounts[product.id]} mal gekauft</p>
                             )}
                           </div>
-                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <div className="col-span-2 flex items-center justify-between gap-3 border-t border-border pt-3 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0 sm:shrink-0">
                             <span className="font-bold text-gray-900 text-base">{formatCurrency(product.price)}</span>
                             {owned ? (
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
@@ -919,9 +909,9 @@ export default async function CreatorProfilePage({
               {qualifications.length > 0 && <div className="mt-6"><h3 className="mb-2 font-semibold">Qualifikationen</h3><p className="mb-3 text-sm text-muted">Angaben des Coaches. Eine Ardore-Verifizierung wird separat angezeigt.</p><ul className="space-y-2 text-sm">{qualifications.map((q,i) => <li key={i} className="flex gap-2"><GraduationCap className="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />{q}</li>)}</ul></div>}
               {services.length > 0 && <p className="mt-4 text-sm text-muted">Schwerpunkte des Angebots: {services.map(s => SERVICE_LABELS[s] ?? s).join(' · ')}</p>}
             </section>}
-            <div className="animate-slide-up">
+            <div className="">
               <div className="flex items-center gap-3 mb-5">
-                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Bewertungen</h2>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Bewertungen</h2>
                 {sessionReviewCount > 0 && (
                   <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 rounded-full">
                     <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />

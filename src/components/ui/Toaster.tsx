@@ -17,7 +17,7 @@ function Toast({ toast }: { toast: ToastItem }) {
   return (
     <div className={cn(
       'surface-elevated flex items-start gap-3 px-4 py-3',
-      'w-full max-w-sm animate-slide-up-sm pointer-events-auto',
+      'w-full max-w-sm toast-enter pointer-events-auto',
       bg
     )}>
       <Icon className={cn('h-5 w-5 flex-shrink-0', color)} />

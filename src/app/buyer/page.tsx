@@ -5,7 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { subscriptionPriceLabels } from '@/lib/subscription-price'
 import { VALID_PURCHASE_STATUS } from '@/lib/purchases'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { ButtonLink } from '@/components/ui/Button'
 
 export const metadata: Metadata = {
   title: 'Mein Bereich',
@@ -27,7 +27,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 }
 
 const TYPE_BG: Record<string, string> = {
-  pdf:    'bg-blue-50',
+  pdf:    'bg-brand-soft',
   video:  'bg-violet-50',
   course: 'bg-amber-50',
   image:  'bg-pink-50',
@@ -101,53 +101,37 @@ export default async function BuyerDashboardPage() {
 
   return (
     <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-950 via-green-900 to-emerald-800 px-4 py-14">
-        <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-green-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="relative max-w-7xl mx-auto flex items-center justify-between gap-6 flex-wrap">
-          <div className="animate-slide-up">
-            <p className="text-green-300 text-sm font-medium mb-1">Mein Bereich</p>
-            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-              Hallo, {firstName}! 👋
-            </h1>
-            <p className="text-green-100/70 mt-2">Deine Käufe, Abonnements und Chats auf einen Blick.</p>
+      <section className="border-b border-border bg-surface">
+        <div className="ardore-workspace flex flex-col items-start justify-between gap-6 py-8 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">Hallo, {firstName}! 👋</h1>
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">Deine Käufe, Abonnements und Chats auf einen Blick.</p>
+            <p className="mt-2 text-sm font-medium text-brand">Mein Bereich</p>
           </div>
-          <div className="animate-slide-up animate-delay-200 flex gap-2">
-            <Link href="/coaches">
-              <Button className="bg-white text-green-800 hover:bg-green-50 shadow-lg gap-2">
-                <Compass className="h-4 w-4" />
-                Coaches entdecken
-              </Button>
-            </Link>
-            <Link href="/buyer/library">
-              <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 bg-transparent">
-                Meine Bibliothek
-              </Button>
-            </Link>
+          <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-wrap">
+            <ButtonLink href="/coaches"><Compass className="h-4 w-4" aria-hidden="true" />Coaches entdecken</ButtonLink>
+            <ButtonLink href="/buyer/library" variant="secondary">Meine Bibliothek</ButtonLink>
           </div>
         </div>
       </section>
 
-      <div className="ardore-workspace py-10">
+      <div className="ardore-workspace py-6 sm:py-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 gap-3 mb-8 sm:grid-cols-3 sm:gap-4">
           {[
             { icon: <ShoppingBag className="h-5 w-5 text-green-600" />,  bg: 'bg-green-50',  label: 'Käufe',        value: purchases.length,      sub: 'gesamt',    href: '/buyer/library' },
-            { icon: <Users        className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50', label: 'Abonnements', value: subscriptions.length,  sub: 'aktiv',     href: '/buyer/subscriptions' },
-            { icon: <MessageCircle className="h-5 w-5 text-blue-600" />, bg: 'bg-blue-50',   label: 'Chats',       value: subscriptions.length,  sub: 'verfügbar', href: '/buyer/chat' },
-          ].map((stat, i) => (
-            <Link key={stat.label} href={stat.href}>
-              <Card className={`animate-slide-up cursor-pointer hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md animate-delay-${(i + 1) * 100}`}>
-                <CardContent className="p-3 sm:p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`h-10 w-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                      {stat.icon}
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-gray-300" />
+            { icon: <Users        className="h-5 w-5 text-brand" />, bg: 'bg-brand-soft', label: 'Abonnements', value: subscriptions.length,  sub: 'aktiv',     href: '/buyer/subscriptions' },
+            { icon: <MessageCircle className="h-5 w-5 text-brand" />, bg: 'bg-brand-soft',   label: 'Chats',       value: subscriptions.length,  sub: 'verfügbar', href: '/buyer/chat' },
+          ].map(stat => (
+            <Link key={stat.label} href={stat.href} className="min-w-0">
+              <Card hover className="h-full">
+                <CardContent className="flex min-w-0 items-center gap-3 p-4">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${stat.bg}`}>{stat.icon}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-medium text-foreground">{stat.label}</p>
+                    <p className="text-sm text-muted">{stat.sub}</p>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900 mb-0.5">{stat.value}</p>
-                  <p className="text-sm text-gray-500 break-words hyphens-auto">{stat.label} <span className="text-gray-400">· {stat.sub}</span></p>
+                  <p className="text-2xl font-semibold tabular-nums">{stat.value}</p>
                 </CardContent>
               </Card>
             </Link>
@@ -157,26 +141,24 @@ export default async function BuyerDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Active Subscriptions */}
           <div id="subscriptions" className="min-w-0">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Meine Abonnements</h2>
-              <Link href="/buyer/subscriptions" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">Meine Abonnements</h2>
+              <Link href="/buyer/subscriptions" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand hover:text-brand-dark">
                 Alle <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             {subscriptions.length === 0 ? (
               <Card>
-                <CardContent className="text-center py-14">
-                  <div className="h-14 w-14 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-4">
-                    <Users className="h-7 w-7 text-purple-300" />
+                <CardContent className="text-center py-8 sm:py-10">
+                  <div className="h-14 w-14 rounded-2xl bg-brand-soft flex items-center justify-center mx-auto mb-4">
+                    <Users className="h-7 w-7 text-brand" />
                   </div>
                   <p className="font-medium text-gray-700 mb-1">Noch keine Abonnements</p>
-                  <p className="text-sm text-gray-400 mb-4">Abonniere einen Coach für exklusive Inhalte und Chat-Zugang.</p>
-                  <Link href="/coaches">
-                    <Button size="sm" variant="outline">
+                  <p className="text-sm leading-relaxed text-muted mb-4">Abonniere einen Coach für exklusive Inhalte und Chat-Zugang.</p>
+                  <ButtonLink href="/coaches" size="sm" variant="outline">
                       <Search className="h-3.5 w-3.5" />
                       Coaches entdecken
-                    </Button>
-                  </Link>
+                    </ButtonLink>
                 </CardContent>
               </Card>
             ) : (
@@ -190,19 +172,19 @@ export default async function BuyerDashboardPage() {
                   const sessions = sessionsMap[sub.id] ?? null
                   const periodLabel = sessions?.period === 'week' ? 'diese Woche' : 'diesen Monat'
                   return (
-                    <Card key={sub.id} className="hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md hover:border-green-200">
-                      <CardContent className="flex items-start gap-4 p-4">
+                    <Card key={sub.id} >
+                      <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 p-4 sm:flex sm:gap-4">
                         <Avatar src={sub.creator?.avatar_url} name={sub.creator?.display_name ?? '?'} size="md" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">{sub.creator?.display_name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="font-semibold text-foreground break-words">{sub.creator?.display_name}</p>
+                          <p className="text-sm leading-relaxed text-muted mt-1">
                             {sub.tier?.name}
                             {' · '}{priceLabels[sub.id]}
                             {' · bis '}{formatDate(sub.current_period_end)}
                           </p>
                           {sessions && (
                             <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
-                              sessions.remaining > 0 ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'
+                              sessions.remaining > 0 ? 'bg-brand-soft text-blue-700' : 'bg-gray-100 text-gray-500'
                             }`}>
                               <Video className="h-3 w-3" />
                               {sessions.remaining > 0
@@ -211,21 +193,17 @@ export default async function BuyerDashboardPage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
                           {sessions && sessions.remaining > 0 && (
-                            <Link href={`/creators/${sub.creator?.slug}`}>
-                              <Button size="sm" variant="outline" className="gap-1.5">
+                            <ButtonLink href={`/creators/${sub.creator?.slug}`} size="sm" variant="outline" className="gap-1.5">
                                 <Video className="h-3.5 w-3.5" />
                                 Buchen
-                              </Button>
-                            </Link>
+                              </ButtonLink>
                           )}
-                          <Link href={`/chat/${sub.creator?.id}`}>
-                            <Button size="sm" variant="outline" className="gap-1.5">
+                          <ButtonLink href={`/chat/${sub.creator?.id}`} size="sm" variant="outline" className="gap-1.5">
                               <MessageCircle className="h-3.5 w-3.5" />
                               Chat
-                            </Button>
-                          </Link>
+                            </ButtonLink>
                         </div>
                       </CardContent>
                     </Card>
@@ -237,26 +215,24 @@ export default async function BuyerDashboardPage() {
 
           {/* Recent Purchases */}
           <div className="min-w-0">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Letzte Käufe</h2>
-              <Link href="/buyer/library" className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">Letzte Käufe</h2>
+              <Link href="/buyer/library" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand hover:text-brand-dark">
                 Bibliothek <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             {purchases.length === 0 ? (
               <Card>
-                <CardContent className="text-center py-14">
+                <CardContent className="text-center py-8 sm:py-10">
                   <div className="h-14 w-14 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-4">
-                    <ShoppingBag className="h-7 w-7 text-green-300" />
+                    <ShoppingBag className="h-7 w-7 text-brand" />
                   </div>
                   <p className="font-medium text-gray-700 mb-1">Noch keine Käufe</p>
-                  <p className="text-sm text-gray-400 mb-4">Entdecke Premium-Inhalte von unseren Coaches.</p>
-                  <Link href="/">
-                    <Button size="sm" variant="outline">
+                  <p className="text-sm leading-relaxed text-muted mb-4">Entdecke Premium-Inhalte von unseren Coaches.</p>
+                  <ButtonLink href="/" size="sm" variant="outline">
                       <Search className="h-3.5 w-3.5" />
                       Produkte entdecken
-                    </Button>
-                  </Link>
+                    </ButtonLink>
                 </CardContent>
               </Card>
             ) : (
@@ -269,17 +245,17 @@ export default async function BuyerDashboardPage() {
                 }) => {
                   const type = purchase.product?.type ?? 'pdf'
                   return (
-                    <Card key={purchase.id} className="hover:-translate-y-0.5 transition-all duration-200 hover:shadow-md">
-                      <CardContent className="flex items-center gap-4 p-4">
+                    <Card key={purchase.id} >
+                      <CardContent className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 p-4 sm:flex sm:gap-4">
                         <div className={`h-10 w-10 rounded-xl ${TYPE_BG[type] ?? 'bg-gray-50'} flex items-center justify-center flex-shrink-0`}>
                           {TYPE_ICONS[type] ?? <FileText className="h-4 w-4 text-gray-400" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 text-sm truncate">{purchase.product?.title}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{purchase.product?.creator?.display_name} · {formatDate(purchase.created_at)}</p>
+                          <p className="font-semibold text-foreground text-sm break-words">{purchase.product?.title}</p>
+                          <p className="text-sm leading-relaxed text-muted mt-1">{purchase.product?.creator?.display_name} · {formatDate(purchase.created_at)}</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-sm font-bold text-gray-900">{formatCurrency(purchase.amount_paid)}</span>
+                        <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:shrink-0">
+                          <span className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(purchase.amount_paid)}</span>
                           <Badge variant="success">Gekauft</Badge>
                         </div>
                       </CardContent>

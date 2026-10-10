@@ -123,7 +123,7 @@ export default function NavbarNotificationBell({ userId }: { userId: string }) {
       </button>
 
       {open && (
-        <div className="surface-elevated absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 overflow-hidden animate-scale-in">
+        <div className="surface-elevated absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 overflow-hidden popover-enter">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-semibold text-gray-900">Benachrichtigungen</span>

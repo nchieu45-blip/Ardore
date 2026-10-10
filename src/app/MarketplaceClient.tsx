@@ -73,89 +73,104 @@ export default function MarketplaceClient({
     .filter((key) => CATEGORY_LABEL_MAP[key])
     .slice(0, 6)
   return (
-    <div>
+    <div className="min-w-0">
       <section className="border-b border-border bg-brand-soft">
-        <div className="ardore-container py-8 sm:py-12">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-brand">
-            Dein Ziel. Dein nächster Schritt.
-          </p>
-          <h1 className="page-title max-w-4xl text-foreground">
-            Coaches und Angebote für deine Gesundheit.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted">
-            Persönliches Coaching, digitale Produkte und Abonnements für
-            Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
-            passt.
-          </p>
-          <form
-            action={intent}
-            role="search"
-            aria-label="Marktplatz durchsuchen"
-            className="surface-card mt-6 grid max-w-3xl grid-cols-[100px_minmax(0,1fr)] gap-3 p-3 sm:flex sm:items-center"
-          >
-            <label className="shrink-0">
-              <span className="sr-only">Was möchtest du entdecken?</span>
-              <select
-                value={intent}
-                onChange={(e) => setIntent(e.target.value)}
-                className="field-control w-full px-2 sm:w-36"
+        <div className="ardore-container grid items-center gap-8 py-10 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
+          <div>
+            <h1 className="page-title max-w-[19ch] text-balance text-foreground">
+              Coaches und Angebote <span className="text-brand">für deine Gesundheit.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+              Persönliches Coaching, digitale Produkte und Abonnements für
+              Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
+              passt.
+            </p>
+            <p className="mt-4 text-sm font-medium text-brand sm:text-base">
+              Dein Ziel. Dein nächster Schritt.
+            </p>
+          </div>
+          <div className="min-w-0">
+            <form
+              action={intent}
+              role="search"
+              aria-label="Marktplatz durchsuchen"
+              className="surface-card grid gap-4 p-4 sm:p-6"
+            >
+              <div role="group" aria-label="Was möchtest du entdecken?" className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={intent === '/coaches' ? 'soft' : 'tertiary'}
+                  aria-pressed={intent === '/coaches'}
+                  onClick={() => setIntent('/coaches')}
+                  className="min-h-12"
+                >
+                  <UsersRound className="h-4 w-4" aria-hidden="true" />
+                  Coaches
+                </Button>
+                <Button
+                  type="button"
+                  variant={intent === '/marketplace' ? 'soft' : 'tertiary'}
+                  aria-pressed={intent === '/marketplace'}
+                  onClick={() => setIntent('/marketplace')}
+                  className="min-h-12"
+                >
+                  <BookOpen className="h-4 w-4" aria-hidden="true" />
+                  Produkte
+                </Button>
+              </div>
+              <label className="relative min-w-0">
+                <span className="sr-only">Suchbegriff</span>
+                <Search
+                  className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted"
+                  aria-hidden="true"
+                />
+                <input
+                  name="q"
+                  placeholder={
+                    intent === '/coaches'
+                      ? 'Name, Thema oder Ziel'
+                      : 'Produkt, Coach oder Thema'
+                  }
+                  className="field-control min-h-12 w-full pl-12"
+                />
+              </label>
+              <Button type="submit" className="min-h-12 w-full">
+                Entdecken
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </form>
+            <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
+              <Link
+                href="/coaches"
+                className="inline-flex min-h-11 items-center gap-2 font-semibold text-brand"
               >
-                <option value="/coaches">Coaches</option>
-                <option value="/marketplace">Produkte</option>
-              </select>
-            </label>
-            <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Suchbegriff</span>
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted"
-                aria-hidden="true"
-              />
-              <input
-                name="q"
-                placeholder={
-                  intent === '/coaches'
-                    ? 'Name, Thema oder Ziel'
-                    : 'Produkt, Coach oder Thema'
-                }
-                className="field-control w-full pl-10"
-              />
-            </label>
-            <Button type="submit" className="col-span-2 sm:shrink-0">
-              Entdecken
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </form>
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-            <Link
-              href="/coaches"
-              className="inline-flex min-h-11 items-center gap-2 font-semibold text-brand"
-            >
-              Coaches entdecken
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-            <Link
-              href="/marketplace"
-              className="inline-flex min-h-11 items-center gap-2 text-muted hover:text-brand"
-            >
-              Produkte ansehen
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
+                Coaches entdecken
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                href="/marketplace"
+                className="inline-flex min-h-11 items-center gap-2 text-muted hover:text-brand"
+              >
+                Produkte ansehen
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
       <div className="ardore-container">
         {categories.length > 0 && (
-          <section className="py-8 sm:py-12" aria-labelledby="goals-title">
-            <div className="mb-6">
+          <section className="grid gap-6 border-b border-border py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center lg:gap-12" aria-labelledby="goals-title">
+            <div>
               <h2 id="goals-title" className="section-title">
                 Was möchtest du erreichen?
               </h2>
-              <p className="mt-2 text-sm text-muted">
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
                 Entdecke Themen, die unsere Coaches und Produkte abdecken.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-x-6">
               {categories.map((key) => {
                 const Icon = /ern[aä]|nutrition/.test(key)
                   ? Leaf
@@ -168,7 +183,7 @@ export default function MarketplaceClient({
                   <Link
                     key={key}
                     href={`${coaches.some((c) => c.categories.includes(key) || c.category === key) ? '/coaches' : '/marketplace'}?category=${encodeURIComponent(key)}`}
-                    className="surface-card interactive-card flex min-h-20 min-w-0 items-center gap-3 p-4 md:flex-col md:items-start"
+                    className="group flex min-h-16 min-w-0 items-center gap-3 border-b border-border py-3 text-foreground transition-colors hover:text-brand"
                   >
                     <Icon
                       className="h-5 w-5 shrink-0 text-brand"
@@ -178,7 +193,7 @@ export default function MarketplaceClient({
                       {CATEGORY_LABEL_MAP[key]}
                     </span>
                     <ArrowRight
-                      className="mt-auto hidden h-4 w-4 text-muted md:block"
+                      className="ml-auto h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-1"
                       aria-hidden="true"
                     />
                   </Link>
@@ -189,25 +204,25 @@ export default function MarketplaceClient({
         )}
 
         <section
-          className="pb-8 pt-8 sm:pb-12"
+          className="section-space"
           aria-labelledby="home-coaches-title"
         >
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:mb-8 sm:flex-row sm:items-end sm:gap-4">
             <div>
               <h2 id="home-coaches-title" className="section-title">
                 Coaches entdecken
               </h2>
-              <p className="mt-2 text-sm text-muted">
+              <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
                 Lerne die Menschen und ihre Schwerpunkte kennen.
               </p>
             </div>
-            <ButtonLink href="/coaches" variant="tertiary">
+            <ButtonLink href="/coaches" variant="tertiary" className="shrink-0 px-0 sm:px-4">
               Alle Coaches
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           </div>
           {coaches.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
               {coaches.slice(0, 4).map((c) => (
                 <CoachCard key={c.id} coach={c} />
               ))}
@@ -221,25 +236,25 @@ export default function MarketplaceClient({
         </section>
 
         <section
-          className="py-8 sm:py-12"
+          className="section-space border-t border-border"
           aria-labelledby="home-products-title"
         >
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:mb-8 sm:flex-row sm:items-end sm:gap-4">
             <div>
               <h2 id="home-products-title" className="section-title">
                 Neu im Marktplatz
               </h2>
-              <p className="mt-2 text-sm text-muted">
+              <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
                 Digitale Inhalte für deinen Alltag und dein Training.
               </p>
             </div>
-            <ButtonLink href="/marketplace?sort=newest" variant="tertiary">
+            <ButtonLink href="/marketplace?sort=newest" variant="tertiary" className="shrink-0 px-0 sm:px-4">
               Alle Produkte
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           </div>
           {products.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
               {products.slice(0, 4).map((p) => (
                 <ProductCard
                   key={p.id}
@@ -257,11 +272,11 @@ export default function MarketplaceClient({
           )}
         </section>
 
-        <section className="py-8 sm:py-12" aria-labelledby="formats-title">
-          <h2 id="formats-title" className="section-title mb-6">
+        <section className="section-space border-t border-border" aria-labelledby="formats-title">
+          <h2 id="formats-title" className="section-title mb-6 max-w-xl text-balance sm:mb-8">
             Die passende Begleitung für dich
           </h2>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3 md:gap-8">
             {[
               {
                 title: '1:1 Coaching',
@@ -285,16 +300,16 @@ export default function MarketplaceClient({
               <Link
                 key={title}
                 href={href}
-                className="surface-card interactive-card p-6"
+                className="group flex flex-col border-t border-border py-6"
               >
                 <Icon className="mb-4 h-6 w-6 text-brand" aria-hidden="true" />
-                <h3 className="card-title">{title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted">
+                <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
+                <p className="mb-6 mt-3 max-w-prose text-base leading-relaxed text-muted">
                   {text}
                 </p>
-                <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-brand">
+                <span className="mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
                   Entdecken
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </span>
               </Link>
             ))}
@@ -302,7 +317,7 @@ export default function MarketplaceClient({
         </section>
 
         <section
-          className="border-y border-border py-8 sm:py-12"
+          className="section-space border-y border-border"
           aria-label="Orientierung und Vertrauen"
         >
           <div className="grid gap-6 md:grid-cols-3">
@@ -329,7 +344,7 @@ export default function MarketplaceClient({
                   aria-hidden="true"
                 />
                 <div>
-                  <h3 className="text-sm font-semibold">{title}</h3>
+                  <h3 className="text-base font-semibold">{title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted">
                     {text}
                   </p>
@@ -339,7 +354,7 @@ export default function MarketplaceClient({
           </div>
         </section>
 
-        <section className="py-8 sm:py-12" aria-labelledby="how-title">
+        <section className="section-space" aria-labelledby="how-title">
           <h2 id="how-title" className="section-title mb-6">
             So funktioniert Ardore
           </h2>
@@ -364,25 +379,25 @@ export default function MarketplaceClient({
                 </span>
                 <div>
                   <h3 className="card-title">{title}</h3>
-                  <p className="mt-2 text-sm text-muted">{text}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-muted">{text}</p>
                 </div>
               </li>
             ))}
           </ol>
         </section>
 
-        <section className="pb-8 sm:pb-12">
+        <section className="pb-10 sm:pb-16">
           <details
-            className="surface-card p-4 sm:p-6"
+            className="border-y border-border py-2"
             onToggle={(e) => setHelpOpen(e.currentTarget.open)}
           >
-            <summary className="cursor-pointer text-sm font-semibold text-foreground">
+            <summary className="min-h-11 cursor-pointer py-3 text-base font-semibold text-foreground">
               <span className="inline-flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" />
                 Hilfe bei der Auswahl
               </span>
             </summary>
-            <p className="mb-4 mt-3 text-sm text-muted">
+            <p className="mb-4 mt-3 text-sm leading-relaxed text-muted">
               Noch unsicher? Der KI-Finder kann dir bei der Orientierung helfen.
             </p>
             {helpOpen && (
@@ -394,16 +409,16 @@ export default function MarketplaceClient({
         </section>
       </div>
 
-      <section className="border-t border-border bg-brand-soft">
-        <div className="ardore-container flex flex-col items-start justify-between gap-6 py-8 sm:py-12 md:flex-row md:items-center">
+      <section className="bg-brand-dark text-white">
+        <div className="ardore-container flex flex-col items-start justify-between gap-6 py-10 sm:py-16 md:flex-row md:items-center md:gap-12">
           <div>
-            <h2 className="section-title">Dein Wissen verdient einen Platz.</h2>
-            <p className="mt-3 max-w-xl text-sm text-muted">
+            <h2 className="section-title max-w-xl text-balance">Dein Wissen verdient einen Platz.</h2>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
               Erstelle dein Coach-Profil und präsentiere deine eigenen Angebote
               auf Ardore.
             </p>
           </div>
-          <ButtonLink href="/register?role=creator">
+          <ButtonLink href="/register?role=creator" className="min-h-12 w-full shrink-0 bg-white text-brand-dark hover:bg-brand-soft sm:w-auto">
             Als Coach starten
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </ButtonLink>

@@ -21,15 +21,16 @@ export function CoachCard({ coach }: { coach: CoachData }) {
     ),
   ].slice(0, 3)
   return (
-    <article className="surface-card interactive-card relative flex h-full min-w-0 flex-col overflow-hidden" data-ardore-pilot="coach-card">
+    <article className="surface-card interactive-card relative grid h-full min-w-0 grid-cols-[5rem_minmax(0,1fr)] gap-x-4 overflow-hidden p-4 sm:flex sm:flex-col sm:gap-0 sm:p-0" data-ardore-pilot="coach-card">
       <Link
         href={`/creators/${coach.slug}`}
         aria-label={`Profil von ${coach.display_name} ansehen`}
+        className="row-start-1 w-full self-start overflow-hidden rounded-xl sm:rounded-none"
       >
         <CoachPortrait
           src={coach.avatar_url}
           alt={coach.display_name}
-          sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 25vw"
+          sizes="(max-width: 639px) 80px, (max-width: 1279px) 50vw, 25vw"
         />
       </Link>
       <HeartButton
@@ -37,24 +38,26 @@ export function CoachCard({ coach }: { coach: CoachData }) {
         itemId={coach.id}
         className="absolute right-3 top-3 z-10"
       />
-      <div className="flex flex-1 flex-col p-5">
+      <div className="col-start-2 row-start-1 flex min-w-0 flex-col justify-center pb-4 pr-10 sm:p-5 sm:pb-0 sm:pr-5">
         <h3 className="mb-2 break-words text-lg font-semibold leading-snug tracking-tight">{coach.display_name}</h3>
         {coach.is_verified && (
-          <div className="mb-3">
+          <div className="mb-2">
             <Badge variant="success" icon={<ShieldCheck />}>
               Verifiziert
             </Badge>
           </div>
         )}
-        {coach.bio && (
-          <p className="mb-3 line-clamp-2 text-sm text-muted">{coach.bio}</p>
-        )}
         {specialties.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1">
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
             {specialties.map((key) => (
               <span key={key} className="text-sm text-brand">{CATEGORY_LABEL_MAP[key] ?? key}</span>
             ))}
           </div>
+        )}
+      </div>
+      <div className="col-span-2 flex min-w-0 flex-1 flex-col pt-4 sm:p-5 sm:pt-3">
+        {coach.bio && (
+          <p className="mb-3 line-clamp-2 text-sm text-muted">{coach.bio}</p>
         )}
         <p className="mb-4 text-sm leading-relaxed text-muted">
           {[
