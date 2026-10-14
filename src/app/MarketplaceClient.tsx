@@ -21,6 +21,7 @@ import { CoachCard } from '@/components/ui/CoachCard'
 import { StatePanel } from '@/components/ui/StatePanel'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
+import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import type { CoachData } from '@/lib/publicCoaches'
 
 export interface MarketplaceProduct {
@@ -160,6 +161,8 @@ export default function MarketplaceClient({
       </section>
 
       <div className="ardore-container">
+        <ArdoreProductVideo />
+
         {categories.length > 0 && (
           <section className="grid gap-6 border-b border-border py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center lg:gap-12" aria-labelledby="goals-title">
             <div>
