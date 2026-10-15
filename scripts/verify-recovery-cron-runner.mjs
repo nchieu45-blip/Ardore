@@ -28,7 +28,7 @@ test('network timeout retries with bounded exponential backoff and accepts an au
   assert.ok(f.calls.every(call => call.url === `${baseUrl}/api/cron/coaching-payments`))
 })
 
-test('persistent failures stop after four attempts and the total budget fits the five-minute job', async () => {
+test('persistent failures stop after four attempts within a bounded recovery budget', async () => {
   const f = await runSequence([response(0, 28)])
   assert.equal(f.success, false); assert.equal(f.calls.length, 4); assert.equal(f.delays.length, 3)
   assert.equal(f.logs.at(-1).event, 'recovery_failed')
@@ -120,21 +120,23 @@ test('curl preserves SSL verification, does not follow redirects and receives th
   assert.equal(parseCurlOutput('missing diagnostics').metrics, null)
   assert.equal(parseCurlOutput('\n__ARDORE_RECOVERY_METRICS__\nnot JSON').metrics, null)
 })
-test('workflow syntax keeps recovery retries separate from non-idempotent email cron jobs', () => {
+test('workflow syntax keeps recovery retries separate from session cron jobs', () => {
   const require = createRequire(import.meta.url)
   const yaml = require('js-yaml')
   const workflow = yaml.load(readFileSync(new URL('../.github/workflows/ardore-cron.yml', import.meta.url), 'utf8'))
-  assert.deepEqual(workflow.on.schedule.map(item => item.cron), ['*/10 * * * *', '0 8 * * *', '0 9 * * *'])
+  assert.deepEqual(workflow.on.schedule.map(item => item.cron), ['*/10 * * * *', '0 9 * * *'])
   const job = workflow.jobs['call-cron-endpoints']
-  assert.equal(job['timeout-minutes'], 5); assert.equal(workflow.permissions.contents, 'read')
+  assert.equal(job['timeout-minutes'], 10); assert.equal(workflow.permissions.contents, 'read')
   const recovery = job.steps.find(step => step.name === 'Recover coaching payment reservations and refunds')
   assert.equal(recovery.run, 'node scripts/run-coaching-recovery.mjs')
-  assert.match(recovery.if, /coaching|10/) // Existing recovery-only schedule is preserved.
+  assert.match(recovery.if, /coaching|10/) // The existing recovery schedule is preserved.
   const diagnostic = job.steps.find(step => step.name === 'Diagnose network after recovery failure')
   assert.equal(diagnostic.if, "failure() && steps.recovery.outcome == 'failure'")
   assert.equal(recovery.id, 'recovery'); assert.equal(diagnostic.env?.CRON_SECRET, undefined)
   assert.equal(job.env.CRON_SECRET, undefined)
-  for (const step of job.steps.filter(step => /session cron|verification cleanup/.test(step.name))) {
+  const otherEndpoints = job.steps.filter(step => /session reminders|session review prompts|verification cleanup/.test(step.name))
+  assert.equal(otherEndpoints.length, 3)
+  for (const step of otherEndpoints) {
     assert.doesNotMatch(step.run, /run-coaching-recovery|--retry/)
   }
 })

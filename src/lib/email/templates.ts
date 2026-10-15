@@ -246,7 +246,7 @@ export function sessionReminderHtml(d: SessionReminderData) {
   return layout(`
     <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Deine Session startet bald ⏰</h2>
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
-      Hey ${d.recipientName}, deine Videocoaching-Session mit <strong>${d.coachName}</strong> beginnt ${timeLabel}${d.scheduledDate ? ` (${d.scheduledDate})` : ''} um <strong>${d.scheduledTime} Uhr (Europe/Berlin)</strong>.
+      Hey ${d.recipientName}, deine Videocoaching-Session mit <strong>${d.coachName}</strong> beginnt ${d.scheduledDate ? `am ${d.scheduledDate}` : timeLabel} um <strong>${d.scheduledTime} Uhr (Europe/Berlin)</strong>.
     </p>
     <p style="text-align:center;margin:0 0 20px;">${button(d.sessionUrl, d.meetingReady ? 'Meeting-Link öffnen →' : 'Sessiondetails öffnen →')}</p>
     <p style="font-size:12px;color:#9ca3af;text-align:center;margin:0;">
@@ -258,7 +258,7 @@ export function sessionReminderHtml(d: SessionReminderData) {
 export function sessionReminderText(d: SessionReminderData) {
   const timeLabel = d.minutesUntil <= 60 ? `in ${d.minutesUntil} Minuten` : `in ${Math.round(d.minutesUntil / 60)} Stunden`
   const sessionLabel = d.meetingReady ? 'Meeting-Link öffnen' : 'Sessiondetails'
-  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${timeLabel}${d.scheduledDate ? ` (${d.scheduledDate})` : ''} um ${d.scheduledTime} Uhr (Europe/Berlin).\n\n${sessionLabel}: ${d.sessionUrl}\n${sessionAccessCopy(d.role ?? 'buyer', d.meetingReady)}\n\n– Das Ardore-Team`
+  return `Hey ${d.recipientName},\n\nDeine Session mit ${d.coachName} beginnt ${d.scheduledDate ? `am ${d.scheduledDate}` : timeLabel} um ${d.scheduledTime} Uhr (Europe/Berlin).\n\n${sessionLabel}: ${d.sessionUrl}\n${sessionAccessCopy(d.role ?? 'buyer', d.meetingReady)}\n\n– Das Ardore-Team`
 }
 
 // ─── Account deletion notices ─────────────────────────────────────────────────
