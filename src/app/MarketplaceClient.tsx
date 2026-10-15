@@ -22,6 +22,7 @@ import { StatePanel } from '@/components/ui/StatePanel'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
+import CoachingProcess from '@/components/CoachingProcess'
 import type { CoachData } from '@/lib/publicCoaches'
 
 export interface MarketplaceProduct {
@@ -357,37 +358,7 @@ export default function MarketplaceClient({
           </div>
         </section>
 
-        <section className="section-space" aria-labelledby="how-title">
-          <h2 id="how-title" className="section-title mb-6">
-            So funktioniert Ardore
-          </h2>
-          <ol className="grid gap-6 md:grid-cols-3">
-            {[
-              [
-                'Entdecken',
-                'Suche nach deinem Ziel und vergleiche Coaches oder Produkte.',
-              ],
-              [
-                'Auswählen',
-                'Lies Profil und Angebot. Prüfe Preis, Format und Voraussetzungen.',
-              ],
-              [
-                'Loslegen',
-                'Buche deine Session oder kaufe einen Inhalt und finde alles in deinem Konto.',
-              ],
-            ].map(([title, text], i) => (
-              <li key={title} className="flex gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
-                  {i + 1}
-                </span>
-                <div>
-                  <h3 className="card-title">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">{text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <CoachingProcess />
 
         <section className="pb-10 sm:pb-16">
           <details
