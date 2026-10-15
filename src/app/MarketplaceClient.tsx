@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   ArrowRight,
   Search,
@@ -23,6 +24,8 @@ import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import CoachFinderWidget from '@/components/CoachFinderWidget'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
+import DiscoveryRail from '@/components/DiscoveryRail'
+import { buildHomeProductRows } from '@/lib/homeDiscovery'
 import type { CoachData } from '@/lib/publicCoaches'
 
 export interface MarketplaceProduct {
@@ -73,21 +76,22 @@ export default function MarketplaceClient({
     ]),
   ]
     .filter((key) => CATEGORY_LABEL_MAP[key])
-    .slice(0, 6)
+  const productRows = buildHomeProductRows(products, ratings)
   return (
     <div className="min-w-0">
-      <section className="border-b border-border bg-brand-soft">
+      <section className="home-hero">
+        <Image src="/media/coach-workspace.webp" alt="" fill loading="eager" fetchPriority="high" sizes="100vw" className="home-hero-photo" />
         <div className="ardore-container grid items-center gap-8 py-10 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
           <div>
-            <h1 className="page-title max-w-[19ch] text-balance text-foreground">
-              Coaches und Angebote <span className="text-brand">für deine Gesundheit.</span>
+            <h1 className="page-title max-w-[19ch] text-balance text-white">
+              Coaches und Angebote <span className="text-green-200">für deine Gesundheit.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
               Persönliches Coaching, digitale Produkte und Abonnements für
               Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
               passt.
             </p>
-            <p className="mt-4 text-sm font-medium text-brand sm:text-base">
+            <p className="mt-4 text-sm font-medium text-white sm:text-base">
               Dein Ziel. Dein nächster Schritt.
             </p>
           </div>
@@ -96,7 +100,7 @@ export default function MarketplaceClient({
               action={intent}
               role="search"
               aria-label="Marktplatz durchsuchen"
-              className="surface-card grid gap-4 p-4 sm:p-6"
+              className="surface-card grid gap-4 p-4 text-foreground sm:p-6"
             >
               <div role="group" aria-label="Was möchtest du entdecken?" className="grid grid-cols-2 gap-2">
                 <Button
@@ -144,14 +148,14 @@ export default function MarketplaceClient({
             <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <Link
                 href="/coaches"
-                className="inline-flex min-h-11 items-center gap-2 font-semibold text-brand"
+                className="inline-flex min-h-11 items-center gap-2 font-semibold text-white hover:underline"
               >
                 Coaches entdecken
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 href="/marketplace"
-                className="inline-flex min-h-11 items-center gap-2 text-muted hover:text-brand"
+                className="inline-flex min-h-11 items-center gap-2 text-white hover:underline"
               >
                 Produkte ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -162,8 +166,6 @@ export default function MarketplaceClient({
       </section>
 
       <div className="ardore-container">
-        <ArdoreProductVideo />
-
         {categories.length > 0 && (
           <section className="grid gap-6 border-b border-border py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center lg:gap-12" aria-labelledby="goals-title">
             <div>
@@ -207,74 +209,42 @@ export default function MarketplaceClient({
           </section>
         )}
 
-        <section
-          className="section-space"
-          aria-labelledby="home-coaches-title"
+        <DiscoveryRail
+          id="home-coaches"
+          title="Coaches entdecken"
+          description="Lerne die Menschen und ihre Schwerpunkte kennen."
+          href="/coaches"
+          linkLabel="Alle Coaches"
+          empty={<StatePanel title="Coaches kommen bald dazu" description="Sobald Profile veröffentlicht sind, findest du sie hier." />}
         >
-          <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:mb-8 sm:flex-row sm:items-end sm:gap-4">
-            <div>
-              <h2 id="home-coaches-title" className="section-title">
-                Coaches entdecken
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
-                Lerne die Menschen und ihre Schwerpunkte kennen.
-              </p>
-            </div>
-            <ButtonLink href="/coaches" variant="tertiary" className="shrink-0 px-0 sm:px-4">
-              Alle Coaches
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </ButtonLink>
-          </div>
-          {coaches.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-              {coaches.slice(0, 4).map((c) => (
-                <CoachCard key={c.id} coach={c} />
-              ))}
-            </div>
-          ) : (
-            <StatePanel
-              title="Coaches kommen bald dazu"
-              description="Sobald Profile veröffentlicht sind, findest du sie hier."
-            />
-          )}
-        </section>
+          {coaches.slice(0, 12).map(coach => <CoachCard key={coach.id} coach={coach} layout="rail" />)}
+        </DiscoveryRail>
 
-        <section
-          className="section-space border-t border-border"
-          aria-labelledby="home-products-title"
-        >
-          <div className="mb-6 flex flex-col items-start justify-between gap-3 sm:mb-8 sm:flex-row sm:items-end sm:gap-4">
-            <div>
-              <h2 id="home-products-title" className="section-title">
-                Neu im Marktplatz
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-muted sm:text-base">
-                Digitale Inhalte für deinen Alltag und dein Training.
-              </p>
-            </div>
-            <ButtonLink href="/marketplace?sort=newest" variant="tertiary" className="shrink-0 px-0 sm:px-4">
-              Alle Produkte
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </ButtonLink>
-          </div>
-          {products.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
-              {products.slice(0, 4).map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  salesCount={salesCounts[p.id]}
-                  rating={ratings[p.id]}
-                />
-              ))}
-            </div>
-          ) : (
-            <StatePanel
-              title="Noch keine Produkte veröffentlicht"
-              description="Neue Inhalte erscheinen hier, sobald sie verfügbar sind."
-            />
-          )}
-        </section>
+        {productRows.map(row => (
+          <DiscoveryRail
+            key={row.id}
+            id={row.id === 'newest' ? 'home-products' : `home-products-${row.id}`}
+            title={row.title}
+            description={row.description}
+            href={row.href}
+            linkLabel="Alle ansehen"
+            empty={<p className="rounded-xl bg-surface-muted p-5 text-base leading-relaxed text-muted">Sobald Produktbewertungen vorliegen, findest du hier die bestbewerteten Inhalte.</p>}
+          >
+            {row.products.map(product => (
+              <ProductCard key={product.id} product={product} salesCount={salesCounts[product.id]} rating={ratings[product.id]} />
+            ))}
+          </DiscoveryRail>
+        ))}
+        {products.length === 0 && (
+          <DiscoveryRail
+            id="home-products"
+            title="Neu im Marktplatz"
+            description="Digitale Inhalte für deinen Alltag und dein Training."
+            href="/marketplace?sort=newest"
+            linkLabel="Alle Produkte"
+            empty={<StatePanel title="Noch keine Produkte veröffentlicht" description="Neue Inhalte erscheinen hier, sobald sie verfügbar sind." />}
+          >{[]}</DiscoveryRail>
+        )}
 
         <section className="section-space border-t border-border" aria-labelledby="formats-title">
           <h2 id="formats-title" className="section-title mb-6 max-w-xl text-balance sm:mb-8">
@@ -359,6 +329,8 @@ export default function MarketplaceClient({
         </section>
 
         <CoachingProcess />
+
+        <ArdoreProductVideo />
 
         <section className="pb-10 sm:pb-16">
           <details
