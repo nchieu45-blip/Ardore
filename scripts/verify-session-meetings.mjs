@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url)
 function load(path, overrides = {}, globals = {}) {
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: {
-    module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
   } }).outputText
   const mod = { exports: {} }
   const resolve = name => {
@@ -273,17 +273,23 @@ test('confirmation/reminder identify missing versus ready method, roles and Berl
 test('reminder cron forwards current method presence and role for both participants without emailing raw URL', async () => {
   for (const ready of [true,false]) {
     const sent = []
-    const service = { auth: { admin: { getUserById: async owner => ({ data: { user: { email: `${owner}@resend.dev` } } }) } }, from(table) {
-      const result = table === 'bookings' ? { data: [booking()] } : table === 'booking_meeting_links' ? { data: ready ? [{ booking_id: id }] : [] } : { count: 0 }
-      const builder = new Proxy({ then: (resolve, reject) => Promise.resolve(result).then(resolve, reject) }, {
+    const row = booking()
+    const service = { auth: { admin: { getUserById: async owner => ({ data: { user: { email: `${owner}@resend.dev` } } }) } },
+      rpc: async (name, args) => name === 'claim_session_notification'
+        ? { data: { state: 'claimed', id: `${args.p_recipient_id}-${args.p_channel}`, payload: args.p_payload } }
+        : { data: true },
+      from(table) {
+      const result = table === 'bookings' ? { data: [row] } : { data: null }
+      const single = table === 'bookings' ? { data: row } : table === 'booking_meeting_links' ? { data: ready ? { booking_id: id } : null } : { data: null }
+      const builder = new Proxy({ then: (resolve, reject) => Promise.resolve(result).then(resolve, reject), maybeSingle: async () => single }, {
         get: (target, key) => key in target ? target[key] : () => builder,
       })
       return builder
     } }
     const cron = load('src/app/api/cron/session-reminders/route.ts', {
       '@/lib/supabase/server': { createServiceClient: async () => service },
-      '@/lib/notifications': { createNotification: async () => {}, checkNotificationPreference: async () => true },
-      '@/lib/email/send': { sendSessionReminder: async (_to, data) => sent.push(data) },
+      '@/lib/email': { FROM: 'Ardore <noreply@example.invalid>', sendEmail: async () => ({ id: 'fixture-email' }) },
+      '@/lib/email/templates': { sessionReminderHtml: () => 'fixture-html', sessionReminderText: data => { sent.push(data); return 'fixture-text' } },
     })
     const oldSecret = process.env.CRON_SECRET
     process.env.CRON_SECRET = 'synthetic-unit-only'
