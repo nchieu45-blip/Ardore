@@ -1,8 +1,9 @@
 # Session reminder and review-prompt reliability
 
-This change is prepared on a feature branch only. Local tests use fixtures and
-mock providers; they do not send real email, invoke production cron endpoints,
-apply a production migration, or change the GitHub scheduler.
+This change was prepared and tested on a feature branch before separate migration
+and release approvals. Local tests use fixtures and mock providers; they do not
+send real email, invoke production cron endpoints, apply a production migration,
+or change the GitHub scheduler. See the approved execution record below.
 
 ## Schedule and independent failures
 
@@ -110,8 +111,8 @@ session; do not promise built-in video conferencing.
    Run lint, TypeScript, fixture regression tests, and a production build. Validate
    SQL behavior/permissions only on an explicitly isolated local/test database;
    record any unavailable database test honestly.
-2. Confirm `20261015132045_session_notification_deliveries.sql` is the only pending
-   intended migration, and verify the
+2. Verify `20261015135843_session_notification_deliveries.sql` against the applied
+   migration history (see the execution record below), and verify the
    GitHub Supabase migration workflow remains disabled. Do not dispatch that
    workflow or enable `SUPABASE_MIGRATIONS_ENABLED`.
 3. Obtain **separate explicit approval for this exact production migration**.
@@ -135,6 +136,11 @@ Coordinate migration and release in a short, approved rollout window after any
 old session cron request has finished. The old handler has no email ledger;
 overlapping old/new handlers or delaying the release long after the migration
 cannot provide a strict historical deduplication guarantee.
+Release before the next old 08:00 UTC session sweep; if that sweep runs after the
+recorded cutoff, reassess the transition and seek approval for any additive cutoff
+adjustment instead of editing or replaying this migration. Also check natural cron
+run times against Hostinger completion: merging changes the workflow before the
+new application build necessarily finishes.
 
 Local SQL verification used PostgreSQL 17.5 in disposable PGlite/WASM. Only the
 in-memory test copy replaces the Auth recipient FK with a synthetic fixture-user
@@ -145,3 +151,23 @@ contains explicit isolation guards and must never run against production.
 
 No production migration, real email, workflow dispatch, merge, deployment, or
 infrastructure change is authorized by preparing or testing these files.
+
+## Approved migration execution record
+
+The owner separately approved applying the exact reviewed SQL originally named
+`20261015132045_session_notification_deliveries.sql`. It was applied once through
+the Supabase plugin on 15 October 2026 at 13:58:43 UTC, with generated version
+`20261015135843` and name `session_notification_deliveries`. The local file was
+renamed to match that version; its SQL bytes were not edited or replayed.
+
+SHA-256: `90a4e8e2a367c15607e0b426a4e7587944efeb20a09b2a63b9e79220d41ab5d1`.
+
+Read-only postflight verified the table, enabled RLS, absent browser table/column
+privileges, service-only access to all four invoker functions with empty search
+paths, and zero delivery rows. No customer/Auth rows were changed, no cron was
+manually dispatched, and no email was sent by the migration. Other existing
+Supabase advisory warnings were not changed by this work.
+
+The owner subsequently approved the filename alignment, PR merge and resulting
+Hostinger release including normal scheduled reminder processing. Do not treat
+this as approval to replay the migration or manually dispatch delivery jobs.
