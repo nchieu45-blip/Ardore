@@ -49,3 +49,11 @@ were changed. No new dependency, data write, migration, or production release.
   account, favorite, checkout, payment, or email mutation was exercised.
 - Local Node is v24.15.0; GitHub CI uses Node 22. The final PR CI verifies that
   runtime before release.
+
+## Compact offer and trust sections
+
+The follow-up spacing adjustment preserves all copy, typography, links, and
+44 px click areas. On a 1440 px viewport, the offer section shrinks from 450 to
+326 px and the trust section from 230 to 150 px: about 30% less combined height.
+Only local spacing utilities change. Browser confirmation at 390 px retains
+16 px body copy, all three links, and no horizontal page overflow.

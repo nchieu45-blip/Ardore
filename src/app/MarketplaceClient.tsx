@@ -246,11 +246,11 @@ export default function MarketplaceClient({
           >{[]}</DiscoveryRail>
         )}
 
-        <section className="section-space border-t border-border" aria-labelledby="formats-title">
-          <h2 id="formats-title" className="section-title mb-6 max-w-xl text-balance sm:mb-8">
+        <section className="border-t border-border py-6 sm:py-8" aria-labelledby="formats-title">
+          <h2 id="formats-title" className="section-title mb-4 max-w-xl text-balance">
             Die passende Begleitung für dich
           </h2>
-          <div className="grid gap-6 md:grid-cols-3 md:gap-8">
+          <div className="grid gap-4 md:grid-cols-3 md:gap-6">
             {[
               {
                 title: '1:1 Coaching',
@@ -274,11 +274,11 @@ export default function MarketplaceClient({
               <Link
                 key={title}
                 href={href}
-                className="group flex flex-col border-t border-border py-6"
+                className="group flex flex-col border-t border-border py-4"
               >
-                <Icon className="mb-4 h-6 w-6 text-brand" aria-hidden="true" />
+                <Icon className="mb-2 h-6 w-6 text-brand" aria-hidden="true" />
                 <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
-                <p className="mb-6 mt-3 max-w-prose text-base leading-relaxed text-muted">
+                <p className="mb-2 mt-2 max-w-prose text-base leading-relaxed text-muted">
                   {text}
                 </p>
                 <span className="mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
@@ -291,10 +291,10 @@ export default function MarketplaceClient({
         </section>
 
         <section
-          className="section-space border-y border-border"
+          className="border-y border-border py-5 sm:py-6"
           aria-label="Orientierung und Vertrauen"
         >
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 md:gap-6">
             {[
               {
                 Icon: ShieldCheck,
