@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @import "./design-foundation.css";
+@import "./coaching-process.css";
+@import "./home-discovery.css";
 
 html {
   scroll-behavior: smooth;
