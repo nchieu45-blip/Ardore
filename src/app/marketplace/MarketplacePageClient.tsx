@@ -18,6 +18,9 @@ import {
 import { StatePanel } from '@/components/ui/StatePanel'
 import { Button } from '@/components/ui/Button'
 import { ProductCard } from '@/components/ui/ProductCard'
+import DiscoveryRail from '@/components/DiscoveryRail'
+import DiscoveryTopics from '@/components/DiscoveryTopics'
+import { buildHomeProductRows } from '@/lib/homeDiscovery'
 import {
   EQUIPMENT_OPTIONS,
   LEVEL_OPTIONS,
@@ -245,12 +248,13 @@ export default function MarketplacePageClient({
     const q =
       'search' in overrides
         ? normalizeSearch(overrides.search ?? '')
-        : urlSearch
+        : normalizedSearch
 
     const params = new URLSearchParams()
     if (cat !== 'all') params.set('category', cat)
     if (t !== 'all') params.set('type', t)
-    if (s !== 'newest') params.set('sort', s)
+    if (s && (s !== 'newest' || overrides.sort !== undefined || searchParams.has('sort')))
+      params.set('sort', s)
     if (l) params.set('level', l)
     if (eq.length > 0) params.set('equipment', eq.join(','))
     if (d) params.set('duration', d)
@@ -519,7 +523,28 @@ export default function MarketplacePageClient({
       )
   )
   const activeFilterCount = activeFilterChips.length
+  // Editorial shelves are a starting point. An explicit sort, search, filter or
+  // page always opens the complete result set with the existing pagination.
+  const isDiscovery = activeFilterCount === 0 && !searchParams.has('sort') && safePage === 1
+  const discoveryRows = isDiscovery ? buildHomeProductRows(products, ratings, compareProductRatings) : []
+  const topicKeys = [...new Set(products.flatMap(product => [
+    ...product.categories,
+    ...product.creator.categories,
+    ...(product.creator.category ? [product.creator.category] : []),
+  ]))]
+    .filter(key => Object.hasOwn(CATEGORY_LABEL_MAP, key))
+    .sort((a, b) => CATEGORY_LABEL_MAP[a].localeCompare(CATEGORY_LABEL_MAP[b], 'de'))
+  const topics = [
+    { key: 'all', label: 'Alle Themen', href: buildUrl({ category: 'all', page: 1 }) },
+    ...topicKeys.map(key => ({ key, label: CATEGORY_LABEL_MAP[key], href: buildUrl({ category: key, page: 1 }) })),
+  ]
+  const resultTitle = normalizedSearch
+    ? 'Deine Suchergebnisse'
+    : category !== 'all'
+      ? CATEGORY_LABEL_MAP[category] ?? 'Passende Produkte'
+      : 'Alle Produkte'
   const visibleSortOptions = [
+    ...(activeFilterCount === 0 ? [{ key: '', label: 'Übersicht' }] : []),
     ...SORT_OPTIONS,
     ...(['popular', 'best_selling'].includes(sort)
       ? [{ key: sort, label: 'Nach Käufen (bisherige Sortierung)' }]
@@ -553,7 +578,7 @@ export default function MarketplacePageClient({
   }
 
   return (
-    <div className="hp-home min-h-screen bg-gray-50/60">
+    <div className="hp-home discovery-browse min-h-screen bg-gray-50/60">
       <section className="border-b border-border bg-surface">
         <div className="ardore-container py-8 sm:py-10">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-5">
@@ -606,6 +631,7 @@ export default function MarketplacePageClient({
               Passende Coaches ansehen
             </Link>
           </p>
+          <DiscoveryTopics topics={topics} active={category} />
         </div>
       </section>
 
@@ -632,7 +658,7 @@ export default function MarketplacePageClient({
           <label className="relative min-w-0">
             <span className="sr-only">Produkte sortieren</span>
             <select
-              value={sort}
+              value={isDiscovery ? '' : sort}
               onChange={(e) => go({ sort: e.target.value, page: 1 })}
               aria-label="Produkte sortieren"
               className="field-control min-w-0 appearance-none pl-3 pr-8 text-sm font-medium"
@@ -800,7 +826,7 @@ export default function MarketplacePageClient({
               <div className="relative min-w-0 max-w-full">
                 <select
                   aria-label="Produkte sortieren"
-                  value={sort}
+                  value={isDiscovery ? '' : sort}
                   onChange={(e) => go({ sort: e.target.value, page: 1 })}
                   className="field-control min-w-0 appearance-none pl-3 pr-8 text-sm"
                 >
@@ -1250,7 +1276,7 @@ export default function MarketplacePageClient({
           </div>
         )}
 
-        {/* Grid */}
+        {/* Discovery shelves and complete, horizontally browsable results. */}
         {pageItems.length === 0 ? (
           <StatePanel
             title="Keine Produkte gefunden"
@@ -1269,8 +1295,31 @@ export default function MarketplacePageClient({
               </>
             }
           />
+        ) : isDiscovery ? (
+          discoveryRows.map(row => (
+            <DiscoveryRail
+              key={row.id}
+              id={`marketplace-${row.id}`}
+              title={row.title}
+              description={row.description}
+              href={row.href}
+              linkLabel="Alle ansehen"
+              empty={<p className="rounded-xl bg-surface-muted px-5 py-4 text-sm leading-relaxed text-muted">Hier erscheinen Produkte, sobald Bewertungen vorliegen. Entdecke bis dahin die neuen Angebote.</p>}
+            >
+              {row.products.map(product => (
+                <ProductCard key={product.id} product={product} salesCount={salesCounts[product.id]} rating={ratings[product.id]} variant="marketplace" />
+              ))}
+            </DiscoveryRail>
+          ))
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <DiscoveryRail
+            key={searchParams.toString()}
+            id="marketplace-results"
+            title={resultTitle}
+            description={totalPages > 1
+              ? `Ergebnisse ${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)} von ${filtered.length}. Seitlich wischen oder mit den Pfeilen blättern.`
+              : 'Seitlich wischen oder mit den Pfeilen blättern.'}
+          >
             {pageItems.map((product) => (
               <ProductCard
                 key={product.id}
@@ -1280,11 +1329,11 @@ export default function MarketplacePageClient({
                 variant="marketplace"
               />
             ))}
-          </div>
+          </DiscoveryRail>
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {!isDiscovery && totalPages > 1 && (
           <nav
             aria-label="Seitennavigation der Marktplatz-Ergebnisse"
             className="flex items-center justify-center gap-2 mt-10 flex-wrap"

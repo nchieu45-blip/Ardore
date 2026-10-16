@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useId } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X, SlidersHorizontal } from 'lucide-react'
 import { CoachCard } from '@/components/ui/CoachCard'
+import DiscoveryRail from '@/components/DiscoveryRail'
+import DiscoveryTopics from '@/components/DiscoveryTopics'
 import {
   DiscoveryNavigation,
   discoveryHref,
@@ -13,6 +15,11 @@ import { StatePanel } from '@/components/ui/StatePanel'
 import type { CoachData } from '@/lib/publicCoaches'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import { LANGUAGE_LABEL_MAP } from '@/lib/languages'
+import {
+  buildCoachDiscoveryRows,
+  coachCategories,
+  compareNewestCoaches,
+} from '@/lib/coachDiscovery'
 
 export default function CoachesPageClient({
   coaches,
@@ -86,14 +93,18 @@ export default function CoachesPageClient({
     }, 300)
     return () => window.clearTimeout(timeout)
   }, [normalizedSearch, urlSearch, router, params])
-  function go(overrides: Record<string, string | null>) {
+  function buildUrl(overrides: Record<string, string | null>) {
     const next = new URLSearchParams(params.toString())
+    if (normalizedSearch) next.set('q', normalizedSearch)
+    else next.delete('q')
     for (const [key, value] of Object.entries(overrides)) {
-      if (!value || value === 'all' || (key === 'sort' && value === 'newest'))
-        next.delete(key)
+      if (!value || value === 'all') next.delete(key)
       else next.set(key, value)
     }
-    router.push(`/coaches${next.size ? `?${next}` : ''}`, { scroll: false })
+    return `/coaches${next.size ? `?${next}` : ''}`
+  }
+  function go(overrides: Record<string, string | null>) {
+    router.push(buildUrl(overrides), { scroll: false })
   }
   function reset() {
     setSearch('')
@@ -101,9 +112,7 @@ export default function CoachesPageClient({
   }
   const availableCategories = [
     ...new Set(
-      coaches.flatMap((c) =>
-        c.categories.length ? c.categories : c.category ? [c.category] : []
-      )
+      coaches.flatMap((c) => coachCategories(c))
     ),
   ].filter((key) => CATEGORY_LABEL_MAP[key])
   const availableLanguages = [
@@ -111,11 +120,7 @@ export default function CoachesPageClient({
   ].filter((key) => LANGUAGE_LABEL_MAP[key])
   const filtered = coaches
     .filter((c) => {
-      const cats = c.categories.length
-        ? c.categories
-        : c.category
-          ? [c.category]
-          : []
+      const cats = coachCategories(c)
       const haystack = [
         c.display_name,
         c.bio ?? '',
@@ -138,8 +143,18 @@ export default function CoachesPageClient({
         ? b.productCount - a.productCount
         : sort === 'top_rated'
           ? (b.rating?.avg ?? 0) - (a.rating?.avg ?? 0)
-          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : compareNewestCoaches(a, b)
     )
+  const canBrowse = category === 'all'
+    && language === 'all'
+    && !videocoaching
+    && !groupclasses
+    && !subscription
+    && !normalizedSearch
+  const isBrowseMode = canBrowse && !params.has('sort')
+  const discoveryRows = isBrowseMode
+    ? buildCoachDiscoveryRows(coaches, availableCategories)
+    : []
   const chips = [
     category !== 'all' && {
       key: 'category',
@@ -233,10 +248,11 @@ export default function CoachesPageClient({
     <label className="min-w-0">
       <span className="sr-only">Coaches sortieren</span>
       <select
-        value={sort}
+        value={isBrowseMode ? '' : sort}
         onChange={(e) => go({ sort: e.target.value })}
         className="field-control min-w-0 w-full text-sm"
       >
+        {canBrowse && <option value="">Übersicht</option>}
         <option value="newest">Neueste Profile</option>
         <option value="most_products">Meiste Produkte</option>
         {sort === 'top_rated' && (
@@ -299,9 +315,20 @@ export default function CoachesPageClient({
               Passende Produkte ansehen
             </ButtonLink>
           </p>
+          <DiscoveryTopics
+            active={category}
+            topics={[
+              { key: 'all', label: 'Alle Themen', href: buildUrl({ category: null }) },
+              ...availableCategories.map(key => ({
+                key,
+                label: CATEGORY_LABEL_MAP[key],
+                href: buildUrl({ category: key }),
+              })),
+            ]}
+          />
         </div>
       </section>
-      <div className="ardore-container py-6 sm:py-8">
+      <div className="discovery-browse ardore-container py-6 sm:py-8">
         <div className="hidden md:block">{filters()}</div>
         <div className="mb-6 flex flex-col gap-4 md:mt-6 md:flex-row md:items-center md:justify-between">
           <p role="status" aria-live="polite" className="text-sm text-muted">
@@ -367,11 +394,35 @@ export default function CoachesPageClient({
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((c) => (
-              <CoachCard key={c.id} coach={c} />
-            ))}
-          </div>
+          isBrowseMode ? (
+            discoveryRows.map(row => (
+              <DiscoveryRail
+                key={row.id}
+                id={`coaches-${row.id}`}
+                title={row.title}
+                description={row.description}
+                href={row.href}
+                linkLabel="Alle Coaches ansehen"
+              >
+                {row.coaches.map(coach => (
+                  <CoachCard key={coach.id} coach={coach} layout="rail" />
+                ))}
+              </DiscoveryRail>
+            ))
+          ) : (
+            <DiscoveryRail
+              key={params.toString()}
+              id="coaches-results"
+              title={category !== 'all' ? CATEGORY_LABEL_MAP[category] ?? 'Passende Coaches' : 'Alle passenden Coaches'}
+              description="Vergleiche Profile und Angebote. Wische seitlich, um weitere Coaches zu entdecken."
+              href="/coaches"
+              linkLabel="Zur Übersicht"
+            >
+              {filtered.map(coach => (
+                <CoachCard key={coach.id} coach={coach} layout="rail" />
+              ))}
+            </DiscoveryRail>
+          )
         )}
       </div>
       {filtersOpen && (
