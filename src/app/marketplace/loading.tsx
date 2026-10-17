@@ -1,7 +1,7 @@
 import { ProductCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-label="Produkte werden geladen">
+    <div aria-busy="true" aria-label="Marktplatz wird geladen">
       <div className="border-b border-border bg-surface">
         <div className="ardore-container space-y-4 py-8">
           <Skeleton className="h-8 w-64 max-w-full" />

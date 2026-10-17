@@ -84,7 +84,7 @@ function topics(html) {
   return html.match(/<nav aria-label="Nach Thema entdecken"[\s\S]*?<\/nav>/)?.[0] ?? ''
 }
 
-test('marketplace overview uses real horizontal shelves and explains absent reviews', () => {
+test('marketplace overview keeps only newest and review shelves while formats and topics remain filterable', () => {
   const inventory = [
     product('yoga-a', { categories: ['yoga'], type: 'course' }),
     product('yoga-b', { categories: ['yoga'], price: 0 }),
@@ -92,9 +92,12 @@ test('marketplace overview uses real horizontal shelves and explains absent revi
   ]
   const { html } = page('', inventory)
   assert.deepEqual(ids(section(html, 'marketplace-newest')).sort(), inventory.map(item => item.id).sort())
-  assert.deepEqual(ids(section(html, 'marketplace-courses')), ['yoga-a'])
-  assert.deepEqual(ids(section(html, 'marketplace-free')), ['yoga-b'])
-  assert.deepEqual(ids(section(html, 'marketplace-category-yoga')).sort(), ['yoga-a', 'yoga-b'])
+  assert.equal((html.match(/class="discovery-rail"/g) ?? []).length, 2)
+  assert.ok(!html.includes('marketplace-courses-title'))
+  assert.ok(!html.includes('marketplace-free-title'))
+  assert.ok(!html.includes('marketplace-category-yoga-title'))
+  assert.match(html, /Online-Kurse/)
+  assert.ok(topics(html).includes('/marketplace?category=yoga'))
   const best = section(html, 'marketplace-best-rated')
   assert.match(best, /sobald Bewertungen vorliegen/)
   assert.deepEqual(ids(best), [])

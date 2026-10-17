@@ -84,6 +84,36 @@
 }
 
 .discovery-topics li { flex-shrink: 0; }
+
+.marketplace-area-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .25rem;
+  min-width: 0;
+  padding: .25rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+}
+
+.marketplace-area-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 2.75rem;
+  padding: .5rem;
+  border-radius: .5rem;
+  color: var(--text-secondary);
+  font-size: .875rem;
+  line-height: 1.25;
+  text-align: center;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.marketplace-area-link[aria-current="page"] { background: var(--surface); color: var(--primary); font-weight: 600; }
+.marketplace-area-link:active { background: var(--secondary); }
+@media (hover: hover) { .marketplace-area-link:hover { background: var(--surface); color: var(--primary); } }
+@media (min-width: 1024px) { .marketplace-area-nav { min-width: 31rem; } .marketplace-area-link { padding-inline: 1rem; } }
 .discovery-browse .discovery-rail { padding-block: 2rem; }
 .discovery-browse .discovery-rail-actions { justify-content: flex-end; }
 .discovery-browse .discovery-rail-actions:has(> a) { justify-content: space-between; }
