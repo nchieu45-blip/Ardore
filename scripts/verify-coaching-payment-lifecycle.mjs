@@ -261,7 +261,8 @@ function fixture({ legacy = false, slotTaken = false, separate = false, bookingC
   const route = load('../src/app/api/webhooks/stripe/route.ts', {
     '@/lib/stripe/server': { stripe: provider }, '@/lib/supabase/server': { createServiceClient: async () => service },
     '@/lib/coaching-refund': refund, '@/lib/coaching-payment-reconciliation': refund, '@/lib/coaching-payment-lifecycle': helper,
-    '@/lib/email/send': {}, '@/lib/notifications': {},
+    '@/lib/email/send': {},
+    '@/lib/subscription-notifications': { notifyNewSubscriber() { throw new Error('Unexpected subscription notification') } },
     '@/lib/stripe/settlement': settlement,
   }, logs)
   return {
