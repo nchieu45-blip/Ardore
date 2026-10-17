@@ -1,0 +1,169 @@
+.coaching-process-layout {
+  display: grid;
+  gap: 2rem;
+  min-width: 0;
+}
+
+.coaching-process-photo {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--secondary);
+}
+
+.coaching-process-photoImage {
+  object-fit: cover;
+  object-position: 50% 38%;
+}
+
+.coaching-process-steps {
+  display: grid;
+  gap: 2.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.coaching-process-step {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.coaching-process-visual {
+  position: relative;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+}
+
+.coaching-process-scene {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  height: 6rem;
+  color: var(--primary);
+  background: var(--secondary);
+  border-radius: var(--radius-card);
+}
+
+.coaching-process-connector {
+  position: absolute;
+  top: 50%;
+  bottom: -2.5rem;
+  left: 50%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 1px;
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.coaching-process-connector svg {
+  flex-shrink: 0;
+  margin-bottom: .5rem;
+  background: var(--background);
+}
+
+.coaching-process-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Diagram primitives, not interactive controls or fabricated product data. */
+.coaching-process-searchScene {
+  display: grid;
+  gap: .5rem;
+  width: 74%;
+}
+
+.coaching-process-searchBar {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .375rem;
+  background: var(--surface);
+  border: 1px solid var(--primary-light);
+  border-radius: .5rem;
+}
+
+.coaching-process-searchBar svg, .coaching-process-searchResult svg { flex-shrink: 0; }
+.coaching-process-searchBar span, .coaching-process-searchResult span, .coaching-process-profileLines span {
+  height: .25rem;
+  width: 100%;
+  border-radius: .25rem;
+  background: var(--primary-light);
+}
+
+.coaching-process-searchResult {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding-inline: .125rem;
+}
+
+.coaching-process-profileScene {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: .5rem;
+  width: 70%;
+  padding: .625rem .5rem;
+  border: 1px solid var(--primary);
+  border-radius: .625rem;
+  background: var(--surface);
+}
+
+.coaching-process-profileIcon { padding: .25rem; border-radius: 50%; background: var(--secondary); }
+.coaching-process-profileLines { display: grid; justify-items: center; gap: .25rem; width: 80%; }
+.coaching-process-profileLines span:last-child { width: 65%; }
+.coaching-process-selection, .coaching-process-library {
+  position: absolute;
+  right: -.5rem;
+  bottom: -.375rem;
+  display: grid;
+  place-items: center;
+  padding: .25rem;
+  background: var(--primary);
+  color: var(--surface);
+  border-radius: 50%;
+}
+
+.coaching-process-calendarScene {
+  position: relative;
+  width: 66%;
+  padding: .5rem;
+  background: var(--surface);
+  border: 1px solid var(--primary-light);
+  border-radius: .625rem;
+}
+
+.coaching-process-calendarTop { display: flex; gap: .5rem; padding-bottom: .5rem; border-bottom: 1px solid var(--primary-light); }
+.coaching-process-calendarTop span { width: .25rem; height: .625rem; background: var(--primary); border-radius: .25rem; }
+.coaching-process-calendarDays { display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem; padding-top: .5rem; }
+.coaching-process-calendarDays span { aspect-ratio: 1; background: var(--secondary); border-radius: .125rem; }
+.coaching-process-calendarDays span:nth-child(6) { background: var(--primary); }
+.coaching-process-library { right: -.625rem; bottom: -.5rem; padding: .375rem; border-radius: .5rem; }
+
+@media (min-width: 640px) {
+  .coaching-process-step { grid-template-columns: 8rem minmax(0, 1fr); gap: 2rem; }
+  .coaching-process-scene { width: 8rem; height: 7rem; }
+  .coaching-process-steps { gap: 2rem; }
+  .coaching-process-connector { bottom: -2rem; }
+  .coaching-process-searchScene { gap: .625rem; }
+  .coaching-process-profileScene { width: 58%; padding-block: .75rem; }
+  .coaching-process-calendarScene { width: 60%; padding: .625rem; }
+}
+
+@media (min-width: 1024px) {
+  .coaching-process-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 3rem; }
+  .coaching-process-photo { aspect-ratio: auto; min-height: 26rem; }
+  .coaching-process-photoImage { object-position: 50% 50%; }
+  .coaching-process-steps { padding-block: .5rem; }
+}
