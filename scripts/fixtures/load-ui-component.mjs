@@ -16,7 +16,7 @@ export function loadUiComponent(path, overrides = {}, cache = new Map()) {
   }).outputText
   function dependency(name) {
     if (name in overrides) return overrides[name]
-    if (name === 'next/link') return { __esModule: true, default: ({ children, ...props }) => React.createElement('a', props, children) }
+    if (name === 'next/link') return { __esModule: true, default: ({ children, ...props }) => { delete props.scroll; return React.createElement('a', props, children) } }
     if (name === 'next/image') return { __esModule: true, default: ({ fill, sizes, ...props }) => React.createElement('img', { ...props, sizes, 'data-fill': fill || undefined }) }
     if (name.startsWith('@/') || name.startsWith('.')) {
       const target = name.startsWith('@/') ? resolve(root, 'src', name.slice(2)) : resolve(dirname(absolute), name)

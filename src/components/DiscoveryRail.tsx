@@ -8,8 +8,8 @@ interface DiscoveryRailProps {
   id: string
   title: string
   description: string
-  href: string
-  linkLabel: string
+  href?: string
+  linkLabel?: string
   children: ReactNode
   empty?: ReactNode
 }
@@ -66,9 +66,11 @@ export default function DiscoveryRail({ id, title, description, href, linkLabel,
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">{description}</p>
         </div>
         <div className="discovery-rail-actions">
-          <ButtonLink href={href} variant="tertiary" className="px-0 sm:px-3">
-            {linkLabel}<ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </ButtonLink>
+          {href && linkLabel && (
+            <ButtonLink href={href} variant="tertiary" className="px-0 sm:px-3">
+              {linkLabel}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </ButtonLink>
+          )}
           {itemCount > 0 && (
             <div className="flex gap-2">
               <IconButton label={`${title}: Nach links blättern`} variant="secondary" aria-disabled={!edges.previous} aria-controls={`${id}-items`} onClick={event => { if (edges.previous) advance(-1, event.detail > 0) }}>
