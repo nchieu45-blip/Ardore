@@ -52,7 +52,9 @@ function hasCategory(product: HomeDiscoveryProduct, category: string): boolean {
 
 export function buildHomeProductRows<T extends HomeDiscoveryProduct>(
   products: readonly T[],
-  ratings: Readonly<Record<string, ProductRating | undefined>>
+  ratings: Readonly<Record<string, ProductRating | undefined>>,
+  // Discovery pages can use the same ranking as their complete results.
+  compareRatings: (a: ProductRating, b: ProductRating) => number = (a, b) => b.avg - a.avg || b.count - a.count,
 ): HomeProductRow<T>[] {
   if (products.length === 0) return []
 
@@ -62,8 +64,7 @@ export function buildHomeProductRows<T extends HomeDiscoveryProduct>(
     .sort((a, b) => {
       const aRating = ratings[a.id]!
       const bRating = ratings[b.id]!
-      return bRating.avg - aRating.avg
-        || bRating.count - aRating.count
+      return compareRatings(aRating, bRating)
         || compareNewest(a, b)
     })
 

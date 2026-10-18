@@ -1,7 +1,7 @@
 import { ProductCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-label="Produkte werden geladen">
+    <div aria-busy="true" aria-label="Marktplatz wird geladen">
       <div className="border-b border-border bg-surface">
         <div className="ardore-container space-y-4 py-8">
           <Skeleton className="h-8 w-64 max-w-full" />
@@ -13,7 +13,7 @@ export default function Loading() {
           <Skeleton className="h-11 w-36" />
           <Skeleton className="h-11 w-36" />
         </div>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="discovery-rail-track" aria-hidden="true">
           {Array.from({ length: 8 }).map((_, i) => (
             <ProductCardSkeleton key={i} />
           ))}

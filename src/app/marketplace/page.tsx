@@ -4,19 +4,27 @@ import type { Metadata } from 'next'
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import MarketplacePageClient from './MarketplacePageClient'
 import { aggregateProductRatings } from '@/lib/productRatings'
+import { marketplaceArea } from '@/lib/marketplaceAreas'
+import { loadPublicCoachingMarketplace } from '@/lib/publicCoachingMarketplace'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Marktplatz',
-  description: 'Entdecke Trainingspläne, Ernährungspläne, Video-Kurse und mehr von Coaches auf Ardore.',
+  description: 'Entdecke digitale Produkte, 1:1 Coaching und Gruppencoaching für Fitness, Ernährung und Wohlbefinden.',
   openGraph: {
     title: 'Marktplatz – Ardore',
-    description: 'Digitale Produkte von Fitness- und Gesundheitscoaches.',
+    description: 'Digitale Produkte, 1:1 Coaching und Gruppencoaching auf Ardore.',
   },
 }
 
-export default async function MarketplacePage() {
+export default async function MarketplacePage(props: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await props?.searchParams
+  const area = marketplaceArea(Array.isArray(params?.area) ? params.area[0] : params?.area)
+  if (area !== 'products') {
+    const inventory = await loadPublicCoachingMarketplace(area === 'coaching' ? 'coaching' : 'group')
+    return <Suspense fallback={<div className="min-h-screen bg-gray-50" />}><MarketplacePageClient serviceOffers={inventory.offers} serviceError={inventory.error} ratingsUnavailable={inventory.ratingsUnavailable} /></Suspense>
+  }
   const supabase = await createClient()
 
   const { data: productsData, error: productsError } = await supabase

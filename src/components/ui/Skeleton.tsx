@@ -45,15 +45,16 @@ export function ProductCardSkeleton({ compact, marketplace }: { compact?: boolea
   )
 }
 
-export function CoachCardSkeleton() {
+export function CoachCardSkeleton({ layout = 'default' }: { layout?: 'default' | 'rail' }) {
+  const rail = layout === 'rail'
   return (
-    <div className="surface-card grid grid-cols-[5rem_minmax(0,1fr)] gap-4 overflow-hidden p-4 sm:block sm:p-0">
-      <Skeleton className="aspect-[4/5] rounded-xl sm:rounded-none" />
-      <div className="space-y-3 self-center pr-10 sm:p-5 sm:pb-0 sm:pr-5">
-        <Skeleton className="h-5 w-full sm:w-2/3" />
+    <div className={`surface-card grid grid-cols-[5rem_minmax(0,1fr)] gap-4 overflow-hidden p-4 ${rail ? '' : 'sm:block sm:p-0'}`}>
+      <Skeleton className={`aspect-[4/5] rounded-xl ${rail ? '' : 'sm:rounded-none'}`} />
+      <div className={`space-y-3 self-center pr-10 ${rail ? '' : 'sm:p-5 sm:pb-0 sm:pr-5'}`}>
+        <Skeleton className={`h-5 w-full ${rail ? '' : 'sm:w-2/3'}`} />
         <Skeleton className="h-4 w-4/5" />
       </div>
-      <div className="col-span-2 space-y-3 sm:p-5">
+      <div className={`col-span-2 space-y-3 ${rail ? '' : 'sm:p-5'}`}>
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-4/5" />
         <Skeleton className="h-11 w-full" />
