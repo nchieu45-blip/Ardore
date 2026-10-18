@@ -1,6 +1,6 @@
 # Marketplace discovery — Phase 2
 
-Homepage, shared ProductCard/CoachCard and the two discovery routes use the Phase 1 foundation. Dashboards, full coach profiles and business flows are unchanged. No database migration, inventory update, payment, email or authenticated fixture is needed.
+Homepage, shared ProductCard/CoachCard and the two discovery routes use the Phase 1 foundation. Dashboards, full coach profiles and business flows are unchanged. The separately authorized group-data policy repair is recorded below; no inventory update, payment, email or authenticated production fixture is needed.
 
 ## Discovery and truthful presentation
 
@@ -28,11 +28,17 @@ Preview shelves show up to twelve items and link to their complete filtered coll
 
 Area navigation carries only search and topic to the new area, dropping incompatible product/service filters. Within an area, topic links and filter controls preserve the applicable query, including a zero price, and reset pagination. Existing product query URLs, history restoration, legacy coach/group product filters, favorites, product/profile links and mobile product filter behavior remain supported.
 
-Only the selected area's inventory is queried server-side. `publicCoachingMarketplace.ts` uses the existing session/anonymous RLS client with explicit published/active predicates and narrow public projections. It sends no meeting URLs, participant identities, payout configuration or private review details to the browser. Malformed or ended group offers are omitted; failed reads remain explicit errors, and optional review failures preserve the offers. Group cards link to offer details and state the existing paid-booking restriction; the area also discloses disabled video participation. Booking, payment, publication, RLS and deployment configuration are unchanged.
+Only the selected area's inventory is queried server-side. `publicCoachingMarketplace.ts` uses the existing session/anonymous RLS client with explicit published/active predicates and narrow public projections. It sends no meeting URLs, participant identities, payout configuration or private review details to the browser. Malformed or ended group offers are omitted; failed reads remain explicit errors, and optional review failures preserve the offers. Group cards link to offer details and state the existing paid-booking restriction; the area also discloses disabled video participation. Booking, payment, publication and deployment configuration are unchanged; the group SELECT policy repair below preserves the existing access boundaries.
 
-### Existing group-data limitation
+### Group-data policy repair
 
-During read-only validation on 2026-10-17, the anonymous `video_classes` query returned PostgreSQL `42P17` (infinite recursion in its row policy). The existing profile/discovery queries use this same table; no safe public inventory view or RPC is present in the repository. The frontend keeps a retryable load-error state. Repairing the live access policy is a separate change requiring its own review and authorization; this frontend work does not bypass it or change production policies.
+The anonymous `video_classes` query originally returned PostgreSQL `42P17`: the public class policy read enrollments, whose coach policy read classes again. Migration `20261018114428_fix_group_marketplace_rls_recursion.sql` replaces only that recursive enrollment predicate with a private, stable security-definer lookup bound to `auth.uid()`. Its empty search path, fully qualified table reference, non-null subject guard and restricted EXECUTE ACL prevent caller-selected identities or a public enrollment RPC. Helper creation, grants and policy replacement run in one transaction with a five-second lock timeout.
+
+Active classes from published coaches remain public. Participants retain their own class access, including inactive classes and canceled enrollments as before. Creator management, profile visibility, enrollment SELECT policies and table/write grants are preserved. No rows are modified, RLS stays enabled, and the frontend continues to use the session/anonymous client.
+
+Following the owner's explicit repair request, this migration was applied to Ardore on 2026-10-18 and its local filename aligned with the recorded remote version. The exact anonymous marketplace projection now succeeds with zero public active group offers. Desktop (1440px) and mobile (390px) show the honest empty state without horizontal overflow. Live catalog comparison confirmed unchanged table grants and other policies, a postgres-owned helper with RLS bypass, no PUBLIC EXECUTE and no private-schema CREATE for browser roles. The security advisor reported no new findings. Existing paid-group-booking/video restrictions remain in place.
+
+`supabase/tests/group_marketplace_rls_setup.sql` requires a new empty database named exactly `ardore_group_rls_test`, existing Supabase API roles and `ardore.isolated_sql_test=true`. It creates synthetic application rows and UUID claims only, never GoTrue users, and first reproduces `42P17`. Against that isolated database, apply the actual migration, run `group_marketplace_rls_assertions.sql`, reapply the migration, and rerun the assertions with `ON_ERROR_STOP=1`. Both passes succeeded on PostgreSQL 17.6 for anonymous/subjectless visitors, ordinary visitors, two participants and two coaches, including private joins, owner CRUD and foreign/write denials. Assertions roll back their mutations. `verify-group-marketplace-rls.mjs` adds local source-contract checks; these do not replace the PostgreSQL behavior tests or claim a full Auth integration test.
 
 ## Accessibility and responsive behavior
 
