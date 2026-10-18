@@ -19,7 +19,9 @@ function load(path, overrides = {}, environment = {}) {
   }).outputText
   const loadedModule = { exports: {} }
   new Function('require', 'exports', 'module', 'process', 'console', output)(
-    name => name in overrides ? overrides[name] : require(name),
+    name => name in overrides ? overrides[name]
+      : name === '@/lib/subscription-notifications' ? load('../src/lib/subscription-notifications.ts', overrides, environment)
+        : require(name),
     loadedModule.exports, loadedModule, { env: environment }, { error() {} },
   )
   return loadedModule.exports
@@ -84,7 +86,7 @@ function subscriptionFixture({ price = 25, active = true, discountCreatorId = cr
       async registerSettlementCheckout(input) { assert.equal(input.service, service); registrations.push(input) },
     },
     '@/lib/stripe/platformFee': { ARDORE_PLATFORM_FEE_PERCENT: 10 },
-    '@/app/api/webhooks/stripe/route': { notifyNewSubscriber: async (database, buyer, creator, selectedTier) => {
+    '@/lib/subscription-notifications': { notifyNewSubscriber: async (database, buyer, creator, selectedTier) => {
       assert.equal(database, service); notified.push({ buyer, creator, tier: selectedTier })
     } },
     '@/lib/app-url': { appOrigin: () => 'https://www.ardore-health.com' },
@@ -289,10 +291,17 @@ function webhookFixture({ type = 'checkout.session.completed', mismatch = false,
     },
   }, { STRIPE_SECRET_KEY: 'sk_test_synthetic' })
   return {
-    saved, releasedEvents, completedEvents, period, reconciliations, creatorReads, emails,
+    saved, releasedEvents, completedEvents, period, reconciliations, creatorReads, emails, routeExports: Object.keys(route),
     run: () => route.POST({ text: async () => '{}', headers: new Headers({ 'stripe-signature': 'synthetic' }) }),
   }
 }
+
+test('Stripe webhook exports only its HTTP handler; subscription notifications use the shared helper', () => {
+  assert.deepEqual(webhookFixture().routeExports, ['POST'])
+  const subscriptionRoute = readFileSync(new URL('../src/app/api/stripe/subscription/route.ts', import.meta.url), 'utf8')
+  assert.match(subscriptionRoute, /import \{ notifyNewSubscriber \} from '@\/lib\/subscription-notifications'/)
+  assert.doesNotMatch(subscriptionRoute, /from '@\/app\/api\/webhooks\/stripe\/route'/)
+})
 
 test('a trusted Stripe subscription checkout binds tier ownership and uses current item billing periods', async () => {
   const state = webhookFixture()
