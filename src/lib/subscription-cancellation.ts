@@ -44,7 +44,7 @@ function freeState(subscription: CancellableSubscription, now: number): Subscrip
     endsAt: ended ? subscription.current_period_end : null, accessUntil: null }
 }
 
-async function ownedProviderSubscription(
+export async function ownedProviderSubscription(
   service: SupabaseClient,
   provider: Stripe,
   subscription: CancellableSubscription,
