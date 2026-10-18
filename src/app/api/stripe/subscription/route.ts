@@ -3,7 +3,7 @@ import { DiscountError, reserveDiscount, releaseDiscount, requireStripeMinimum }
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
-import { notifyNewSubscriber } from '@/app/api/webhooks/stripe/route'
+import { notifyNewSubscriber } from '@/lib/subscription-notifications'
 import { appOrigin } from '@/lib/app-url'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { z } from 'zod'

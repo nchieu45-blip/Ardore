@@ -66,7 +66,7 @@ function fixture(duplicate = false, { settlementResult = null, eventType = 'chec
       sendPurchaseReceipt: async (to, data) => { assert.equal(to, 'delivered@resend.dev'); receipts.push(data) },
       sendNewSubscriberNotification: async () => { throw new Error('Unexpected subscription email') },
     },
-    '@/lib/notifications': { createNotification: async () => { throw new Error('Unexpected notification') } },
+    '@/lib/subscription-notifications': { notifyNewSubscriber: async () => { throw new Error('Unexpected subscription notification') } },
     '@/lib/coaching-confirmation': { provisionConfirmedCoachingBooking: async () => { throw new Error('Unexpected coaching confirmation') } },
     '@/lib/coaching-refund': { reconcileCoachingRefund: async () => {
       assert.ok(settlementResult && ['charge.refunded', 'refund.updated'].includes(eventType))

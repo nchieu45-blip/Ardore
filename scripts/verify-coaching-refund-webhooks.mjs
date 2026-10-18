@@ -119,7 +119,7 @@ function fixture({ booking: changes = {}, reconciliationFailure = false, chargeR
       reconcileCoachingPaymentIntent: async input => { assert.equal(input.service, service); lifecycleCalls.push(input) },
     },
     '@/lib/email/send': { sendPurchaseReceipt() { throw new Error('Unexpected receipt') }, sendNewSubscriberNotification() { throw new Error('Unexpected email') } },
-    '@/lib/notifications': { createNotification() { throw new Error('Unexpected notification') } },
+    '@/lib/subscription-notifications': { notifyNewSubscriber() { throw new Error('Unexpected subscription notification') } },
   }
   const loadedModule = { exports: {} }
   new Function('require', 'exports', 'module', 'process', 'console', compiled)(
