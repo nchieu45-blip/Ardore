@@ -286,6 +286,7 @@ test('Storage migration is a service-only preflight plus private cascade guard, 
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.account_deletion_storage_clear\(uuid\) TO service_role/)
   assert.match(sql, /BEFORE DELETE ON public\.profiles/)
   assert.match(sql, /object\.owner_id = p_user_id::text OR object\.owner = p_user_id/)
+  assert.match(sql, /object\.bucket_id = 'verification-docs'[\s\S]*creator\.user_id = p_user_id[\s\S]*object\.name LIKE creator\.id::text \|\| '\/%'/)
   assert.equal((sql.match(/SET search_path = ''/g) ?? []).length, 3)
   assert.doesNotMatch(sql, /(?:INSERT INTO|UPDATE|DELETE FROM|ALTER TABLE)\s+auth\.users/i)
   assert.doesNotMatch(sql, /(?:DELETE FROM|TRUNCATE|DROP TABLE)\s+/i)

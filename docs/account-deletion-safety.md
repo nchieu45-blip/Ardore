@@ -19,7 +19,8 @@ or rewrite existing customer rows or files. Never edit previously applied SQL.
   attempt or discount redemption involving the account requires support review.
   This intentionally conservative policy also covers completed/failed history.
 - Stored files require support review. A service-only RPC checks both current
-  `owner_id` and legacy `owner`; a private trigger checks again during the Auth
+  `owner_id`, legacy `owner` and service-uploaded verification files under the
+  existing coach UUID prefix; a private trigger checks again during the Auth
   deletion cascade. No automatic bucket/file cleanup or ownership reassignment.
 - Read errors, unknown counts, truncated snapshots, duplicate provider bindings,
   mismatched ownership/mode, missing Stripe resources and unavailable credentials
@@ -60,6 +61,14 @@ fictional `example.invalid` identities and a payment-free trial. It verified:
   explicitly removing only the local fixture file succeeds.
 - Previous local cancellation fixtures were preserved; no refunds or real email
   delivery; no production credentials, data, settings or migrations were used.
+
+A further eight local assertions verified service-uploaded verification files
+without a user owner: the coach UUID path blocks preflight and direct Auth
+deletion, account/profile/file survive, and removal of only the fictional file
+allows a successful retry. These are local-only checks, not production evidence.
+The complete suite on the updated main base passed 906 tests (84 directly cover
+account deletion). TypeScript and the production build passed; ESLint had no
+errors and four pre-existing React Hook Form compatibility warnings.
 
 Local security advisors found three pre-existing SECURITY DEFINER view findings:
 `public_profiles`, `public_session_reviews`, `public_product_reviews`. The new

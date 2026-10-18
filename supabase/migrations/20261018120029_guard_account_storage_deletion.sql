@@ -10,6 +10,13 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT EXISTS (
     SELECT 1 FROM storage.objects AS object
     WHERE object.owner_id = p_user_id::text OR object.owner = p_user_id
+      -- Verification uploads use the server service role, so owner can be NULL.
+      -- The existing upload route binds these files to the coach UUID prefix.
+      OR (object.bucket_id = 'verification-docs' AND EXISTS (
+        SELECT 1 FROM public.creator_profiles AS creator
+        WHERE creator.user_id = p_user_id
+          AND object.name LIKE creator.id::text || '/%'
+      ))
   );
 $$;
 REVOKE ALL ON FUNCTION private.account_owns_storage(uuid) FROM PUBLIC, anon, authenticated;
