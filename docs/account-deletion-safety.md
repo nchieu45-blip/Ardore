@@ -2,12 +2,19 @@
 
 ## Release gate
 
+**BLOCKED:** Local deterministic parallel tests now reproduce orphaned
+verification uploads and buyer-less checkout orders in the final deletion
+window. Do not approve this PR for production on the strength of the earlier
+sequential test results. See `view-security-and-concurrency.md` for the exact
+25-check outcome (23 pass, 2 fail) and the required shared write barrier.
+
 This change is not deployed. Before an explicitly approved release, separately
 approve and apply `20261018120029_guard_account_storage_deletion.sql` through the
 normal reviewed Supabase migration process. Verify the service-only preflight and
 private profile-delete trigger before releasing application code. Do not enable
 the GitHub migration workflow. Without the preflight RPC, deletion fails closed.
-The migration changes functions/permissions and adds a trigger; it does not erase
+The pending migration also bounds lock/statement waits. It changes
+functions/permissions and adds a trigger; it does not erase
 or rewrite existing customer rows or files. Never edit previously applied SQL.
 
 ## Behavior
@@ -70,11 +77,12 @@ The complete suite on the updated main base passed 906 tests (84 directly cover
 account deletion). TypeScript and the production build passed; ESLint had no
 errors and four pre-existing React Hook Form compatibility warnings.
 
-Local security advisors found three pre-existing SECURITY DEFINER view findings:
+The initial local security advisors found three pre-existing SECURITY DEFINER view findings:
 `public_profiles`, `public_session_reviews`, `public_product_reviews`. The new
 guard functions have fixed empty search paths and no anon/authenticated execute
-permission. The existing view findings need separate review; this work does not
-claim that the database security audit is fully clean.
+permission. A subsequent pending view migration now fixes the three view
+boundaries locally; this is not yet a production change. Concurrent deletion
+remains release-blocked regardless of the clean local advisor result.
 
 ## Remaining limitations
 

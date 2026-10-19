@@ -2,6 +2,8 @@
 -- GoTrue versions differ in their treatment of Storage ownership. Fail closed
 -- before Stripe calls and again inside the existing Auth -> profiles cascade.
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 
 CREATE SCHEMA IF NOT EXISTS private;
 
