@@ -6,6 +6,7 @@ import { parseEnv } from 'node:util'
 import { randomUUID, randomInt } from 'node:crypto'
 import { spawn, spawnSync } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
+import ts from 'typescript'
 
 const args = process.argv.slice(2)
 assert.ok(args.includes('--local'), 'Explicit --local required')
@@ -19,11 +20,24 @@ const inspected = spawnSync('docker', ['--context', 'colima-ardore-test', 'inspe
 assert.ok(inspected.status === 0 && inspected.stdout.trim() === '/supabase_db_ardore-local-test true ardore-local-loopback', 'Expected isolated container/network required')
 const service = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
 const run = { id: randomUUID(), users: [], tables: {}, files: [], results: [], blockers: [] }
+const loginFixtures = new Map()
 const suffix = run.id.replaceAll('-', '')
 const pauseFunction = `local_security_pause_${suffix}`
 const pauseTrigger = `zz_local_security_pause_${suffix}`
 let stage = 'setup', createdVerificationBucket = false
 const sessions = []
+// Execute the actual orchestration against LOCAL services, without loading any
+// provider/email client. This is not a mocked database or a Stripe integration.
+const deletionModule = { exports: {} }
+new Function('require','exports','module', ts.transpileModule(readFileSync(new URL('../src/lib/account-deletion.ts', import.meta.url),'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText)(name => {
+  if (name === 'server-only') return {}
+  if (name === '@/lib/subscription-cancellation') return { ownedProviderSubscription() { throw new Error('Stripe forbidden in local barrier suite') } }
+  throw new Error('External service import forbidden in local barrier suite')
+}, deletionModule.exports, deletionModule)
+const { deleteAccountSafely } = deletionModule.exports
+const providerForbidden = async () => { throw new Error('Stripe forbidden in local barrier suite') }
 function record(name, passed, detail) {
   run.results.push({ name, passed, ...(detail ? { detail } : {}) })
   if (!passed) run.blockers.push(name)
@@ -43,10 +57,12 @@ async function insert(table, data) {
   return row
 }
 async function user(label) {
-  const result = await service.auth.admin.createUser({ email: `view.${label}.${run.id}@example.invalid`, email_confirm: true,
+  const email = `view.${label}.${run.id}@example.invalid`, password = randomUUID()
+  const result = await service.auth.admin.createUser({ email, password, email_confirm: true,
     user_metadata: { full_name: `LOCAL ${label}`, local_security_run: run.id } })
   if (result.error) throw new Error('Local GoTrue fixture creation failed')
   run.users.push(result.data.user.id)
+  loginFixtures.set(result.data.user.id, { email, password })
   return result.data.user.id
 }
 async function coach(label, published = false) {
@@ -54,10 +70,22 @@ async function coach(label, published = false) {
   return insert('creator_profiles', { user_id: id, display_name: `Local ${label}`, slug: `${label}-${run.id}`, category: 'fitness', categories: ['fitness'], is_published: published, onboarding_step: published ? 5 : 1 })
 }
 async function accountExists(id) { const r = await service.auth.admin.getUserById(id); return !r.error && r.data.user?.id === id }
-async function upload(coachId) {
+async function clientFor(id) {
+  const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+  const result = await client.auth.signInWithPassword(loginFixtures.get(id))
+  if (result.error) throw new Error('Local fixture login failed')
+  return client
+}
+async function upload(coachId, allowBlocked = false) {
   const path = `${coachId}/local-security-${suffix}.pdf`
   const result = await service.storage.from('verification-docs').upload(path, Buffer.from('Fictional local security fixture'), { contentType: 'application/pdf' })
-  if (result.error) throw new Error('Local fixture upload failed')
+  if (result.error) {
+    // Storage sanitizes trigger exceptions into DatabaseError/500 on this local
+    // version. Test the API rejection + actual object/account state, not private
+    // Postgres error text. Writer lock arrival and allowed uploads are verified.
+    if (allowBlocked) return null
+    throw new Error('Local fixture upload failed')
+  }
   run.files.push(path)
   return path
 }
@@ -94,8 +122,22 @@ async function pausedDelete(id, operation) {
   sql(`CREATE FUNCTION private.${pauseFunction}() RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$ BEGIN IF OLD.id='${id}'::uuid THEN PERFORM pg_advisory_xact_lock(${key}); END IF; RETURN OLD; END $$; REVOKE ALL ON FUNCTION private.${pauseFunction}() FROM PUBLIC,anon,authenticated; CREATE TRIGGER ${pauseTrigger} BEFORE DELETE ON public.profiles FOR EACH ROW EXECUTE FUNCTION private.${pauseFunction}();`)
   const deletion = service.auth.admin.deleteUser(id)
   try {
+    stage = 'parallel_wait_deletion_pause'
     await waitForPause(key)
-    await operation()
+    // Start the writer while deletion is paused. The fixed writer MUST now
+    // wait on the account lock, so awaiting it before releasing would deadlock
+    // the test harness itself. Keep the original safety assertions below.
+    const writing = operation()
+    try {
+      stage = 'parallel_wait_writer_lock'
+      for (let i = 0; i < 60; i++) {
+        if (sql("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND NOT granted;") === '2') break
+        if (i === 59) throw new Error('Concurrent writer did not reach the shared account lock')
+        await new Promise(resolve => setTimeout(resolve, 30))
+      }
+    } finally { await send(barrier, 'COMMIT;') }
+    stage = 'parallel_wait_writer_result'
+    await writing
   } finally { await send(barrier, 'COMMIT;') }
   const result = await deletion
   sql(`DROP TRIGGER ${pauseTrigger} ON public.profiles; DROP FUNCTION private.${pauseFunction}();`)
@@ -116,6 +158,7 @@ async function cleanup() {
     assert.ok(!found.error && found.data.user.user_metadata.local_security_run === run.id, 'Never clean unrelated accounts')
     const result = await service.auth.admin.deleteUser(id); if (result.error) throw new Error('Exact local fixture Auth cleanup failed')
   }
+  if (run.users.length) sql(`DELETE FROM private.account_deletion_barriers WHERE user_id IN (${run.users.map(id => `'${id}'::uuid`).join(',')});`)
   if (createdVerificationBucket && (await service.storage.deleteBucket('verification-docs')).error) throw new Error('Empty fixture bucket cleanup failed')
 }
 try {
@@ -184,13 +227,102 @@ try {
     record('already_committed_upload_blocks_auth_delete', !!denied.error && await accountExists(before.user_id) && await fileExists(beforePath))
     const race = await coach('upload-race')
     let path
-    await pausedDelete(race.user_id, async () => { path = await upload(race.id) })
-    record('upload_after_guard_must_not_outlive_deleted_account', await accountExists(race.user_id) || !await fileExists(path), 'A deterministic local hook pauses after guard evaluation; no production hooks or uploads.')
+    await pausedDelete(race.user_id, async () => { path = await upload(race.id, true) })
+    record('upload_after_guard_must_not_outlive_deleted_account', await accountExists(race.user_id) || !await fileExists(`${race.id}/local-security-${suffix}.pdf`), 'Same service-role Storage API upload and same final deletion boundary; the writer waits, then is rejected.')
+    record('delete_first_service_upload_is_explicitly_rejected', path === null && !await accountExists(race.user_id))
     const buyerId = await user('checkout-race')
-    let order
-    await pausedDelete(buyerId, async () => { order = await insert('payment_orders', { kind: 'products', buyer_id: buyerId, creator_id: pub.id, account_id: null, gross_cents: 0, platform_fee_cents: 0, coach_net_cents: 0, stripe_livemode: false, reference: { local_security_run: run.id, productIds: [product.id] } }) })
-    const persisted = db(await service.from('payment_orders').select('id').eq('id', order.id).maybeSingle())
+    const orderId = randomUUID()
+    let orderResult
+    await pausedDelete(buyerId, async () => {
+      orderResult = await service.from('payment_orders').insert({ id: orderId, kind: 'products', buyer_id: buyerId, creator_id: pub.id, account_id: null, gross_cents: 0, platform_fee_cents: 0, coach_net_cents: 0, stripe_livemode: false, reference: { local_security_run: run.id, productIds: [product.id] } })
+      if (!orderResult.error) (run.tables.payment_orders ??= []).push(orderId)
+    })
+    const persisted = db(await service.from('payment_orders').select('id').eq('id', orderId).maybeSingle())
     record('checkout_order_after_preflight_must_keep_valid_buyer_account', await accountExists(buyerId) || !persisted, 'Only a local zero-value frozen order; no Stripe API calls, sessions or payments.')
+    record('delete_first_order_is_explicitly_rejected', orderResult.error?.code === '55000' && !await accountExists(buyerId))
+
+    stage = 'durable_write_barrier'
+    const lockedCoach = await coach('barrier-coach')
+    const browser = await clientFor(lockedCoach.user_id)
+    const start = await service.rpc('begin_account_deletion', { p_user_id: lockedCoach.user_id })
+    assert.ok(!start.error && typeof start.data === 'string')
+    const token = start.data
+    const directClient = await browser.rpc('begin_account_deletion', { p_user_id: lockedCoach.user_id })
+    record('browser_cannot_invoke_deletion_lifecycle_rpc', !!directClient.error)
+    const duplicateStart = await service.rpc('begin_account_deletion', { p_user_id: lockedCoach.user_id })
+    record('concurrent_deletion_worker_cannot_steal_active_lease', duplicateStart.error?.code === '55000')
+    const blockedPath = `${lockedCoach.id}/local-security-${suffix}.pdf`
+    const browserUpload = await browser.storage.from('verification-docs').upload(blockedPath, Buffer.from('Local fictional fixture'), { contentType: 'application/pdf' })
+    record('browser_storage_upload_denied_during_durable_deletion', !!browserUpload.error && !await fileExists(blockedPath))
+    record('service_storage_upload_also_denied_during_durable_deletion', await upload(lockedCoach.id, true) === null)
+    const blockedOrderId = randomUUID(), blockedSubscriptionId = randomUUID()
+    ;(run.tables.payment_orders ??= []).push(blockedOrderId)
+    ;(run.tables.subscriptions ??= []).push(blockedSubscriptionId)
+    // Track exact attempted IDs even if a broken guard unexpectedly allows one.
+    if (!run.files.includes(blockedPath)) run.files.push(blockedPath)
+    const blockedOrder = await service.from('payment_orders').insert({ id: blockedOrderId, kind: 'products', buyer_id: own, creator_id: lockedCoach.id, account_id: null, gross_cents: 0, platform_fee_cents: 0, coach_net_cents: 0, stripe_livemode: false, reference: {} })
+    record('checkout_for_deleting_coach_is_denied', blockedOrder.error?.code === '55000')
+    const blockedSubscription = await service.from('subscriptions').insert({ id: blockedSubscriptionId, buyer_id: own, creator_id: lockedCoach.id, tier_id: tier.id, stripe_subscription_id: `free_${run.id}`, status: 'active' })
+    record('late_subscription_cannot_change_deletion_snapshot', blockedSubscription.error?.code === '55000')
+    // Lease expiry is NOT write permission. A new worker can resume but an old
+    // token can neither mark Auth work nor release the new worker's barrier.
+    sql(`UPDATE private.account_deletion_barriers SET lease_until=clock_timestamp()-interval '1 second' WHERE user_id='${lockedCoach.user_id}';`)
+    record('expired_worker_lease_still_blocks_uploads', await upload(lockedCoach.id, true) === null)
+    const resumed = await service.rpc('begin_account_deletion', { p_user_id: lockedCoach.user_id })
+    assert.ok(!resumed.error && resumed.data !== token)
+    const staleRelease = await service.rpc('release_account_deletion', { p_user_id: lockedCoach.user_id, p_attempt_id: token })
+    const staleAuth = await service.rpc('mark_account_deletion_auth', { p_user_id: lockedCoach.user_id, p_attempt_id: token })
+    record('old_worker_token_cannot_release_or_authorize_auth', staleRelease.data === false && staleAuth.data === false && await upload(lockedCoach.id, true) === null)
+    const released = await service.rpc('release_account_deletion', { p_user_id: lockedCoach.user_id, p_attempt_id: resumed.data })
+    record('pre_auth_failure_can_safely_release_matching_attempt', released.data === true && !!await upload(lockedCoach.id))
+
+    const uncertain = await user('ambiguous-auth')
+    const uncertainStart = db(await service.rpc('begin_account_deletion', { p_user_id: uncertain }))
+    record('auth_request_requires_explicit_durable_fencing', db(await service.rpc('mark_account_deletion_auth', { p_user_id: uncertain, p_attempt_id: uncertainStart })) === true)
+    const cannotReopen = await service.rpc('release_account_deletion', { p_user_id: uncertain, p_attempt_id: uncertainStart })
+    record('ambiguous_auth_call_never_reopens_writes', cannotReopen.data === false)
+    sql(`UPDATE private.account_deletion_barriers SET lease_until=clock_timestamp()-interval '1 second' WHERE user_id='${uncertain}';`)
+    const uncertainRetry = db(await service.rpc('begin_account_deletion', { p_user_id: uncertain }))
+    const retryRelease = await service.rpc('release_account_deletion', { p_user_id: uncertain, p_attempt_id: uncertainRetry })
+    record('retry_preserves_prior_ambiguous_auth_barrier', retryRelease.data === false)
+
+    stage = 'writer_first_order'
+    const firstBuyer = await user('order-first'), firstOrder = randomUUID(), writer = session()
+    ;(run.tables.payment_orders ??= []).push(firstOrder)
+    await send(writer, `BEGIN; INSERT INTO public.payment_orders(id,kind,buyer_id,creator_id,account_id,gross_cents,platform_fee_cents,coach_net_cents,stripe_livemode,reference) VALUES('${firstOrder}','products','${firstBuyer}','${pub.id}',NULL,0,0,0,false,'{}');`)
+    const removing = service.auth.admin.deleteUser(firstBuyer)
+    try {
+      for (let i = 0; i < 60; i++) {
+        if (sql("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted);") === 't') break
+        if (i === 59) throw new Error('Deletion did not wait for in-flight writer')
+        await new Promise(resolve => setTimeout(resolve, 30))
+      }
+    } finally { await send(writer, 'COMMIT;') }
+    const kept = await removing
+    record('writer_first_uncommitted_order_blocks_delete_after_commit', !!kept.error && await accountExists(firstBuyer) && !!db(await service.from('payment_orders').select('id').eq('id',firstOrder).maybeSingle()))
+
+    stage = 'actual_deletion_orchestration'
+    const actualUser = await user('actual-safe-delete')
+    await deleteAccountSafely({ service, userId: actualUser, getProvider: providerForbidden })
+    record('actual_app_orchestration_deletes_empty_local_account', !await accountExists(actualUser))
+    record('successful_app_delete_retains_tombstone_against_stale_writers', sql(`SELECT auth_started FROM private.account_deletion_barriers WHERE user_id='${actualUser}';`) === 't')
+    const retainedUser = await user('actual-retained-order')
+    await insert('payment_orders', { kind:'products',buyer_id:retainedUser,creator_id:pub.id,account_id:null,gross_cents:0,platform_fee_cents:0,coach_net_cents:0,stripe_livemode:false,reference:{} })
+    let retainedStatus
+    try { await deleteAccountSafely({ service,userId:retainedUser,getProvider:providerForbidden }) } catch (error) { retainedStatus = error.status }
+    record('actual_app_retention_failure_preserves_account_and_releases_pre_auth_barrier', retainedStatus === 409 && await accountExists(retainedUser) && sql(`SELECT NOT EXISTS(SELECT 1 FROM private.account_deletion_barriers WHERE user_id='${retainedUser}');`) === 't')
+    const ambiguousUser = await user('actual-ambiguous-auth')
+    const failTransport = new Proxy(service, { get(target, key) {
+      if (key === 'auth') return { admin: { ...target.auth.admin, deleteUser: async () => { throw new Error('Explicit LOCAL Auth transport fault') } } }
+      const value = Reflect.get(target,key); return typeof value === 'function' ? value.bind(target) : value
+    } })
+    try { await deleteAccountSafely({ service:failTransport,userId:ambiguousUser,getProvider:providerForbidden }) } catch { /* expected local transport fault */ }
+    record('actual_auth_transport_failure_preserves_account_and_durable_barrier', await accountExists(ambiguousUser) && sql(`SELECT auth_started FROM private.account_deletion_barriers WHERE user_id='${ambiguousUser}';`) === 't')
+    sql(`UPDATE private.account_deletion_barriers SET lease_until=clock_timestamp()-interval '1 second' WHERE user_id='${ambiguousUser}';`)
+    await deleteAccountSafely({ service,userId:ambiguousUser,getProvider:providerForbidden })
+    record('actual_app_retry_after_ambiguous_auth_can_complete_safely', !await accountExists(ambiguousUser))
+
+    stage = 'duplicate_delete'
     const duplicate = await user('double-delete')
     const results = await Promise.all([service.auth.admin.deleteUser(duplicate), service.auth.admin.deleteUser(duplicate)])
     record('parallel_duplicate_delete_has_no_false_retained_account', results.some(r => !r.error) && !await accountExists(duplicate))
@@ -198,8 +330,9 @@ try {
   stage = 'cleanup'
   await cleanup()
   record('all_created_local_auth_fixtures_removed_existing_users_preserved', sql('SELECT count(*) FROM auth.users;') === baseline)
-} catch {
-  record('runner_completed_without_unexpected_fixture_error', false, `stage=${stage}; raw service output suppressed`)
+} catch (error) {
+  const known = ['Local fixture upload failed','Expected local race boundary not reached','Concurrent writer did not reach the shared account lock','Local SQL barrier unavailable','Isolated SQL operation failed','Local fixture database operation failed','Deletion did not wait for in-flight writer']
+  record('runner_completed_without_unexpected_fixture_error', false, `stage=${stage}; ${known.includes(error.message) ? error.message : 'raw service output suppressed'}`)
   try { await cleanup() } catch { record('exact_fixture_cleanup_completed', false) }
 }
 const reportIndex = args.indexOf('--report')

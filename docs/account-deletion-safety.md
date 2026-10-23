@@ -2,16 +2,17 @@
 
 ## Release gate
 
-**BLOCKED:** Local deterministic parallel tests now reproduce orphaned
-verification uploads and buyer-less checkout orders in the final deletion
-window. Do not approve this PR for production on the strength of the earlier
-sequential test results. See `view-security-and-concurrency.md` for the exact
-25-check outcome (23 pass, 2 fail) and the required shared write barrier.
+**REVIEW REQUIRED:** The two previously reproduced parallel failures are fixed
+locally by `20261023090520_account_deletion_write_barrier.sql`. The expanded
+45-check local suite passes, including the original service-role upload and
+buyer-less checkout-order races. This is not production migration/release
+approval. See `view-security-and-concurrency.md` for historical and current evidence.
 
 This change is not deployed. Before an explicitly approved release, separately
-approve and apply `20261018120029_guard_account_storage_deletion.sql` through the
-normal reviewed Supabase migration process. Verify the service-only preflight and
-private profile-delete trigger before releasing application code. Do not enable
+approve and apply the three pending migrations in order: `20261018120029`,
+`20261019131618`, then `20261023090520`, through the normal reviewed Supabase
+migration process. Verify the service-only lifecycle RPCs/preflight and the private
+profile-delete, record-write and Storage-write triggers before releasing code. Do not enable
 the GitHub migration workflow. Without the preflight RPC, deletion fails closed.
 The pending migration also bounds lock/statement waits. It changes
 functions/permissions and adds a trigger; it does not erase
@@ -26,9 +27,20 @@ or rewrite existing customer rows or files. Never edit previously applied SQL.
   attempt or discount redemption involving the account requires support review.
   This intentionally conservative policy also covers completed/failed history.
 - Stored files require support review. A service-only RPC checks both current
-  `owner_id`, legacy `owner` and service-uploaded verification files under the
-  existing coach UUID prefix; a private trigger checks again during the Auth
+  `owner_id`, legacy `owner` and all existing Ardore bucket folder conventions,
+  including service-uploaded verification files; a private trigger checks again during the Auth
   deletion cascade. No automatic bucket/file cleanup or ownership reassignment.
+- Before reading retention/subscription snapshots, the server claims a durable
+  write barrier. New records and Storage inserts/ownership changes use the same
+  short ordered transaction advisory locks as the final profile deletion guard.
+  This includes service-role Storage uploads, not merely browser RLS checks.
+- Only the service role can start/mark/release deletion. A five-minute worker
+  lease prevents duplicate workers; lease expiry never reopens writes. Stale
+  attempt tokens cannot release a newer attempt or authorize an Auth call.
+  A confirmed pre-Auth failure can release its matching barrier. Once an Auth
+  request may have started, the barrier survives errors and process restarts.
+  Retry after the worker lease expires can finish deletion; never clear that
+  uncertain state by an automatic timer or manual SQL as a workaround.
 - Read errors, unknown counts, truncated snapshots, duplicate provider bindings,
   mismatched ownership/mode, missing Stripe resources and unavailable credentials
   all stop deletion. Every subscription status is inspected, not only `active`.
@@ -86,12 +98,41 @@ remains release-blocked regardless of the clean local advisor result.
 
 ## Remaining limitations
 
-Stripe and database deletion are not one distributed transaction. Snapshot
-rechecks are not a global lock against concurrent checkouts, uploads or provider
-dashboard edits. A fully serialized deletion/checkout lifecycle and durable email
-outbox are separate work; do not claim those guarantees here. Financial-history
+Stripe and database deletion are not one distributed transaction. The shared
+barrier now serializes the supported account writes and final deletion; it does
+not serialize external provider-dashboard edits. Modern checkout persists a
+guarded frozen order before creating a Stripe session, so in-flight checkout
+records block deletion. Legacy/external provider work and a durable email outbox
+still require separate reconciliation/retention review. Financial-history
 and stored-file deletion/anonymization require a reviewed support/retention
 process, not bypassing guards. Auth deletion does not universally invalidate
 already issued JWTs; sensitive routes must continue using server-validated users.
 No live delivery test, manual browser/device QA or production mutation was run.
 The local toolchain is Node 24; GitHub CI is the Node 22 compatibility check.
+
+## Verification on 2026-10-23
+
+- 45 real local integration checks pass; both original race assertions remain.
+  The harness now starts the writer while deletion is paused, verifies it waits
+  on the shared account lock, then releases deletion before awaiting the writer.
+  Awaiting a correctly blocked writer first would deadlock the harness itself.
+- Writer-first uncommitted order preserves the buyer after commit; delete-first
+  service upload/order are rejected without dangling metadata/order references.
+  Browser and service Storage writes, deleting-coach orders, subscription inserts,
+  duplicate workers, expired leases and stale attempt tokens are covered.
+- The actual application orchestration ran against real local GoTrue/Postgres:
+  empty-account deletion, retained-history failure with pre-Auth release, explicit
+  local Auth-transport fault, retained durable barrier and safe retry all pass.
+- 924 offline regressions, TypeScript and production build pass; lint has zero
+  errors/four existing warnings. Local security advisors report no findings.
+  No Stripe requests/payments, external emails or production service calls were
+  made by this suite. Fixtures were removed; prior three Auth users/four fixture
+  subscriptions remain intact. No earlier applied migration was edited.
+- This local Storage version sanitizes rejected trigger writes as DatabaseError
+  HTTP 500. Clients must treat the upload as failed; API error wording is not a
+  security guarantee. Tests verify lock arrival, actual object/account state and
+  allowed uploads after safe barrier release, not leaked internal SQL error text.
+
+The supported validation-trigger mechanism is documented in Supabase's
+[managed-schema restrictions](https://supabase.com/changelog/34270-restricting-access-on-auth-storage-and-realtime-schemas-on-april-21-2025).
+File operations remain exclusively through the [Storage API](https://supabase.com/docs/guides/storage/schema/design).

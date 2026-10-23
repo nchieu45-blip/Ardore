@@ -39,8 +39,21 @@ function fixture(options = {}) {
   let deleted = false, canceled = 0, retrieved = 0, snapshots = 0, protections = 0
   const service = {
     async rpc(name, args) {
+      const userId = options.isCreator ? coachUser : buyer
+      assert.equal(args.p_user_id, userId)
+      if (name === 'begin_account_deletion') {
+        events.push('beginBarrier')
+        assert.deepEqual(args, { p_user_id: userId })
+        return { data: options.barrierInvalid ? null : tier, error: options.barrierError ? { code: options.barrierError, message: privateError } : null }
+      }
+      if (name === 'mark_account_deletion_auth' || name === 'release_account_deletion') {
+        assert.deepEqual(args, { p_user_id: userId, p_attempt_id: tier })
+        events.push(name === 'mark_account_deletion_auth' ? 'markAuth' : 'releaseBarrier')
+        if (name === 'release_account_deletion' && options.releaseThrows) throw new Error(privateError)
+        return { data: name === 'mark_account_deletion_auth' ? !options.markAuthError : true, error: options.markAuthError ? { message: privateError } : null }
+      }
       assert.equal(name, 'account_deletion_storage_clear')
-      assert.deepEqual(args, { p_user_id: options.isCreator ? coachUser : buyer })
+      assert.deepEqual(args, { p_user_id: userId })
       events.push('storagePreflight')
       return { data: options.storageOwned ? false : options.storageUnknown ? null : true, error: options.storageError ? { message: privateError } : null }
     },
@@ -290,4 +303,32 @@ test('Storage migration is a service-only preflight plus private cascade guard, 
   assert.equal((sql.match(/SET search_path = ''/g) ?? []).length, 3)
   assert.doesNotMatch(sql, /(?:INSERT INTO|UPDATE|DELETE FROM|ALTER TABLE)\s+auth\.users/i)
   assert.doesNotMatch(sql, /(?:DELETE FROM|TRUNCATE|DROP TABLE)\s+/i)
+})
+
+for (const [name, options, status] of [
+  ['busy deletion', { barrierError: '55000' }, 409],
+  ['missing migration', { barrierError: '42883' }, 503],
+  ['unknown lease', { barrierInvalid: true }, 503],
+]) test(`${name}: no snapshots, Stripe or Auth deletion without a durable barrier`, async () => {
+  const state = fixture(options); await response(state, status)
+  assert.equal(state.queries.length, 0); assert.equal(state.canceled, 0)
+  assert.ok(!state.events.includes('deleteUser'))
+})
+test('durable barrier precedes snapshots and auth fencing precedes the GoTrue delete', async () => {
+  const state = fixture(); await response(state, 200)
+  assert.ok(state.events.indexOf('beginBarrier') < state.events.indexOf('read:creator_profiles'))
+  assert.ok(state.events.indexOf('markAuth') < state.events.indexOf('deleteUser'))
+  assert.ok(!state.events.includes('releaseBarrier'))
+})
+test('lost/expired worker cannot issue an Auth deletion', async () => {
+  const state = fixture({ markAuthError: true }); await response(state, 503)
+  assert.ok(!state.events.includes('deleteUser')); assert.ok(state.events.includes('releaseBarrier'))
+})
+test('provider failure requests only token-fenced release before Auth', async () => {
+  const state = fixture({ cancelError: true }); await response(state, 503)
+  assert.ok(state.events.includes('releaseBarrier')); assert.ok(!state.events.includes('markAuth'))
+})
+test('release failure neither deletes nor leaks details of the original provider failure', async () => {
+  const state = fixture({ cancelError: true, releaseThrows: true }); await response(state, 503)
+  assert.equal(state.deleted, false)
 })

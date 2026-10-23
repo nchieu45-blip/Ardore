@@ -1,7 +1,41 @@
-# View boundaries and deletion concurrency — release blocked
+# View boundaries and deletion concurrency — pending release review
 
 Prepared on `codex/safe-account-deletion`, extending draft PR #7. Nothing in
 this work authorizes production migration, merge or deployment.
+
+## Current update — 2026-10-23
+
+The two historical failures below are fixed locally by the new pending
+`20261023090520_account_deletion_write_barrier.sql`, with no edits to historical
+applied migrations. The expanded local runner passes **45/45 checks**; both
+original safety assertions are retained. **924 offline regressions**, TypeScript,
+lint (zero errors/four existing warnings), production build and local security
+advisors also pass. GitHub CI is a separate check and never substitutes for these
+opted-in local races. PR #7 remains draft; no production changes are authorized.
+
+- Durable private account barrier claimed before retention/provider snapshots.
+- Short ordered transaction advisory locks shared by all guarded producers and
+  the final profile-delete guard, with fresh read-committed snapshots after waits.
+- Validation triggers cover Storage inserts/ownership changes (including service
+  role), orders, settlements, booking/payment attempts, discount redemptions,
+  subscriptions, purchases, class bookings, verification requests and coach creation.
+  No Storage/Auth metadata is manually rewritten; all files use the Storage API.
+- Service-only lifecycle RPCs fence attempts. Worker lease expiry permits a safe
+  deletion retry, not writes. After an Auth request may have started, a later
+  worker cannot automatically release the barrier; successful deletion leaves a
+  tombstone for stale writers. Pre-Auth failures can release only their own token.
+- The exact local orphan cases now wait and reject. Writer-first uncommitted
+  orders cause deletion to roll back, preserving the buyer and financial history.
+  Real app orchestration/GoTrue cleanup, Auth fault/retry and privileges pass.
+
+Release still needs independent review of the new lifecycle/Storage triggers,
+separate approval for the three pending production migrations in order
+`20261018120029`, `20261019131618`, `20261023090520`, read-only verification of the
+actual production permissions/triggers after approved application, and explicit
+merge/deployment approval. Do not dispatch/enable the GitHub migration workflow.
+Stripe integration/provider-dashboard edits, emails and full browser/device QA
+were not retested by this local-only suite. Financial/file retention cases still
+require support review; never bypass a barrier with manual data deletion.
 
 ## Prepared changes
 
@@ -30,7 +64,7 @@ and `statement_timeout=30s`. The earlier storage migration has not been applied
 to production; only this unreleased file was adjusted. Applied historical
 migrations were not edited. Neither migration rewrites customer rows.
 
-## Local verification
+## Local verification (original 2026-10-19 result)
 
 Use the existing dedicated `colima-ardore-test` / `supabase_db_ardore-local-test`
 container, loopback API 127.0.0.1:54331 and isolated app configuration. Never
@@ -59,7 +93,7 @@ already-committed upload rejection and duplicate deletion. Local security
 advisors report no remaining findings after the view migration. This is local
 evidence only, not a production-wide security certification.
 
-## Two confirmed release blockers — not fixed or hidden
+## Two originally confirmed blockers — historical reproduction
 
 1. **Upload after the guard:** a real local Auth Admin delete is paused after
    the real profile-delete guard has evaluated but before commit. A service-role
@@ -77,7 +111,7 @@ green offline/CI suite does **not** override these failures. Both failures also
 occur without changing the prepared view migration; they are pre-existing gaps
 in the account-deletion lifecycle, not repaired by DDL timeouts or view RLS.
 
-## Required next implementation before release
+## Original required next implementation — implemented locally above
 
 Design a common deletion state/write barrier that all relevant producers honor:
 browser Storage uploads, server verification uploads, checkout order creation,

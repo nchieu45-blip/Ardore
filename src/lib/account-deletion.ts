@@ -55,11 +55,37 @@ async function subscriptions(service: SupabaseClient, userId: string, creatorId?
   return data as CancellableSubscription[]
 }
 
-export async function deleteAccountSafely(input: {
+type DeletionInput = {
   service: SupabaseClient
   userId: string
   getProvider: () => Promise<{ provider: Stripe; livemode: boolean }>
-}): Promise<void> {
+}
+
+export async function deleteAccountSafely(input: DeletionInput): Promise<void> {
+  const { service, userId } = input
+  // Persist the write barrier BEFORE any retention/Stripe snapshots. A failed or
+  // missing migration is never permission to continue without serialization.
+  const started = await service.rpc('begin_account_deletion', { p_user_id: userId })
+  if (started.error || typeof started.data !== 'string'
+    || !/^[0-9a-f-]{36}$/i.test(started.data)) {
+    throw new AccountDeletionError(started.error?.code === '55000' ? 409 : 503,
+      started.error?.code === '55000'
+        ? 'Eine Kontolöschung läuft bereits. Bitte warte fünf Minuten und versuche es erneut oder kontaktiere den Ardore-Support.'
+        : unavailable)
+  }
+  const attemptId = started.data
+  try {
+    await deleteAccountWithinBarrier(input, attemptId)
+  } catch (error) {
+    // Token fencing prevents an old worker reopening a newer attempt. After an
+    // Auth request may have started, SQL refuses release even on timeout/error.
+    // Failure to release also stays closed; no automatic expiry reopens writes.
+    try { await service.rpc('release_account_deletion', { p_user_id: userId, p_attempt_id: attemptId }) } catch { /* keep barrier */ }
+    throw error
+  }
+}
+
+async function deleteAccountWithinBarrier(input: DeletionInput, attemptId: string): Promise<void> {
   const { service, userId, getProvider } = input
   const { data: creator, error } = await service.from('creator_profiles')
     .select('id,display_name').eq('user_id', userId).maybeSingle()
@@ -103,8 +129,8 @@ export async function deleteAccountSafely(input: {
     }
   }
 
-  // Detect changes observed during provider calls. This is not a distributed
-  // transaction or a global checkout lock; financial cases require support.
+  // The durable barrier rejects new uploads/records during provider calls.
+  // Recheck retained history and bindings too; provider edits are not a DB txn.
   await protectRecords(service, userId, creator?.id)
   const current = await subscriptions(service, userId, creator?.id)
   const bindings = (rows: CancellableSubscription[]) => JSON.stringify(rows.map(row => ({
@@ -113,6 +139,8 @@ export async function deleteAccountSafely(input: {
   })))
   if (bindings(snapshot) !== bindings(current)) throw new AccountDeletionError(409, unavailable)
 
+  const authorized = await service.rpc('mark_account_deletion_auth', { p_user_id: userId, p_attempt_id: attemptId })
+  if (authorized.error || authorized.data !== true) throw new AccountDeletionError(503, unavailable)
   // One Auth Admin transaction using existing FK cascades. Never erase profiles
   // first: FK/storage restrictions must preserve account and recovery data.
   const result = await service.auth.admin.deleteUser(userId)
