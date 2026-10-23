@@ -318,7 +318,8 @@ test('migration isolates private URLs and serializes authenticated-owner-only wr
   assert.equal((sql.match(/SECURITY INVOKER SET search_path = ''/g) ?? []).length, 2)
   assert.equal((sql.match(/FROM PUBLIC, anon, authenticated/g) ?? []).length, 3)
   assert.doesNotMatch(sql, /UPDATE public.bookings|UPDATE public.creator_profiles|stripe\.transfers|auth.users/)
-  assert.match(readFileSync(new URL('../src/lib/features.ts', import.meta.url), 'utf8'), /VIDEO_CALLS_ENABLED = false/)
+  // Integrated video is enabled separately; the private external meeting path stays intact.
+  assert.match(readFileSync(new URL('../src/lib/features.ts', import.meta.url), 'utf8'), /VIDEO_CALLS_ENABLED = true/)
 })
 
 test('booking, marketplace, landing and FAQ describe the external meeting path rather than a disabled session', () => {

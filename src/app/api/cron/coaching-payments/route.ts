@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
         else pending++
       } catch { failed++ }
     }
-    return NextResponse.json({ reservations, reconciled, pending, failed }, { status: failed ? 503 : 200 })
+    const { recoverGroupPayments } = await import('@/lib/group-booking-payments')
+    const groups = await recoverGroupPayments({ service, limit: 50 })
+    return NextResponse.json({ reservations, groups, reconciled, pending, failed: failed + groups.failed }, { status: failed + groups.failed ? 503 : 200 })
   } catch {
     return NextResponse.json({ error: 'Payment recovery could not be completed' }, { status: 503 })
   }

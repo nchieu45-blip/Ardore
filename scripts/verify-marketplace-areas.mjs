@@ -248,8 +248,8 @@ test('group discovery uses upcoming appointments and never inherits session or p
   assert.deepEqual(offerIds(upcoming.html), ['group-sooner', 'group-later'])
   assert.ok(links(upcoming.html).some(link => link.href === '/marketplace?area=groups&sort=upcoming'))
   assert.ok(!/Sessionbewertung|Produktbewertung|Best bewertet|\/ 5/.test(result.html))
-  assert.match(result.html, /Bezahlte Gruppenbuchung derzeit nicht verfügbar/)
-  assert.match(result.html, /Video-Teilnahme an Gruppenangeboten ist derzeit noch nicht verfügbar/)
+  assert.match(result.html, /Jeder Termin wird separat gebucht/)
+  assert.doesNotMatch(result.html, /Video-Teilnahme an Gruppenangeboten ist derzeit noch nicht verfügbar/)
 })
 
 test('newest preview links retain every service through the complete 20-card result pages', () => {

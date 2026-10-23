@@ -129,7 +129,7 @@ export interface VideoClass {
   recurring_weekday: number | null  // 0 = Sunday … 6 = Saturday
   recurring_time: string | null     // e.g. '18:00'
   duration_minutes: number
-  max_participants: number | null   // null = unlimited
+  max_participants: number | null   // Legacy null values use the service limit of 199 attendees.
   price_cents: number
   included_in_subscription: boolean
   active: boolean
@@ -145,6 +145,15 @@ export interface VideoClassBooking {
   status: 'confirmed' | 'cancelled'
   daily_room_url: string | null
   created_at: string
+  occurrence_start: string | null
+  duration_minutes: number | null
+  class_title: string | null
+  payment_order_id: string | null
+  reservation_id: string | null
+  payment_status: string
+  stripe_livemode: boolean | null
+  refund_status: string
+  amount_refunded_cents: number
 }
 
 export interface CreatorStats {
