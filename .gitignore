@@ -38,6 +38,7 @@ yarn-error.log*
 
 # local tool state
 /.claude/
+/.impeccable/review/
 /supabase/.temp/
 
 # typescript

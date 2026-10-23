@@ -136,8 +136,8 @@ export default async function CreatorSessionsPage() {
 function CreatorSessionCard({ booking: b, now, creatorId, refund }: { booking: BookingRow; now: number; creatorId: string; refund: BookingRefund | null }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive       = VIDEO_CALLS_ENABLED && b.status === 'confirmed' && hasValidCoachingPayment(b)
-    && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isLive       = VIDEO_CALLS_ENABLED && Boolean(process.env.DAILY_API_KEY?.trim()) && b.status === 'confirmed' && hasValidCoachingPayment(b)
+    && now >= scheduledAt.getTime() - 15 * 60_000 && now < endAt.getTime()
   // Completion is explicit; elapsed appointment time alone is not delivery.
   const canCancel = b.status === 'confirmed'
   const canReschedule = scheduledAt.getTime() > now

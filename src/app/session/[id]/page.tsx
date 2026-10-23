@@ -25,9 +25,8 @@ interface BookingRow {
   status: string
   payment_status: string
   stripe_livemode: boolean | null
-  daily_room_url: string | null
   notes: string | null
-  creator_profiles: { display_name: string; user_id: string } | null
+  creator_profiles: { display_name: string; user_id: string } | { display_name: string; user_id: string }[] | null
 }
 
 export default async function SessionPage({
@@ -42,14 +41,14 @@ export default async function SessionPage({
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('*, creator_profiles(display_name, user_id)')
+    .select('id, creator_id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, is_subscription_session, price_cents, status, payment_status, stripe_livemode, notes, creator_profiles(display_name, user_id)')
     .eq('id', id)
     .single()
 
   if (!booking) notFound()
 
   const b = booking as BookingRow
-  const creator = b.creator_profiles
+  const creator = Array.isArray(b.creator_profiles) ? b.creator_profiles[0] : b.creator_profiles
 
   // Auth check: only creator or buyer can access
   const isCreator = user && creator && user.id === creator.user_id
@@ -70,7 +69,7 @@ export default async function SessionPage({
     ? await supabase.from('booking_meeting_links').select('meeting_url').eq('booking_id', b.id).maybeSingle()
     : { data: null, error: null }
   const meetingUrl = normalizeMeetingUrl(meeting?.meeting_url)
-  const hasDaily = VIDEO_CALLS_ENABLED && Boolean(b.daily_room_url)
+  const hasDaily = VIDEO_CALLS_ENABLED && Boolean(process.env.DAILY_API_KEY?.trim())
   const isLive = canAttend && Boolean(meetingUrl || hasDaily) && now >= scheduledAt.getTime() - 15 * 60_000
 
   return (
@@ -148,18 +147,18 @@ export default async function SessionPage({
         {['pending_payment', 'payment_failed', 'expired', 'reversed'].includes(b.status) && <p className="mt-3 text-sm text-amber-800">Diese Session ist nicht bestätigt.</p>}
       </div>
 
-      {canAttend && <MeetingAccess key={meetingUrl ?? 'no-meeting'} bookingId={b.id} meetingUrl={meetingUrl} isCoach={Boolean(isCreator)} loadFailed={Boolean(meetingError)} />}
+      {canAttend && (meetingUrl || !VIDEO_CALLS_ENABLED) && <MeetingAccess key={meetingUrl ?? 'no-meeting'} bookingId={b.id} meetingUrl={meetingUrl} isCoach={Boolean(isCreator)} loadFailed={Boolean(meetingError)} />}
+      {canAttend && isCreator && VIDEO_CALLS_ENABLED && !meetingUrl && <details className="mb-5 rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm font-medium">Alternativen Meeting-Link hinterlegen</summary><div className="mt-4"><MeetingAccess bookingId={b.id} meetingUrl={null} isCoach loadFailed={Boolean(meetingError)} /></div></details>}
       {isConfirmed && !hasValidPayment && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Der Session-Zugang ist erst nach einer gültigen Zahlung verfügbar.</p>}
       {['cancelled', 'completed'].includes(b.status) || isOver ? <p className="mt-4 text-sm text-gray-600">Für diesen Termin ist kein Meeting-Zugang mehr verfügbar.</p> : null}
       {isCreator && b.status === 'cancelled' && <p className="mt-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Bitte beende oder lösche das externe Meeting auch beim Anbieter. Bereits kopierte Anbieter-Links kann Ardore dort nicht widerrufen.</p>}
-      {/* Preserve Daily for a future explicit feature activation. */}
-      {VIDEO_CALLS_ENABLED && isConfirmed && hasValidPayment && !meetingUrl && (
+      {VIDEO_CALLS_ENABLED && canAttend && !meetingUrl && (
         <VideoRoom
-          roomUrl={b.daily_room_url}
-          isLive={isLive}
-          isOver={isOver}
+          key={`${b.id}:${b.scheduled_at}`}
+          bookingId={b.id}
           scheduledAt={b.scheduled_at}
           durationMinutes={b.duration_minutes}
+          configurationReady={hasDaily}
         />
       )}
     </div>

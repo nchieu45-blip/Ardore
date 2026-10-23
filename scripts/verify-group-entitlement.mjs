@@ -1,3 +1,4 @@
+// Local HTTP and entitlement contracts only: no external clients or side effects.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -16,90 +17,89 @@ function load(path, overrides) {
   )
   return loadedModule.exports
 }
+const origin = 'https://www.ardore-health.com'
+const classId = '20000000-0000-4000-8000-000000000001'
+const buyerId = '00000000-0000-4000-8000-000000000011'
+const requestId = '30000000-0000-4000-8000-000000000001'
+const occurrenceStart = '2099-01-01T18:00:00Z'
+const validation = load('../src/lib/group-booking-validation.ts', {})
 const entitlement = load('../src/lib/subscription-entitlement.ts', {})
+const http = load('../src/lib/group-booking-http.ts', { '@/lib/app-url': { appOrigin: () => origin } })
 const validSub = {
-  id: 'synthetic-sub', creator_id: 'coach-a', status: 'active', current_period_end: '2099-01-01T00:00:00Z',
+  creator_id: 'coach-a', status: 'active', current_period_end: '2099-01-01T00:00:00Z',
   stripe_subscription_id: 'sub_trusted', stripe_livemode: true, subscription_tiers: { creator_id: 'coach-a' },
 }
-
-function fixture({ user = { id: 'synthetic-buyer' }, subscription = null, price = 5900, countError = null, count = 0 } = {}) {
-  const writes = [], checkouts = [], reads = []
-  const videoClass = {
-    id: 'synthetic-class', creator_id: 'coach-a', active: true, price_cents: price,
-    included_in_subscription: true, max_participants: 10, title: 'Coach-controlled title',
-    creator_profiles: null, schedule_type: 'once', starts_at: null, duration_minutes: 60,
+function fixture({ user = { id: buyerId }, result = { httpStatus: 200, reservationId: requestId, status: 'confirmed' }, throws = false } = {}) {
+  const calls = [], services = []
+  const service = { synthetic: true }
+  const handlers = {
+    async reserveGroupBooking(args) { calls.push(['reserve',args]); if(throws)throw new Error('secret-service-detail'); return result },
+    async startOrResumeGroupCheckout(args) { calls.push(['resume',args]); return result },
+    async cancelGroupBooking(args) { calls.push(['cancel',args]); return result }, ...validation,
   }
-  function query(table, privileged) {
-    const filters = []
-    return {
-      select() { return this }, eq(key, value) { filters.push([key, value]); return this },
-      insert(row) { assert.equal(privileged, true, 'browser client must never write an entitlement'); writes.push(row); return this },
-      async single() { return { data: table === 'video_classes' ? videoClass : { id: 'synthetic-booking' }, error: null } },
-      async maybeSingle() { return { data: table === 'subscriptions' ? subscription : null, error: null } },
-      then(resolve, reject) {
-        reads.push({ table, privileged, filters })
-        return Promise.resolve({ count, error: countError }).then(resolve, reject)
-      },
-    }
+  const overrides = {
+    '@/lib/supabase/server': { createClient: async () => ({ auth: { getUser: async () => ({ data: { user }, error: null }) } }),
+      createServiceClient: async () => { services.push(service); return service } },
+    '@/lib/group-booking-payments': handlers, '@/lib/group-booking-http': http,
   }
-  const route = load('../src/app/api/video-classes/[id]/book/route.ts', {
-    '@/lib/subscription-entitlement': entitlement,
-    '@/lib/supabase/server': {
-      createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) }, from: table => query(table, false) }),
-      createServiceClient: async () => ({ from: table => query(table, true) }),
-    },
-    '@/lib/features': { VIDEO_CALLS_ENABLED: false },
-    '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async params => { checkouts.push(params); return { url: 'https://checkout.stripe.com/synthetic' } } } } } },
-    '@/lib/notifications': { createNotification: async () => assert.fail('unexpected notification'), checkNotificationPreference: async () => false },
-  })
-  return { writes, checkouts, reads, run: () => route.POST({}, { params: Promise.resolve({ id: videoClass.id }) }) }
+  const book = load('../src/app/api/video-classes/[id]/book/route.ts', overrides)
+  const retry = load('../src/app/api/video-classes/reservations/[id]/retry/route.ts', overrides)
+  const cancel = load('../src/app/api/video-classes/bookings/[id]/cancel/route.ts', overrides)
+  async function run({ payload = { requestId, expectedPriceCents: 500, occurrenceStart }, headers = {}, id = classId, action = 'book', raw } = {}) {
+    const request = new Request(`${origin}/api/video-classes/${id}/${action}`, { method:'POST',
+      headers: { Origin: origin, 'Content-Type':'application/json', ...headers }, body: raw ?? JSON.stringify(payload) })
+    return ({ book, retry, cancel })[action].POST(request,{params:Promise.resolve({id})})
+  }
+  return { calls, services, service, run }
 }
-
-test('group booking cannot issue an entitlement before authentication', async () => {
-  const state = fixture({ user: null })
-  assert.equal((await state.run()).status, 401)
-  assert.deepEqual(state.writes, [])
-  assert.deepEqual(state.checkouts, [])
+test('group HTTP booking requires authentication before any privileged work',async()=>{
+  const f=fixture({user:null});assert.equal((await f.run()).status,401);assert.deepEqual(f.services,[]);assert.deepEqual(f.calls,[])
 })
-
-test('unpaid, expired, canceled or foreign-tier subscriptions cannot grant a free group seat', async () => {
-  for (const subscription of [null, { ...validSub, stripe_livemode: false }, { ...validSub, status: 'canceled' },
-    { ...validSub, current_period_end: '2000-01-01T00:00:00Z' },
-    { ...validSub, subscription_tiers: { creator_id: 'coach-b' } }]) {
-    const state = fixture({ subscription })
-    assert.equal((await state.run()).status, 409)
-    assert.deepEqual(state.writes, [])
-    assert.deepEqual(state.checkouts, [], 'Unsupported paid groups must not collect money without fulfillment or settlement')
+test('cross-site, missing-origin and non-JSON group mutations are rejected before authentication/database',async()=>{
+  for(const headers of [{Origin:'https://evil.example'},{Origin:''},{'Sec-Fetch-Site':'cross-site'},{'Content-Type':'text/plain'}]){
+    const f=fixture();assert.ok([403,415].includes((await f.run({headers})).status));assert.deepEqual(f.services,[]);assert.deepEqual(f.calls,[])
   }
 })
-
-test('trusted paid and server-issued free benefits use only scoped server booking writes', async () => {
-  for (const subscription of [validSub, { ...validSub, stripe_livemode: null, stripe_subscription_id: 'free_server-issued' }]) {
-    const state = fixture({ subscription })
-    assert.equal((await state.run()).status, 200)
-    assert.equal(state.writes.length, 1)
-    assert.equal(state.writes[0].subscription_id, subscription.id)
-    assert.equal(state.writes[0].user_id, 'synthetic-buyer')
-    assert.equal(state.writes[0].video_class_id, 'synthetic-class')
-    assert.equal(state.writes[0].daily_room_url, null)
-    assert.deepEqual(state.checkouts, [])
+test('browser cannot supply buyer, payment state, Stripe mode, price override or arbitrary columns',async()=>{
+  for(const extra of [{buyerId:'attacker'},{priceCents:0},{status:'confirmed'},{stripeLivemode:true},{paymentOrderId:requestId}]){
+    const f=fixture();assert.equal((await f.run({payload:{requestId,expectedPriceCents:500,occurrenceStart,...extra}})).status,400);assert.equal(f.calls.length,0)
   }
 })
-
-test('coach-controlled zero price remains available without a subscription', async () => {
-  const state = fixture({ price: 0 })
-  assert.equal((await state.run()).status, 200)
-  assert.equal(state.writes[0].price_paid_cents, 0)
-  assert.equal(state.writes[0].subscription_id, null)
-})
-
-test('capacity validation reads the whole bounded class count and fails closed on read errors', async () => {
-  for (const [options, status] of [[{ count: 10 }, 409], [{ countError: { message: 'synthetic' } }, 500]]) {
-    const state = fixture(options)
-    assert.equal((await state.run()).status, status)
-    assert.deepEqual(state.writes, [])
-    assert.deepEqual(state.checkouts, [])
-    assert.deepEqual(state.reads[0], { table: 'video_class_bookings', privileged: true,
-      filters: [['video_class_id', 'synthetic-class'], ['status', 'confirmed']] })
+test('strict request and occurrence validation never reaches reservation RPC for malformed payloads',async()=>{
+  for(const payload of [null,[],{}, {requestId:'bad',expectedPriceCents:500},{requestId,expectedPriceCents:'0'},
+    {requestId,expectedPriceCents:0.1},{requestId,expectedPriceCents:500,occurrenceStart:'tomorrow'}]){
+    const f=fixture();assert.equal((await f.run({payload})).status,400);assert.equal(f.calls.length,0)
   }
+  const f=fixture();assert.equal((await f.run({raw:'{'})).status,400);assert.equal((await f.run({id:'bad'})).status,400)
+})
+test('group booking delegates only validated comparison price and server-authenticated buyer identity',async()=>{
+  const f=fixture({result:{httpStatus:202,reservationId:requestId,status:'processing'}});const response=await f.run()
+  assert.equal(response.status,202);assert.deepEqual(f.calls,[['reserve',{service:f.service,classId,buyerId,requestId,expectedPriceCents:500,occurrenceStart}]])
+  assert.deepEqual(await response.json(),{reservationId:requestId,status:'processing'})
+  assert.equal(response.headers.get('cache-control'),'private, no-store');assert.equal(response.headers.get('referrer-policy'),'no-referrer')
+})
+test('capacity and configuration failures remain explicit and do not fabricate a confirmed booking',async()=>{
+  for(const result of [{httpStatus:409,code:'full',error:'Ausgebucht'},{httpStatus:503,code:'video_not_configured',error:'Videoanrufe sind noch nicht eingerichtet'}]){
+    const f=fixture({result});const response=await f.run();assert.equal(response.status,result.httpStatus);const body=await response.json();assert.equal(body.code,result.code);assert.equal(body.bookingId,undefined)
+  }
+})
+test('retry and cancellation derive owner from authentication and accept no replacement financial terms',async()=>{
+  for(const action of ['retry','cancel']){
+    const f=fixture();const response=await f.run({action,payload:{}});assert.equal(response.status,200)
+    assert.deepEqual(f.calls[0],[action==='retry'?'resume':'cancel',action==='retry'?{service:f.service,reservationId:classId,buyerId}:{service:f.service,bookingId:classId,actorId:buyerId}])
+    assert.equal((await f.run({action,payload:{buyerId:'attacker'}})).status,400)
+    assert.equal((await fixture({user:null}).run({action,payload:{}})).status,401)
+  }
+})
+test('unpaid, expired, canceled or foreign-tier subscriptions never grant a free group entitlement',()=>{
+  for(const subscription of [null,{...validSub,stripe_livemode:false},{...validSub,status:'canceled'},
+    {...validSub,current_period_end:'2000-01-01T00:00:00Z'},{...validSub,subscription_tiers:{creator_id:'coach-b'}},
+    {...validSub,stripe_livemode:null,stripe_subscription_id:'freeXforged'}]) assert.equal(entitlement.hasActiveSubscriptionEntitlement(subscription),false)
+})
+test('only live paid and server-issued free active benefits qualify for group inclusion',()=>{
+  assert.equal(entitlement.hasActiveSubscriptionEntitlement(validSub),true)
+  assert.equal(entitlement.hasActiveSubscriptionEntitlement({...validSub,stripe_livemode:null,stripe_subscription_id:'free_server-issued'}),true)
+})
+test('uncertain backend exceptions stay retryable without leaking service details',async()=>{
+  const f=fixture({throws:true});const response=await f.run();assert.equal(response.status,503);assert.doesNotMatch(JSON.stringify(await response.json()),/secret-service-detail/)
 })

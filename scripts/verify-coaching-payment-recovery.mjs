@@ -13,7 +13,7 @@ function load(file, modules, env = {}) {
     name => modules[name] ?? require(name), fixtureModule.exports, fixtureModule, { env })
   return fixtureModule.exports
 }
-function cron({ secret = 'synthetic-cron', recoveryError, dbError, refundStates = [] } = {}) {
+function cron({ secret = 'synthetic-cron', recoveryError, dbError, refundStates = [], groups = { checked: 2, confirmed: 1, closed: 0, pending: 1, failed: 0 }, groupError } = {}) {
   const calls = []
   const attempts = refundStates.map((_, index) => ({ id: `attempt-${index}` }))
   const route = load('../src/app/api/cron/coaching-payments/route.ts', {
@@ -26,6 +26,11 @@ function cron({ secret = 'synthetic-cron', recoveryError, dbError, refundStates 
         assert.equal(value, 50); return Promise.resolve({ data: attempts, error: dbError })
       } }
     } }) },
+    '@/lib/group-booking-payments': { recoverGroupPayments: async args => {
+      calls.push('groups'); assert.equal(args.limit, 50); assert.equal(typeof args.service.from, 'function')
+      if (groupError) throw groupError
+      return groups
+    } },
     '@/lib/coaching-payment-lifecycle': { reconcileExpiredCoachingReservations: async args => {
       calls.push('timeout'); assert.equal(args.limit, 50)
       if (recoveryError) throw recoveryError
@@ -49,12 +54,15 @@ test('cron reconciles expired reservations and bounded independent refund claims
   const f = cron({ refundStates: ['succeeded', 'pending'] })
   const result = await f.get('Bearer synthetic-cron'); assert.equal(result.status, 200)
   assert.equal(result.body.reconciled, 1); assert.equal(result.body.pending, 1); assert.equal(result.body.failed, 0)
-  assert.deepEqual(f.calls, ['timeout', 'attempt-0', 'attempt-1'])
+  assert.deepEqual(f.calls, ['timeout', 'attempt-0', 'attempt-1', 'groups'])
+  assert.deepEqual(result.body.groups, { checked: 2, confirmed: 1, closed: 0, pending: 1, failed: 0 })
 })
 test('failed refund cannot stop recovery of later unrelated attempts', async () => {
   const f = cron({ refundStates: [new Error('DO NOT EXPOSE PROVIDER DETAILS'), 'failed', 'succeeded'] })
   const result = await f.get('Bearer synthetic-cron'); assert.equal(result.status, 503)
   assert.equal(result.body.failed, 2); assert.equal(result.body.reconciled, 1)
+  assert.deepEqual(f.calls, ['timeout', 'attempt-0', 'attempt-1', 'attempt-2', 'groups'])
+  assert.equal(result.body.groups.confirmed, 1, 'Independent group recovery still runs after a 1:1 refund failure')
   assert.doesNotMatch(JSON.stringify(result), /DO NOT EXPOSE/)
 })
 test('provider outage fails closed without starting refunds or leaking error details', async () => {
@@ -65,6 +73,20 @@ test('provider outage fails closed without starting refunds or leaking error det
 test('database outage is explicit and does not run unchecked refund targets', async () => {
   const f = cron({ dbError: new Error('private database details'), refundStates: ['succeeded'] })
   const result = await f.get('Bearer synthetic-cron'); assert.equal(result.status, 503); assert.deepEqual(f.calls, ['timeout'])
+})
+
+test('group recovery failures are included in the aggregate without hiding 1:1 outcomes', async () => {
+  const groups = { checked: 3, confirmed: 1, closed: 1, pending: 0, failed: 1 }
+  const f = cron({ refundStates: ['succeeded'], groups })
+  const result = await f.get('Bearer synthetic-cron')
+  assert.equal(result.status, 503); assert.equal(result.body.reconciled, 1); assert.equal(result.body.failed, 1)
+  assert.deepEqual(result.body.groups, groups); assert.deepEqual(f.calls, ['timeout', 'attempt-0', 'groups'])
+})
+test('unexpected group recovery outage returns safe failure and never reports all payments complete', async () => {
+  const f = cron({ groupError: new Error('private group provider credentials') })
+  const result = await f.get('Bearer synthetic-cron')
+  assert.equal(result.status, 503); assert.deepEqual(f.calls, ['timeout', 'groups'])
+  assert.doesNotMatch(JSON.stringify(result), /private group provider credentials/)
 })
 
 function reconciliation(changes = {}) {

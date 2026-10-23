@@ -23,7 +23,6 @@ interface BookingRow {
   price_cents: number
   is_subscription_session: boolean
   status: string
-  daily_room_url: string | null
   payment_status: string
   refund_status: string
   stripe_livemode: boolean | null
@@ -49,7 +48,7 @@ export default async function BuyerSessionsPage({
   const [bookingsRes, reviewsRes] = await Promise.all([
     supabase
       .from('bookings')
-      .select('id, creator_id, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, payment_status, refund_status, stripe_livemode, daily_room_url, creator_profiles(id, display_name, slug, avatar_url)')
+      .select('id, creator_id, scheduled_at, duration_minutes, cancellation_policy_hours, price_cents, is_subscription_session, status, payment_status, refund_status, stripe_livemode, creator_profiles(id, display_name, slug, avatar_url)')
       .eq('buyer_id', user.id)
       .order('scheduled_at', { ascending: false }),
     supabase
@@ -167,8 +166,8 @@ function SessionCard({
 }) {
   const scheduledAt  = new Date(b.scheduled_at)
   const endAt        = new Date(scheduledAt.getTime() + b.duration_minutes * 60_000)
-  const isLive       = VIDEO_CALLS_ENABLED && b.status === 'confirmed' && hasValidCoachingPayment(b)
-    && now >= scheduledAt.getTime() - 15 * 60_000 && now <= endAt.getTime()
+  const isLive       = VIDEO_CALLS_ENABLED && Boolean(process.env.DAILY_API_KEY?.trim()) && b.status === 'confirmed' && hasValidCoachingPayment(b)
+    && now >= scheduledAt.getTime() - 15 * 60_000 && now < endAt.getTime()
   const isEnded      = endAt.getTime() < now && ['confirmed', 'completed'].includes(b.status)
   const isUpcoming   = b.status === 'confirmed' && scheduledAt.getTime() > now
   const creator     = b.creator_profiles

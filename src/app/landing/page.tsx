@@ -328,14 +328,14 @@ export default function LandingPage() {
               </p>
               <p className="text-gray-600 leading-relaxed mb-6">
                 {VIDEO_CALLS_ENABLED
-                  ? 'Kunden buchen eine Session, du nimmst sie an — der Videoraum wird automatisch erstellt. Kein externes Tool, keine komplizierte Einrichtung.'
+                  ? 'Deine Kunden buchen einen Termin und öffnen den privaten Videozugang auf ihrer Session-Seite. Der Raum steht ab 15 Minuten vor Beginn bereit.'
                   : 'Kunden buchen deine Sessions auf Ardore. Du hinterlegst für jeden bestätigten Termin einen privaten Meeting-Link, zum Beispiel für Google Meet, Zoom oder Microsoft Teams.'}
               </p>
               <ul className="space-y-3 mb-8">
                 {[
                   { icon: <CalendarCheck className="h-4 w-4 text-brand" />, text: 'Wöchentliche Verfügbarkeit selbst festlegen' },
                   { icon: <Euro className="h-4 w-4 text-brand" />, text: 'Preis und Dauer (30–90 Min.) frei wählbar' },
-                  { icon: <Video className="h-4 w-4 text-brand" />, text: VIDEO_CALLS_ENABLED ? 'Videoraum wird automatisch erstellt und per Mail versendet' : 'Privaten Meeting-Link direkt bei der Buchung verwalten' },
+                  { icon: <Video className="h-4 w-4 text-brand" />, text: VIDEO_CALLS_ENABLED ? 'Privaten Videozugang direkt auf der Session-Seite öffnen' : 'Privaten Meeting-Link direkt bei der Buchung verwalten' },
                 ].map(item => (
                   <li key={item.text} className="flex items-start gap-3 text-sm text-gray-700">
                     <span className="h-7 w-7 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">

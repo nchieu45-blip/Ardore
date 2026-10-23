@@ -8,6 +8,9 @@ import { formatCurrency } from '@/lib/utils'
 import { Plus, Trash2, Eye, EyeOff, Pencil, Video, Calendar, RefreshCw, Users, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { VideoClass } from '@/types'
+import { MAX_GROUP_PARTICIPANTS, formatGroupOccurrence, nextGroupOccurrences } from '@/lib/group-schedule'
+import { berlinDateTimeToIso, utcToBerlinDateString } from '@/lib/coaching-slots'
+import Link from 'next/link'
 
 const WEEKDAY_LABELS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
 const DURATION_OPTIONS = [30, 45, 60, 90]
@@ -15,8 +18,7 @@ const DURATION_OPTIONS = [30, 45, 60, 90]
 function formatSchedule(vc: VideoClass): string {
   if (vc.schedule_type === 'once' && vc.starts_at) {
     const d = new Date(vc.starts_at)
-    return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })
-      + ', ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr'
+    return formatGroupOccurrence(d.toISOString())
   }
   if (vc.schedule_type === 'recurring' && vc.recurring_weekday !== null) {
     return `Jeden ${WEEKDAY_LABELS[vc.recurring_weekday]}, ${vc.recurring_time ?? ''} Uhr`
@@ -32,7 +34,6 @@ interface FormState {
   recurringWeekday: string
   recurringTime: string
   durationMinutes: number
-  unlimited: boolean
   maxParticipantsStr: string
   priceEuros: string
   includedInSubscription: boolean
@@ -43,14 +44,14 @@ const INITIAL_FORM: FormState = {
   scheduleType: 'recurring',
   startsAt: '', recurringWeekday: '1', recurringTime: '18:00',
   durationMinutes: 60,
-  unlimited: false, maxParticipantsStr: '20',
+  maxParticipantsStr: '20',
   priceEuros: '0',
   includedInSubscription: false,
 }
 
 function classToForm(vc: VideoClass): FormState {
   const startsAtLocal = vc.starts_at
-    ? new Date(vc.starts_at).toISOString().slice(0, 16)
+    ? `${utcToBerlinDateString(vc.starts_at)}T${new Date(vc.starts_at).toLocaleTimeString('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}`
     : ''
   return {
     title:                  vc.title,
@@ -60,8 +61,7 @@ function classToForm(vc: VideoClass): FormState {
     recurringWeekday:       String(vc.recurring_weekday ?? 1),
     recurringTime:          vc.recurring_time ?? '18:00',
     durationMinutes:        vc.duration_minutes,
-    unlimited:              vc.max_participants === null,
-    maxParticipantsStr:     vc.max_participants !== null ? String(vc.max_participants) : '20',
+    maxParticipantsStr:     String(Math.min(vc.max_participants ?? MAX_GROUP_PARTICIPANTS, MAX_GROUP_PARTICIPANTS)),
     priceEuros:             (vc.price_cents / 100).toFixed(2),
     includedInSubscription: vc.included_in_subscription,
   }
@@ -76,15 +76,21 @@ export default function VideoClassesPage() {
   const [saving,            setSaving]            = useState(false)
   const [formError,         setFormError]         = useState('')
   const [form,              setForm]              = useState<FormState>(INITIAL_FORM)
+  const [actionError, setActionError] = useState('')
+  const [videoReady, setVideoReady] = useState(false)
+  const [scheduleNow] = useState(() => Date.now())
+  const [countsUnavailable, setCountsUnavailable] = useState(false)
 
   useEffect(() => {
     fetch('/api/video-classes')
-      .then(r => r.json())
+      .then(async r => { if (!r.ok) throw new Error('Kurse konnten nicht geladen werden. Bitte lade die Seite erneut.'); return r.json() })
       .then(d => {
         setClasses(d.classes ?? [])
         setParticipantCounts(d.participantCounts ?? {})
+        setCountsUnavailable(d.participantCounts === null)
+        setVideoReady(d.videoReady === true)
       })
-      .catch(() => {})
+      .catch(() => setActionError('Kurse konnten nicht geladen werden. Bitte lade die Seite erneut.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -119,22 +125,27 @@ export default function VideoClassesPage() {
     if (!form.title.trim()) { setFormError('Bitte einen Titel eingeben'); return }
     if (form.scheduleType === 'once' && !form.startsAt) { setFormError('Bitte Datum und Uhrzeit angeben'); return }
     if (form.scheduleType === 'recurring' && !form.recurringTime) { setFormError('Bitte eine Uhrzeit angeben'); return }
-    if (!form.unlimited && (!form.maxParticipantsStr || parseInt(form.maxParticipantsStr, 10) < 1)) {
-      setFormError('Bitte eine gültige Teilnehmerzahl eingeben'); return
+    const maxParticipants = Number(form.maxParticipantsStr)
+    if (!Number.isInteger(maxParticipants) || maxParticipants < 1 || maxParticipants > MAX_GROUP_PARTICIPANTS) {
+      setFormError(`Bitte eine Teilnehmerzahl zwischen 1 und ${MAX_GROUP_PARTICIPANTS} eingeben`); return
     }
+    const [date, time] = form.startsAt.split('T')
+    const startsAt = form.scheduleType === 'once' ? berlinDateTimeToIso(date ?? '', time ?? '') : null
+    if (form.scheduleType === 'once' && (!startsAt || Date.parse(startsAt) <= Date.now())) { setFormError('Bitte einen zukünftigen, eindeutigen Termin in Berliner Zeit eingeben.'); return }
 
     const priceVal = parseFloat(form.priceEuros.replace(',', '.'))
     if (isNaN(priceVal) || priceVal < 0) { setFormError('Bitte einen gültigen Preis eingeben'); return }
+    if (priceVal > 0 && priceVal < 0.5) { setFormError('Bezahlte Termine sind ab 0,50 € möglich.'); return }
 
     const body = {
       title:                    form.title.trim(),
       description:              form.description.trim() || null,
       schedule_type:            form.scheduleType,
-      starts_at:                form.scheduleType === 'once' ? new Date(form.startsAt).toISOString() : null,
+      starts_at:                startsAt,
       recurring_weekday:        form.scheduleType === 'recurring' ? parseInt(form.recurringWeekday, 10) : null,
       recurring_time:           form.scheduleType === 'recurring' ? form.recurringTime : null,
       duration_minutes:         form.durationMinutes,
-      max_participants:         form.unlimited ? null : parseInt(form.maxParticipantsStr, 10),
+      max_participants:         maxParticipants,
       price_cents:              Math.round(priceVal * 100),
       included_in_subscription: form.includedInSubscription,
     }
@@ -160,20 +171,28 @@ export default function VideoClassesPage() {
   }
 
   async function toggleActive(vc: VideoClass) {
+    setActionError('')
+    try {
     const res  = await fetch(`/api/video-classes/${vc.id}`, {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ active: !vc.active }),
     })
-    const data = await res.json() as { videoClass?: VideoClass }
+    const data = await res.json() as { videoClass?: VideoClass; error?: string }
+    if (!res.ok) { setActionError(data.error ?? 'Der Kurs konnte nicht geändert werden.'); return }
     if (data.videoClass) setClasses(prev => prev.map(c => c.id === vc.id ? data.videoClass! : c))
+    } catch { setActionError('Die Änderung konnte nicht bestätigt werden. Bitte lade die Seite erneut.') }
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Video-Kurs wirklich löschen?')) return
-    await fetch(`/api/video-classes/${id}`, { method: 'DELETE' })
+    setActionError('')
+    try {
+    const response = await fetch(`/api/video-classes/${id}`, { method: 'DELETE' })
+    if (!response.ok) { const result = await response.json(); setActionError(result.error ?? 'Der Kurs konnte nicht gelöscht werden.'); return }
     setClasses(prev => prev.filter(c => c.id !== id))
     if (editingId === id) resetForm()
+    } catch { setActionError('Die Löschung konnte nicht bestätigt werden. Bitte lade die Seite erneut.') }
   }
 
   const inputCls  = 'w-full px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400'
@@ -193,6 +212,10 @@ export default function VideoClassesPage() {
           Neuer Kurs
         </Button>
       </div>
+
+      <p className="mb-5 text-sm leading-relaxed text-muted">Jeder Gruppentermin wird einzeln gebucht und bezahlt. Alle Zeiten gelten für Berlin. Bereits gebuchte Termine behalten ihre vereinbarten Konditionen.</p>
+      {!videoReady && <p role="status" className="mb-5 rounded-xl border border-border p-4 text-sm text-muted">Der Videodienst ist noch nicht verbunden. Kurse können vorbereitet werden; neue Video-Buchungen sind bis zur Einrichtung deaktiviert.</p>}
+      {actionError && <p role="alert" className="mb-5 text-sm text-red-700">{actionError}</p>}
 
       {/* Create / Edit form */}
       {showForm && (
@@ -257,7 +280,7 @@ export default function VideoClassesPage() {
             {/* Conditional schedule inputs */}
             {form.scheduleType === 'once' ? (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Datum & Uhrzeit *</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Datum & Uhrzeit (Berlin) *</label>
                 <input
                   type="datetime-local"
                   value={form.startsAt}
@@ -316,31 +339,22 @@ export default function VideoClassesPage() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-2">Maximale Teilnehmer</label>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer w-fit">
-                  <input
-                    type="checkbox"
-                    checked={form.unlimited}
-                    onChange={e => setField('unlimited', e.target.checked)}
-                    className="rounded border-gray-300 text-green-600 focus:ring-green-400"
-                  />
-                  Unbegrenzt
-                </label>
-                {!form.unlimited && (
                   <input
                     type="number"
                     min="1"
+                    max={MAX_GROUP_PARTICIPANTS}
                     value={form.maxParticipantsStr}
                     onChange={e => setField('maxParticipantsStr', e.target.value)}
                     placeholder="z. B. 20"
                     className={cn(inputCls, 'w-40')}
                   />
-                )}
+                <p className="text-xs text-muted">Bis zu {MAX_GROUP_PARTICIPANTS} Teilnehmer je Termin.</p>
               </div>
             </div>
 
             {/* Price */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Preis pro Ticket (€)</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Preis je Teilnehmer und Termin (€)</label>
               <div className="relative w-48">
                 <input
                   type="number"
@@ -430,6 +444,9 @@ export default function VideoClassesPage() {
                   {vc.description && (
                     <p className="text-sm text-gray-500 mb-1.5 line-clamp-1">{vc.description}</p>
                   )}
+                  <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
+                    {nextGroupOccurrences(vc, scheduleNow - vc.duration_minutes * 60_000, 3).map(occurrence => <Link key={occurrence.startsAt} href={`/group-session/${vc.id}?occurrenceStart=${encodeURIComponent(occurrence.startsAt)}`} className="inline-flex min-h-11 items-center text-xs font-medium text-brand underline underline-offset-4">{formatGroupOccurrence(occurrence.startsAt)} · Session verwalten</Link>)}
+                  </div>
                   <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
@@ -441,8 +458,7 @@ export default function VideoClassesPage() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      {participantCounts[vc.id] ?? 0}
-                      {vc.max_participants !== null ? ` / ${vc.max_participants} Teilnehmer` : ' Teilnehmer'}
+                      {countsUnavailable ? 'Anmeldezahlen nicht verfügbar' : `${participantCounts[vc.id] ?? 0} bestätigte Anmeldungen insgesamt`}
                     </span>
                     {vc.included_in_subscription && (
                       <span className="text-violet-600 font-medium">· Inkl. für Abonnenten</span>

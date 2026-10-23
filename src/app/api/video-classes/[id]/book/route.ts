@@ -1,200 +1,30 @@
-import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { createNotification, checkNotificationPreference } from '@/lib/notifications'
-import { VIDEO_CALLS_ENABLED } from '@/lib/features'
+import { reserveGroupBooking, validGroupId, validGroupInstant } from '@/lib/group-booking-payments'
+import { GROUP_PRIVATE_HEADERS, groupRequestError, groupResult } from '@/lib/group-booking-http'
 
-const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
-
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id: classId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
-
-  // Fetch class with creator info
-  const { data: vcRaw } = await supabase
-    .from('video_classes')
-    .select('*, creator_profiles(id, display_name, slug, user_id, stripe_account_id, stripe_account_active)')
-    .eq('id', classId)
-    .single()
-
-  if (!vcRaw || !vcRaw.active) return NextResponse.json({ error: 'Kurs nicht verfügbar' }, { status: 404 })
-
-  const creator = Array.isArray(vcRaw.creator_profiles) ? vcRaw.creator_profiles[0] : vcRaw.creator_profiles
-
-  const service = await createServiceClient()
-
-  // Duplicate check
-  const { data: existingBooking } = await supabase
-    .from('video_class_bookings')
-    .select('id')
-    .eq('video_class_id', classId)
-    .eq('user_id', user.id)
-    .eq('status', 'confirmed')
-    .maybeSingle()
-
-  if (existingBooking) return NextResponse.json({ error: 'Du bist bereits angemeldet' }, { status: 409 })
-
-  // Capacity check
-  if (vcRaw.max_participants !== null) {
-    const { count, error: countError } = await service
-      .from('video_class_bookings')
-      .select('*', { count: 'exact', head: true })
-      .eq('video_class_id', classId)
-      .eq('status', 'confirmed')
-    if (countError) return NextResponse.json({ error: 'Teilnehmerzahl konnte nicht geprüft werden' }, { status: 500 })
-    if ((count ?? 0) >= vcRaw.max_participants) {
-      return NextResponse.json({ error: 'Dieser Kurs ist ausgebucht' }, { status: 409 })
-    }
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const invalid = groupRequestError(request)
+  if (invalid) return invalid
+  const { id } = await params
+  const body: unknown = await request.json().catch(() => null)
+  if (!validGroupId(id) || !body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Ungültige Buchungsanfrage' }, { status: 400, headers: GROUP_PRIVATE_HEADERS })
   }
-
-  // Determine price and subscription
-  let priceCents = vcRaw.price_cents
-  let subscriptionId: string | null = null
-
-  if (vcRaw.included_in_subscription) {
-    const { data: activeSub } = await supabase
-      .from('subscriptions')
-      .select('id, creator_id, status, current_period_end, stripe_subscription_id, stripe_livemode, subscription_tiers(creator_id)')
-      .eq('creator_id', vcRaw.creator_id)
-      .eq('buyer_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle()
-    if (activeSub && hasActiveSubscriptionEntitlement(activeSub)) {
-      priceCents = 0
-      subscriptionId = activeSub.id
-    }
+  const payload = body as Record<string, unknown>
+  if (!validGroupId(payload.requestId) || !Number.isSafeInteger(payload.expectedPriceCents)
+    || (payload.occurrenceStart !== undefined && !validGroupInstant(payload.occurrenceStart))
+    || Object.keys(payload).some(key => !['requestId', 'expectedPriceCents', 'occurrenceStart'].includes(key))) {
+    return NextResponse.json({ error: 'Bitte prüfe Termin und Preis des Angebots.' }, { status: 400, headers: GROUP_PRIVATE_HEADERS })
   }
-
-  // This legacy route has no paid fulfillment or settlement handler. Never
-  // collect a payment that cannot safely create its booking and coach payout.
-  if (priceCents > 0) {
-    return NextResponse.json({ error: 'Bezahlte Gruppenangebote sind momentan nicht buchbar.' }, { status: 409 })
-  }
-
-  // Get or create shared Daily.co room for this class
-  let dailyRoomUrl: string | null = null
-  if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY) {
-    // Reuse room URL already stored on a prior booking for the same class
-    const { data: priorBooking } = await service
-      .from('video_class_bookings')
-      .select('daily_room_url')
-      .eq('video_class_id', classId)
-      .not('daily_room_url', 'is', null)
-      .limit(1)
-      .maybeSingle()
-
-    if (priorBooking?.daily_room_url) {
-      dailyRoomUrl = priorBooking.daily_room_url
-    } else {
-      try {
-        const roomName = `video-class-${classId}`
-        const props: Record<string, unknown> = {
-          max_participants: vcRaw.max_participants ?? 200,
-          enable_chat: true,
-          enable_screenshare: true,
-        }
-        // One-time classes expire 30 min after end; recurring rooms persist
-        if (vcRaw.schedule_type === 'once' && vcRaw.starts_at) {
-          props.exp = Math.floor(new Date(vcRaw.starts_at).getTime() / 1000) + (vcRaw.duration_minutes + 30) * 60
-        }
-        const createRes = await fetch('https://api.daily.co/v1/rooms', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${process.env.DAILY_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: roomName, privacy: 'public', properties: props }),
-        })
-        if (createRes.ok) {
-          const room = await createRes.json() as { url: string }
-          dailyRoomUrl = room.url
-        } else if (createRes.status === 409) {
-          // Room already exists with this name; fetch it
-          const getRes = await fetch(`https://api.daily.co/v1/rooms/${roomName}`, {
-            headers: { 'Authorization': `Bearer ${process.env.DAILY_API_KEY}` },
-          })
-          if (getRes.ok) {
-            const room = await getRes.json() as { url: string }
-            dailyRoomUrl = room.url
-          }
-        }
-      } catch { /* non-fatal: room creation failure doesn't block booking */ }
-    }
-  }
-
-  // Free booking → create directly
-  const { data: booking, error } = await service
-    .from('video_class_bookings')
-    .insert({
-      video_class_id:    classId,
-      user_id:           user.id,
-      subscription_id:   subscriptionId,
-      price_paid_cents:  0,
-      status:            'confirmed',
-      daily_room_url:    dailyRoomUrl,
-    })
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Build schedule label (reused for both buyer + coach emails)
-  const scheduleLabel = vcRaw.schedule_type === 'once' && vcRaw.starts_at
-    ? new Date(vcRaw.starts_at).toLocaleString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'
-    : vcRaw.recurring_weekday !== null
-      ? `Jeden ${WEEKDAYS[vcRaw.recurring_weekday]}, ${vcRaw.recurring_time ?? ''} Uhr`
-      : 'Termin folgt'
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com').replace(/\/$/, '')
-
-  // Buyer confirmation email
   try {
-    if (user.email && creator) {
-      const { sendVideoClassConfirmation } = await import('@/lib/email/send')
-      await sendVideoClassConfirmation(user.email, {
-        classTitle:      vcRaw.title,
-        coachName:       creator.display_name,
-        scheduleLabel,
-        durationMinutes: vcRaw.duration_minutes,
-        roomUrl:         dailyRoomUrl,
-        bookingsUrl:     `${appUrl}/buyer/video-classes`,
-      })
-    }
-  } catch { /* non-fatal */ }
-
-  // Coach notification (in-app + email), preference-gated
-  if (creator?.user_id) {
-    try {
-      const buyerName = user.user_metadata?.full_name ?? user.email ?? 'Ein Teilnehmer'
-      const [sendInapp, sendEmail] = await Promise.all([
-        checkNotificationPreference(creator.user_id, 'new_video_class_booking', 'inapp'),
-        checkNotificationPreference(creator.user_id, 'new_video_class_booking', 'email'),
-      ])
-      const notifJobs: Promise<unknown>[] = []
-      if (sendInapp) {
-        notifJobs.push(createNotification({
-          userId:  creator.user_id,
-          type:    'new_video_class_booking',
-          title:   `Neue Anmeldung: ${vcRaw.title}`,
-          message: `${buyerName} hat sich für deinen Kurs angemeldet.`,
-          link:    `/creator/settings/video-classes`,
-        }))
-      }
-      if (sendEmail) {
-        const coachEmailRes = await service.auth.admin.getUserById(creator.user_id)
-        const coachEmail = coachEmailRes.data.user?.email
-        if (coachEmail) {
-          const { sendVideoClassNewParticipant } = await import('@/lib/email/send')
-          notifJobs.push(sendVideoClassNewParticipant(coachEmail, {
-            coachName:       creator.display_name,
-            participantName: buyerName,
-            classTitle:      vcRaw.title,
-            scheduleLabel,
-            dashboardUrl:    `${appUrl}/creator/settings/video-classes`,
-          }))
-        }
-      }
-      await Promise.allSettled(notifJobs)
-    } catch { /* non-fatal */ }
+    const client = await createClient()
+    const { data: { user }, error } = await client.auth.getUser()
+    if (error || !user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401, headers: GROUP_PRIVATE_HEADERS })
+    const service = await createServiceClient()
+    return groupResult(await reserveGroupBooking({ service, classId: id, buyerId: user.id, requestId: payload.requestId,
+      expectedPriceCents: payload.expectedPriceCents as number, occurrenceStart: payload.occurrenceStart as string | undefined }))
+  } catch {
+    return NextResponse.json({ error: 'Die Anmeldung konnte noch nicht sicher bestätigt werden. Bitte versuche dieselbe Buchung erneut.' }, { status: 503, headers: GROUP_PRIVATE_HEADERS })
   }
-
-  return NextResponse.json({ bookingId: booking.id, roomUrl: dailyRoomUrl })
 }

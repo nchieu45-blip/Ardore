@@ -18,11 +18,38 @@ export async function POST() {
       service.from('creator_profiles').select('id, display_name').eq('user_id', user.id).maybeSingle(),
     ])
 
+    if (creatorRes.error) throw creatorRes.error
     const creator    = creatorRes.data
     const deletingAt = new Date().toISOString()
 
     // Financial records must survive cancellation/refund reconciliation. Refuse
     // before notifications, subscription cancellation or any account data deletes.
+    const { count: groupFinancialCount, error: groupFinancialError } = await service.from('group_booking_reservations')
+      .select('id', { count: 'exact', head: true }).gt('price_cents', 0)
+      .or(`buyer_id.eq.${user.id}${creator ? `,creator_id.eq.${creator.id}` : ''}`)
+    if (groupFinancialError || groupFinancialCount === null) throw new Error('Group financial preflight unavailable')
+    if ((groupFinancialCount ?? 0) > 0) {
+      return NextResponse.json({ error: 'Für dieses Konto bestehen Zahlungs- oder Erstattungsaufzeichnungen zu Gruppen-Kursen. Bitte kontaktiere vor einer Kontolöschung den Ardore-Support.' }, { status: 409 })
+    }
+    // Free benefits retain a subscription snapshot too. Do not cancel that
+    // subscription before discovering the immutable FK would block deletion.
+    const { count: groupBenefitCount, error: groupBenefitError } = await service.from('group_booking_reservations')
+      .select('id', { count: 'exact', head: true }).eq('buyer_id', user.id).not('subscription_id', 'is', null)
+    if (groupBenefitError || groupBenefitCount === null) throw new Error('Group benefit preflight unavailable')
+    if (groupBenefitCount > 0) {
+      return NextResponse.json({ error: 'Für dieses Konto bestehen Gruppen-Anmeldungen mit einem Abonnement. Bitte kontaktiere vor einer Kontolöschung den Ardore-Support, damit diese sicher geklärt werden.' }, { status: 409 })
+    }
+    if (creator) {
+      // An occurrence may have been initialized by its host without a single
+      // participant. Its class/profile FK still protects the agreed video slot.
+      const { count: groupAgreementCount, error: groupAgreementError } = await service.from('video_class_occurrences')
+        .select('video_class_id,video_classes!inner(creator_id)', { count: 'exact', head: true })
+        .eq('video_classes.creator_id', creator.id)
+      if (groupAgreementError || groupAgreementCount === null) throw new Error('Group schedule preflight unavailable')
+      if (groupAgreementCount > 0) {
+        return NextResponse.json({ error: 'Für dein Coach-Profil bestehen bereits festgelegte Gruppen-Termine. Bitte kontaktiere vor einer Kontolöschung den Ardore-Support, damit Anmeldungen und Termine sicher geklärt werden.' }, { status: 409 })
+      }
+    }
     const protectedBookings = service.from('bookings').select('id', { count: 'exact', head: true })
       .or(`and(or(buyer_id.eq.${user.id}${creator ? `,creator_id.eq.${creator.id}` : ''}),or(refund_status.neq.not_requested,payment_status.in.(pending,paid,partially_refunded,refunded,disputed,chargeback,reversed)))`)
     const { count: financialBookingCount, error: financialBookingError } = await protectedBookings
