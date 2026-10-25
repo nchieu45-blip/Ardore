@@ -17,7 +17,8 @@ function load(path, mocks = {}) {
   return loaded.exports
 }
 const slots = load('../src/lib/coaching-slots.ts')
-const schedule = load('../src/lib/group-schedule.ts', { '@/lib/coaching-slots': slots })
+const capacity = load('../src/lib/group-capacity.ts')
+const schedule = load('../src/lib/group-schedule.ts', { '@/lib/coaching-slots': slots, '@/lib/group-capacity': capacity })
 const { nextGroupOccurrences, formatGroupOccurrence, MAX_GROUP_PARTICIPANTS } = schedule
 const weekly = overrides => ({
   schedule_type: 'recurring', starts_at: null, recurring_weekday: 0,
@@ -90,7 +91,7 @@ test('selectable sessions exclude inactive, invalid or already-started classes',
 
 test('occurrence options and booking horizon are bounded without inventing an unlimited capacity', () => {
   const now = Date.parse('2026-10-18T08:00:00Z')
-  assert.equal(MAX_GROUP_PARTICIPANTS, 199)
+  assert.equal(MAX_GROUP_PARTICIPANTS, 9)
   assert.equal(nextGroupOccurrences(weekly(), now).length, 8)
   assert.equal(nextGroupOccurrences(weekly(), now, 100_000).length, 12)
   assert.equal(nextGroupOccurrences(weekly(), now, 2.9).length, 2)

@@ -1,4 +1,5 @@
 import { validGroupId, validGroupInstant, sameGroupInstant } from '@/lib/group-booking-validation'
+import { MAX_GROUP_PARTICIPANTS } from '@/lib/group-capacity'
 export { validGroupId, validGroupInstant } from '@/lib/group-booking-validation'
 import type Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -34,6 +35,7 @@ const messages: Record<string, string> = {
   invalid_offer: 'Dieses Angebot kann momentan nicht gebucht werden.',
   checkout_closed: 'Dieser Zahlungsversuch ist beendet. Du kannst eine neue Buchung für den Termin starten.',
   video_not_configured: 'Videoanrufe sind noch nicht eingerichtet. Momentan können keine neuen Gruppenbuchungen gestartet werden.',
+  group_size_unavailable: 'Dieses Gruppenangebot überschreitet die verfügbare Videokapazität. Bitte kontaktiere den Coach.',
   already_started: 'Der Termin hat bereits begonnen. Bitte kontaktiere deinen Coach.',
   already_ended: 'Der Termin ist bereits beendet. Bitte kontaktiere den Support.',
   payment_status_unavailable: 'Der Zahlungsstatus konnte noch nicht bestätigt werden. Bitte setze dieselbe Buchung unter „Meine Gruppen-Kurse“ fort.',
@@ -218,10 +220,13 @@ export async function reserveGroupBooking({ service, classId, buyerId, requestId
     // An absent provider credential must never result in collecting a payment
     // for a video service that cannot be delivered. Existing refunds still run.
     if (!process.env.DAILY_API_KEY?.trim()) return failure('video_not_configured', 503)
-    const { data: course, error } = await service.from('video_classes').select('id,creator_id,active,price_cents,included_in_subscription,schedule_type,starts_at')
+    const { data: course, error } = await service.from('video_classes').select('id,creator_id,active,price_cents,included_in_subscription,schedule_type,starts_at,max_participants')
       .eq('id', classId).maybeSingle()
     if (error) throw new GroupPaymentError('payment_status_unavailable')
     if (!course || !course.active) return failure('not_found', 404)
+    if (!Number.isInteger(course.max_participants) || course.max_participants < 1 || course.max_participants > MAX_GROUP_PARTICIPANTS) {
+      return failure('group_size_unavailable')
+    }
     const start = occurrenceStart ?? (course.schedule_type === 'once' ? course.starts_at : null)
     if (!validGroupInstant(start) || Date.parse(start) <= Date.now()) return failure('invalid_occurrence', 400)
     if (!Number.isSafeInteger(expectedPriceCents) || expectedPriceCents !== course.price_cents) return failure('price_changed')

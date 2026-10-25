@@ -24,6 +24,7 @@ function load(path, overrides) {
 }
 const entitlement = load('../src/lib/subscription-entitlement.ts', {})
 const validation = load('../src/lib/group-booking-validation.ts', {})
+const capacity = load('../src/lib/group-capacity.ts', {})
 function fixture(options = {}) {
   const future = new Date(Date.now() + 2 * 86400000).toISOString()
   const r = { id: reservationId, request_id: requestId, buyer_id: buyer, creator_id: creator, video_class_id: classId,
@@ -38,7 +39,7 @@ function fixture(options = {}) {
   let stored = options.existing ? structuredClone(r) : null
   const queries = [], calls = { rpc: [], creates: [], ready: [], orders: [], binds: [], reconciles: [], refundCreates: [], refundPrepares: [], refundReads: [] }
   const courses = { id: classId, creator_id: creator, active: true, price_cents: options.coursePrice ?? r.price_cents,
-    included_in_subscription: !!options.included, schedule_type: 'once', starts_at: future }
+    max_participants: options.capacity === undefined ? 9 : options.capacity, included_in_subscription: !!options.included, schedule_type: 'once', starts_at: future }
   const bookings = [{ id: bookingId, reservation_id: r.id, payment_order_id: r.id, user_id: buyer, payment_status: 'paid',status:'confirmed' },
     {id:'newer-booking',reservation_id:requestId,payment_order_id:requestId,user_id:buyer,payment_status:'paid',status:'confirmed'}]
   const service = { from(table) {
@@ -108,7 +109,7 @@ function fixture(options = {}) {
     async reconcileSettlementRefund(){if(!options.refundFailed){stored.refund_status='succeeded';stored.status='refunded';stored.amount_refunded_cents=500}},
   }
   lib = load('../src/lib/group-booking-payments.ts', {
-    '@/lib/stripe/server':{stripe:provider},'@/lib/app-url':{appOrigin:()=>origin},'@/lib/stripe/connect-readiness':readiness,
+    '@/lib/group-capacity':capacity,'@/lib/stripe/server':{stripe:provider},'@/lib/app-url':{appOrigin:()=>origin},'@/lib/stripe/connect-readiness':readiness,
     '@/lib/group-booking-notifications':{async notifyGroupBookingConfirmed(){calls.notifications=(calls.notifications??0)+1}},'@/lib/subscription-entitlement':entitlement,'@/lib/stripe/settlement':settlement,'@/lib/group-booking-validation':validation,
   })
   return {lib,service,provider,calls,queries,r,order,bookings,get stored(){return stored},set session(value){session={...session,...value}}}
@@ -235,4 +236,13 @@ test('unresolved provider outcomes keep their capacity hold but advance the boun
   assert.equal(f.stored.status,'creating');assert.equal(f.stored.booking_id,null)
   assert.ok(Date.parse(f.stored.updated_at)>Date.parse('2000-01-01T00:00:00Z'))
   assert.equal(f.calls.creates.length,0,'No replacement Checkout beyond the idempotency window')
+}))
+
+// Reject unsupported offers before any reservation, Connect request or payment.
+test('groups above nine attendees or without a valid size cannot collect a payment',()=>withVideo(async()=>{
+  for(const size of [0,10,199,null,2.5]) {
+    const f=fixture({capacity:size});const result=await reserve(f)
+    assert.equal(result.code,'group_size_unavailable');assert.equal(f.calls.rpc.length,0)
+    assert.equal(f.calls.ready.length,0);assert.equal(f.calls.orders.length,0);assert.equal(f.calls.creates.length,0)
+  }
 }))

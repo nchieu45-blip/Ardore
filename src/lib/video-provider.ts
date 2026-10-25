@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { GROUP_ROOM_CAPACITY } from '@/lib/group-capacity'
 
 const DAILY_API = 'https://api.daily.co/v1'
 export const VIDEO_PRIVATE_HEADERS = {
@@ -88,7 +89,7 @@ export async function createVideoAccess(input: AccessInput, providerFetch: typeo
   const key = process.env.DAILY_API_KEY
   if (!key?.trim()) throw new VideoAccessError(503, 'Videoanrufe sind noch nicht vollständig eingerichtet. Bitte kontaktiere den Support.')
   const name = videoRoomName(input.kind, input.identity, window.startsAt)
-  const limit = input.kind === 'coaching' ? 2 : 200
+  const limit = input.kind === 'coaching' ? 2 : GROUP_ROOM_CAPACITY
   const request = async (path: string, method = 'GET', body?: unknown) => {
     try {
       return await providerFetch(`${DAILY_API}${path}`, {

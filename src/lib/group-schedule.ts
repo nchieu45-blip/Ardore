@@ -6,8 +6,7 @@ import {
   utcToBerlinDateString,
 } from '@/lib/coaching-slots'
 
-// One host plus at most 199 attendees fit the configured 200-person rooms.
-export const MAX_GROUP_PARTICIPANTS = 199
+export { MAX_GROUP_PARTICIPANTS } from '@/lib/group-capacity'
 export const GROUP_BOOKING_HORIZON_DAYS = 90
 const MAX_OCCURRENCE_OPTIONS = 12
 const MINUTE_MS = 60_000

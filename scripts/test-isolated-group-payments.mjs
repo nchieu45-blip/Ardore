@@ -29,6 +29,7 @@ try {
   await sql(`CREATE DATABASE ${database};`,'postgres');created=true
   for(const path of ['../supabase/tests/group_session_payments_setup.sql',
     '../supabase/migrations/20261018181232_group_session_payments.sql',
+    '../supabase/migrations/20261025130000_group_video_capacity.sql',
     '../supabase/tests/group_session_payments_assertions.sql']) {
     await sql(readFileSync(new URL(path,import.meta.url),'utf8'))
   }

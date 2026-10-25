@@ -41,6 +41,6 @@ GRANT EXECUTE ON FUNCTION auth.uid() TO anon,authenticated,service_role;
 INSERT INTO public.creator_profiles VALUES('10000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000001',true,'fixture-coach');
 INSERT INTO public.video_classes(id,creator_id,title,schedule_type,starts_at,recurring_weekday,recurring_time,max_participants,price_cents) VALUES
  ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','Synthetic single-capacity class','once',date_trunc('minute',now()+interval'2 days'),NULL,NULL,1,500),
- ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','Synthetic free recurring class','recurring',NULL,2,'18:00',NULL,0),
+ ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','Synthetic free recurring class','recurring',NULL,2,'18:00',9,0),
  ('20000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','Synthetic late-payment class','once',date_trunc('minute',now()+interval'3 days'),NULL,NULL,1,500);
 COMMIT;

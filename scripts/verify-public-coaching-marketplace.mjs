@@ -205,7 +205,7 @@ test('recurring classes retain real weekday/time without generating a next event
   assert.equal(result.offers[0].startsAt, null)
   assert.equal(result.offers[0].recurringWeekday, 0)
   assert.equal(result.offers[0].recurringTime, '09:30:00')
-  assert.equal(result.offers[0].maxParticipants, 199)
+  assert.equal(result.offers[0].maxParticipants, 9)
   assert.equal(result.offers[0].includedInSubscription, true)
 })
 

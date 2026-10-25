@@ -44,7 +44,7 @@ const INITIAL_FORM: FormState = {
   scheduleType: 'recurring',
   startsAt: '', recurringWeekday: '1', recurringTime: '18:00',
   durationMinutes: 60,
-  maxParticipantsStr: '20',
+  maxParticipantsStr: String(MAX_GROUP_PARTICIPANTS),
   priceEuros: '0',
   includedInSubscription: false,
 }

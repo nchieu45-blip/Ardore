@@ -14,6 +14,19 @@ DO $$ BEGIN
  ASSERT (SELECT prosecdef AND proconfig @> ARRAY['search_path=""'] FROM pg_proc WHERE oid='private.protect_group_class_schedule()'::regprocedure);
 END; $$;
 SET LOCAL ROLE service_role;
+DO $$ DECLARE bad integer; BEGIN
+ FOREACH bad IN ARRAY ARRAY[0,10,199,NULL] LOOP
+  BEGIN
+   UPDATE public.video_classes SET max_participants=bad WHERE id='20000000-0000-4000-8000-000000000001';
+   RAISE EXCEPTION 'Unsupported group capacity was accepted: %',bad;
+  EXCEPTION WHEN check_violation THEN NULL; END;
+ END LOOP;
+ ASSERT (SELECT max_participants=1 FROM public.video_classes WHERE id='20000000-0000-4000-8000-000000000001');
+ INSERT INTO public.video_classes(id,creator_id,title,schedule_type,starts_at)
+  VALUES('20000000-0000-4000-8000-000000000099','10000000-0000-4000-8000-000000000001','Default capacity fixture','once',now()+interval '4 days');
+ ASSERT (SELECT max_participants=9 FROM public.video_classes WHERE id='20000000-0000-4000-8000-000000000099');
+ DELETE FROM public.video_classes WHERE id='20000000-0000-4000-8000-000000000099';
+END; $$;
 DO $$ DECLARE c uuid:='20000000-0000-4000-8000-000000000001'; buyer uuid:='00000000-0000-4000-8000-000000000011'; t timestamptz; first jsonb; again jsonb; r public.group_booking_reservations%ROWTYPE; sid uuid;
 BEGIN
  SELECT starts_at INTO t FROM public.video_classes WHERE id=c;
@@ -83,7 +96,7 @@ BEGIN
  ASSERT a->'reservation'->>'status'='confirmed' AND b->'reservation'->>'status'='confirmed';
  ASSERT a->'reservation'->>'booking_id'<>b->'reservation'->>'booking_id','Recurring bookings are per session, not perpetual access';
  ASSERT (SELECT count(*)=2 FROM public.video_class_bookings WHERE video_class_id=c AND user_id='00000000-0000-4000-8000-000000000011');
- ASSERT (public.group_class_availability(c,t)->>'capacity')::integer=199,'Legacy unlimited is bounded for actual video room capacity';
+ ASSERT (public.group_class_availability(c,t)->>'capacity')::integer=9,'Group capacity includes at most nine attendees';
  BEGIN UPDATE public.group_booking_reservations SET price_cents=100 WHERE id=(a->'reservation'->>'id')::uuid; RAISE EXCEPTION 'Frozen price changed'; EXCEPTION WHEN check_violation THEN NULL; END;
 END; $$;
 RESET ROLE;
@@ -121,7 +134,7 @@ END; $$;
 DO $$ DECLARE c uuid:='20000000-0000-4000-8000-000000000004'; t timestamptz:=date_trunc('minute',now()+interval'4 days'); x jsonb; i integer; buyer uuid;
 BEGIN
  INSERT INTO public.video_classes(id,creator_id,title,schedule_type,starts_at,duration_minutes,max_participants,price_cents,included_in_subscription)
- VALUES(c,'10000000-0000-4000-8000-000000000001','Synthetic subscription class','once',t,60,20,500,true);
+ VALUES(c,'10000000-0000-4000-8000-000000000001','Synthetic subscription class','once',t,60,9,500,true);
  -- A rejected price comparison must not freeze a schedule or reserve capacity.
  ASSERT public.reserve_group_class_booking(c,'00000000-0000-4000-8000-000000000040',gen_random_uuid(),t,false,'acct_fixture',0)->>'error'='price_changed';
  ASSERT NOT EXISTS(SELECT 1 FROM public.video_class_occurrences WHERE video_class_id=c),'Rejected request cannot freeze a class';

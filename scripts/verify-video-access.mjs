@@ -16,7 +16,8 @@ function load(path, mocks = {}) {
   return loadedModule.exports
 }
 
-const video = load('src/lib/video-provider.ts')
+const capacity = load('src/lib/group-capacity.ts')
+const video = load('src/lib/video-provider.ts', { '@/lib/group-capacity': capacity })
 const payment = load('src/lib/coaching-payment.ts')
 const actor = '00000000-0000-4000-8000-000000000001'
 const buyer = '00000000-0000-4000-8000-000000000002'
@@ -41,7 +42,7 @@ function provider(options = {}) {
     privacy: 'private', url: `https://synthetic.daily.co/${video.videoRoomName(input.kind, input.identity, input.startsAt)}`,
     config: { nbf: Math.floor((Date.parse(input.startsAt) - 15 * 60_000) / 1000),
       exp: Math.floor((Date.parse(input.startsAt) + input.durationMinutes * 60_000) / 1000),
-      enable_knocking: false, eject_at_room_exp: true, enforce_unique_user_ids: true, max_participants: input.kind === 'coaching' ? 2 : 200 },
+      enable_knocking: false, eject_at_room_exp: true, enforce_unique_user_ids: true, max_participants: input.kind === 'coaching' ? 2 : capacity.GROUP_ROOM_CAPACITY },
   })
   const fetch = async (url, init) => {
     const body = init.body ? JSON.parse(init.body) : null
@@ -112,7 +113,7 @@ test('new rooms are private, cannot be entered by knocking and eject everyone at
 test('only the authorized coach gets owner privileges and group room capacity includes the coach', async () => {
   const fixture = provider({ absent: true, input: { kind: 'group', userId: actor, isOwner: true } })
   await video.createVideoAccess(fixture.input, fixture.fetch)
-  assert.equal(fixture.created.properties.max_participants, 200)
+  assert.equal(fixture.created.properties.max_participants, 10)
   assert.equal(fixture.calls.find(call => call.url.endsWith('/meeting-tokens')).body.properties.is_owner, true)
 })
 

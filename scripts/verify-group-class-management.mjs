@@ -33,8 +33,8 @@ function management({ user = 'coach', creator = 'owner', current = course(), err
 
 test('course input preserves valid terms but refuses unknown authority, fractional prices and unsupported room sizes', () => {
   assert.equal(input.parseGroupClassInput(course()).price_cents, 1200)
-  assert.equal(input.parseGroupClassInput({ ...course(), max_participants: null }).max_participants, 199)
-  for (const bad of [{ price_cents: 1 }, { price_cents: 12.5 }, { price_cents: -1 }, { price_cents: Infinity }, { max_participants: 200 }, { max_participants: 0 }, { duration_minutes: 4 }, { duration_minutes: 481 }, { recurring_weekday: 7 }, { recurring_time: '02:30:01' }, { recurring_time: '25:00' }, { title: ' ' }, { creator_id: 'attacker' }, { daily_room_url: 'https://example.test' }]) assert.equal(input.parseGroupClassInput({ ...course(), ...bad }), null, JSON.stringify(bad))
+  assert.equal(input.parseGroupClassInput({ ...course(), max_participants: null }).max_participants, 9)
+  for (const bad of [{ price_cents: 1 }, { price_cents: 12.5 }, { price_cents: -1 }, { price_cents: Infinity }, { max_participants: 10 }, { max_participants: 200 }, { max_participants: 0 }, { duration_minutes: 4 }, { duration_minutes: 481 }, { recurring_weekday: 7 }, { recurring_time: '02:30:01' }, { recurring_time: '25:00' }, { title: ' ' }, { creator_id: 'attacker' }, { daily_room_url: 'https://example.test' }]) assert.equal(input.parseGroupClassInput({ ...course(), ...bad }), null, JSON.stringify(bad))
   for (const bad of [null, [], {}, { creator_id: 'attacker' }]) assert.equal(input.groupClassBodyKeysValid(bad), false)
 })
 
