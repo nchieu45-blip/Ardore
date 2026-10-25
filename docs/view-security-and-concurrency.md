@@ -3,11 +3,11 @@
 Prepared on `codex/safe-account-deletion`, extending draft PR #7. Nothing in
 this work authorizes production migration, merge or deployment.
 
-## Current update — 2026-10-23
+## Current update — 2026-10-25
 
 The two historical failures below are fixed locally by the new pending
 `20261023090520_account_deletion_write_barrier.sql`, with no edits to historical
-applied migrations. The expanded local runner passes **45/45 checks**; both
+applied migrations. On 2026-10-23 the expanded local runner passed **45/45 checks**; both
 original safety assertions are retained. **924 offline regressions**, TypeScript,
 lint (zero errors/four existing warnings), production build and local security
 advisors also pass. GitHub CI is a separate check and never substitutes for these
@@ -28,11 +28,17 @@ opted-in local races. PR #7 remains draft; no production changes are authorized.
   orders cause deletion to roll back, preserving the buyer and financial history.
   Real app orchestration/GoTrue cleanup, Auth fault/retry and privileges pass.
 
-Release still needs independent review of the new lifecycle/Storage triggers,
-separate approval for the three pending production migrations in order
-`20261018120029`, `20261019131618`, `20261023090520`, read-only verification of the
-actual production permissions/triggers after approved application, and explicit
-merge/deployment approval. Do not dispatch/enable the GitHub migration workflow.
+Release must follow the single authoritative
+[rollout and fallback runbook](account-deletion-safety.md#approved-release-runbook-not-executed):
+server-side deletion hold, verified old-handler drain, approved safe-code
+deployment, separately approved pending migrations in order `20261018120029`,
+`20261019131618`, `20261023090520`, read-only verification, then explicitly
+approved reopening. **Never apply the migrations first while the old handler is
+reachable.** The old main path deletes rows via separate requests, which a later
+guard cannot undo. No rollback may reactivate it without an independent,
+verified hold; applied protections/history and uncertain deletion barriers stay
+intact. If Hostinger hold/drain capability cannot be demonstrated, stop release
+work rather than assume it exists. Do not dispatch/enable the GitHub migration job.
 Stripe integration/provider-dashboard edits, emails and full browser/device QA
 were not retested by this local-only suite. Financial/file retention cases still
 require support review; never bypass a barrier with manual data deletion.
@@ -59,10 +65,10 @@ alone can implement a public review projection.
   Profile helper execution is denied to anon; public review helpers intentionally
   allow anon to receive only the same bounded public projection.
 
-Both **pending, unreleased** migrations use transaction-local `lock_timeout=5s`
-and `statement_timeout=30s`. The earlier storage migration has not been applied
-to production; only this unreleased file was adjusted. Applied historical
-migrations were not edited. Neither migration rewrites customer rows.
+All three **pending, unreleased** migrations use transaction-local
+`lock_timeout=5s` and `statement_timeout=30s`. The earlier storage migration has
+not been applied to production; only this unreleased file was adjusted. Applied
+historical migrations were not edited. None rewrites customer rows.
 
 ## Local verification (original 2026-10-19 result)
 
@@ -106,7 +112,7 @@ evidence only, not a production-wide security certification.
    no FK. This is a database concurrency reproduction, not a real Stripe Checkout
    or provider integration test.
 
-The runner deliberately returns nonzero for these failed safety assertions. A
+In that original reproduction the runner returned nonzero for failed assertions. A
 green offline/CI suite does **not** override these failures. Both failures also
 occur without changing the prepared view migration; they are pre-existing gaps
 in the account-deletion lifecycle, not repaired by DDL timeouts or view RLS.
@@ -127,7 +133,7 @@ These checks do not turn the two real local concurrency failures into successes.
 
 That is a separate lifecycle change with its own new migration and application
 integration, not an extra permission grant in the three views. Keep PR #7 draft.
-After that change, rerun the same failing assertions without relaxing them,
-broader local integration tests, lint/types/build and CI. Only then request
-separate production migration approval, verify actual production permissions
-read-only after the approved migration, and obtain explicit release approval.
+After that change, the same safety assertions were rerun without relaxing them,
+alongside broader local integration tests and lint/types/build/CI. Production
+approval and execution remain separate: use the authoritative runbook above,
+not this historical implementation sequence, for the actual rollout and fallback.
