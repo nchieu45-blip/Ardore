@@ -1,41 +1,18 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
-import { VIDEO_CALLS_ENABLED } from '@/lib/features'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
 export async function provisionConfirmedCoachingBooking(bookingId: string) {
   const service = await createServiceClient()
   const { data: booking, error } = await service
     .from('bookings')
-    .select('id, creator_id, buyer_id, buyer_email, buyer_name, scheduled_at, duration_minutes, daily_room_name, daily_room_url, creator_profiles(display_name, user_id)')
+    .select('id, creator_id, buyer_id, buyer_email, buyer_name, scheduled_at, duration_minutes, status, payment_status, stripe_livemode, creator_profiles(display_name, user_id)')
     .eq('id', bookingId)
     .single()
-  if (error || !booking) return
+  if (error || !booking || booking.status !== 'confirmed' || !hasValidCoachingPayment(booking)) return
 
-  let roomName = booking.daily_room_name
-  let roomUrl = booking.daily_room_url
-  if (VIDEO_CALLS_ENABLED && !roomName && process.env.DAILY_API_KEY) {
-    try {
-      const roomExp = Math.floor(new Date(booking.scheduled_at).getTime() / 1000)
-        + (booking.duration_minutes + 30) * 60
-      const response = await fetch('https://api.daily.co/v1/rooms', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.DAILY_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          privacy: 'private',
-          properties: { exp: roomExp, max_participants: 2, enable_chat: true, enable_screenshare: false },
-        }),
-      })
-      if (response.ok) {
-        const room = await response.json() as { name: string; url: string }
-        roomName = room.name
-        roomUrl = room.url
-        await service.from('bookings').update({ daily_room_name: roomName, daily_room_url: roomUrl }).eq('id', bookingId)
-      }
-    } catch { /* Daily provisioning is recoverable and must not undo payment. */ }
-  }
+  // Video rooms and per-participant tokens are provisioned lazily by the
+  // authenticated join endpoint. Confirmation never creates a provider room.
 
   const creator = Array.isArray(booking.creator_profiles)
     ? booking.creator_profiles[0]

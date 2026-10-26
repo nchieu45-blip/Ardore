@@ -5,7 +5,7 @@ import { stripe } from '@/lib/stripe/server'
 import { calculateArdorePlatformFee } from '@/lib/stripe/platformFee'
 import { ConnectReadinessError, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 
-type Kind = 'booking' | 'products' | 'subscription'
+type Kind = 'booking' | 'products' | 'subscription' | 'group'
 export type SettlementOrder = {
   id: string; kind: Kind; buyer_id: string; creator_id: string; account_id: string | null;
   gross_cents: number; platform_fee_cents: number; coach_net_cents: number; stripe_livemode: boolean;
@@ -74,6 +74,10 @@ export async function createSettlementOrder({ service, id = randomUUID(), kind, 
   }
   if (kind === 'booking') assert(uuid(reference.bookingId) && reference.attemptId === id, 'order_booking_invalid')
   if (kind === 'subscription') assert(uuid(reference.tierId), 'order_tier_invalid')
+  if (kind === 'group') assert(reference.reservationId === id && uuid(reference.videoClassId)
+    && typeof reference.occurrenceStart === 'string' && Number.isFinite(Date.parse(reference.occurrenceStart))
+    && Number.isInteger(reference.durationMinutes) && Number(reference.durationMinutes) >= 5
+    && Number(reference.durationMinutes) <= 480, 'order_group_invalid')
   const fee = calculateArdorePlatformFee(grossCents)
   const row = { id, kind, buyer_id: buyerId, creator_id: creatorId, account_id: accountId, gross_cents: grossCents,
     platform_fee_cents: fee, coach_net_cents: grossCents - fee, stripe_livemode: livemode, reference }
@@ -472,10 +476,20 @@ export async function reconcileSettlementRefund({ service, paymentIntentId, prov
       assert(!error, 'purchase_refund_persistence_failed')
     }
   }
+  if (order.kind === 'group') {
+    const { projectGroupPaymentState } = await import('@/lib/group-booking-payments')
+    await projectGroupPaymentState({ service, order, settlement, disputeState: await freshDisputeState(charge, provider) })
+  }
   return getSettlementRefundContext({ service, paymentIntentId, provider })
 }
 
 async function refundUnfulfillable(service: SupabaseClient, settlement: PaymentSettlement, provider: Stripe) {
+  if (settlement.kind === 'group') {
+    const { refundGroupReservation } = await import('@/lib/group-booking-payments')
+    const order = await readOrder(service, settlement.order_id)
+    await refundGroupReservation({ service, reservationId: String(order.reference.reservationId), provider })
+    return
+  }
   const key = `ardore-settlement-${settlement.id}-unfulfilled-refund-v1`
   await prepareSettlementRefund({ service, paymentIntentId: settlement.stripe_payment_intent_id,
     targetRefundedCents: settlement.gross_cents, refundKey: key, provider })
@@ -504,6 +518,10 @@ export async function reconcileSettlementCheckout({ service, sessionId, provider
   const order = await readOrder(service, session.metadata.ardore_order_id)
   await registerSettlementCheckout({ service, orderId: order.id, sessionId, provider })
   assert(order.kind !== 'booking', 'booking_requires_lifecycle_fulfillment')
+  if (order.kind === 'group') {
+    const { observeGroupCheckout } = await import('@/lib/group-booking-payments')
+    await observeGroupCheckout({ service, order, session, provider })
+  }
   if (session.status === 'expired' && session.payment_status !== 'paid') {
     if (order.reference.discountRedemptionId) await rpc(service, 'release_discount_redemption', { p_id: order.reference.discountRedemptionId })
     return { handled: true }
@@ -530,6 +548,10 @@ export async function reconcileSettlementCheckout({ service, sessionId, provider
     if (charge.amount_refunded === charge.amount_captured || disputeState) return { handled: true }
   }
   const result = await fulfill(service, order, settlement)
+  if (order.kind === 'group' && result.newly_fulfilled && !charge.amount_refunded && !disputeState) {
+    const { notifyGroupBookingConfirmed } = await import('@/lib/group-booking-notifications')
+    await notifyGroupBookingConfirmed(service, order.id)
+  }
   try {
     if (result.refund_required) await refundUnfulfillable(service, settlement, provider)
     else {
@@ -616,7 +638,7 @@ export async function recoverCoachSettlements({ service, creatorId, limit = 25 }
       if (row.kind === 'subscription' && row.stripe_invoice_id) {
         const recovered = await reconcileSettlementInvoice({ service, invoiceId: row.stripe_invoice_id })
         if (recovered.retryNeeded) throw new SettlementError('settlement_retry_failed')
-      } else if (row.kind === 'products' && row.stripe_checkout_session_id) {
+      } else if (['products', 'group'].includes(row.kind) && row.stripe_checkout_session_id) {
         const recovered = await reconcileSettlementCheckout({ service, sessionId: row.stripe_checkout_session_id })
         if (recovered.retryNeeded) throw new SettlementError('settlement_retry_failed')
       } else await settlePayment({ service, settlementId: row.id })

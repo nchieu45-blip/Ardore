@@ -34,8 +34,12 @@ const SECTIONS: FAQSection[] = [
       {
         q: 'Wie buche ich ein 1:1-Videocoaching?',
         a: VIDEO_CALLS_ENABLED
-          ? 'Öffne das Profil des gewünschten Coaches und scrolle zum Bereich „1:1 Videocoaching". Wähle dort einen freien Tag und eine Uhrzeit aus dem Kalender. Fülle dann deine Angaben (Name, E-Mail, optionale Notizen) aus und bestätige die Buchung. Beide Seiten erhalten eine Bestätigungs-E-Mail mit dem Link zum Videoraum. Hast du ein Abo mit inkludierten Sessions, ist die Buchung für dich kostenlos.'
+          ? 'Öffne das Profil des gewünschten Coaches und wähle im Bereich „1:1 Videocoaching" einen freien Termin. Nach bestätigter Buchung findest du unter „Meine Sessions" deine geschützte Session-Seite. Dort öffnet der Videozugang 15 Minuten vor Beginn. Hat dein Coach einen alternativen Meeting-Link hinterlegt, findest du ihn ebenfalls dort. Bei kostenpflichtigen Terminen muss zuerst die Zahlung bestätigt sein. Ein aktives Abo kann je nach Stufe Sessions enthalten. Alle Terminzeiten gelten für Europe/Berlin.'
           : 'Öffne das Profil des gewünschten Coaches und wähle im Bereich „1:1 Videocoaching" einen freien Termin. Nach der Bestätigung hinterlegt dein Coach einen privaten Meeting-Link, zum Beispiel für Google Meet, Zoom oder Microsoft Teams. Öffne unter „Meine Sessions" deinen Termin und melde dich mit deinem Ardore-Konto an. Dort findest du den aktuellen Link; fehlt er, kannst du ihn beim Coach anfragen. Alle angezeigten Terminzeiten gelten für Europe/Berlin.',
+      },
+      {
+        q: 'Wie buche ich ein Gruppencoaching?',
+        a: 'Öffne im Marktplatz den Bereich „Gruppencoaching" und wähle einen Kurs. Im Coach-Profil suchst du einen konkreten Termin aus. Jeder Termin wird einzeln gebucht und bezahlt; es gibt keine automatische Buchung der gesamten Kursreihe. Nach bestätigter Anmeldung findest du Termin und Videozugang unter „Meine Gruppenbuchungen". Vor Beginn kannst du deine Teilnahme dort stornieren; ein bezahlter Betrag wird vollständig zur Erstattung angefordert. Solange die Videoverbindung noch nicht eingerichtet ist, können keine neuen Gruppenbuchungen gestartet werden.',
       },
       {
         q: 'Was passiert, wenn ein Coach eine Session absagt?',
@@ -67,8 +71,12 @@ const SECTIONS: FAQSection[] = [
       {
         q: 'Wie biete ich 1:1-Coaching an?',
         a: VIDEO_CALLS_ENABLED
-          ? 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer (30–90 Min.), Pufferzeit, Buchungsvorlaufzeit und deine wöchentliche Verfügbarkeit fest. Du kannst auch einzelne Tage als Ausnahme blockieren oder freigeben. Die Sessions finden per verschlüsseltem Video über Daily.co statt – kein separates Tool nötig.'
+          ? 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer, Pufferzeit, Buchungsvorlaufzeit und deine wöchentliche Verfügbarkeit fest. Du kannst einzelne Tage blockieren oder freigeben. Unter „Meine Buchungen" öffnest du die Session-Seite und den privaten Videozugang. Falls du einen anderen Meeting-Dienst nutzt, kannst du dort einen alternativen Meeting-Link hinterlegen.'
           : 'Aktiviere Videocoaching unter Einstellungen → Videocoaching. Dort legst du Preis, Sitzungsdauer, Pufferzeit, Buchungsvorlaufzeit und Verfügbarkeit fest. Öffne nach einer bestätigten Buchung unter „Meine Buchungen" die Sessiondetails und hinterlege vor dem Termin einen HTTPS-Meeting-Link, zum Beispiel für Google Meet, Zoom oder Microsoft Teams. Du kannst den Link dort aktualisieren; nur du und dein Kunde können darauf zugreifen. Prüfe auch die Zugangseinstellungen beim Meeting-Dienst.',
+      },
+      {
+        q: 'Wie veröffentliche und leite ich einen Gruppenkurs?',
+        a: 'Lege unter Einstellungen → Gruppen-Kurse einen Kurs an: Titel, Beschreibung, Einzeltermin oder wöchentliche Zeit, Dauer, Teilnehmerzahl und Preis je Termin. Ein aktiver Kurs erscheint mit deinem veröffentlichten Coach-Profil im Marktplatz. Kostenpflichtige Buchungen setzen eine eingerichtete Zahlungs- und Videoverbindung voraus. Über „Session verwalten" öffnest du die einzelnen Termine, siehst Anmeldungen und startest den privaten Videoanruf. Bereits gebuchte Termine können durch spätere Änderungen am Kurs nicht verschoben werden. Wenn ein Termin ausfällt, sage die betroffenen Anmeldungen einzeln ab.',
       },
       {
         q: 'Wie funktionieren Auszahlungen?',

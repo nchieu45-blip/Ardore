@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { MAX_GROUP_PARTICIPANTS } from '@/lib/group-schedule'
 
 export interface MarketplaceServiceOffer {
   id: string
@@ -82,7 +83,7 @@ function publicOffer(value: unknown, kind: MarketplaceServiceOffer['kind'], now:
     const groupTitle = text(row.title)
     if (!groupTitle || (row.max_participants !== null && !integer(row.max_participants, 1))) return null
     title = groupTitle
-    maxParticipants = row.max_participants as number | null
+    maxParticipants = Math.min((row.max_participants as number | null) ?? MAX_GROUP_PARTICIPANTS, MAX_GROUP_PARTICIPANTS)
 
     if (row.schedule_type === 'once') {
       startsAt = date(row.starts_at)
