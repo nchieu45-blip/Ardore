@@ -29,7 +29,7 @@ HTML escapes names and titles; text preserves their literal values.
 
 ## Durable delivery and retries
 
-Migration `20261027165313_group_session_reminders.sql` adds a private ledger,
+Migration `20261027225809_group_session_reminders.sql` adds a private ledger,
 service-only security-invoker candidate view and service-only eligibility,
 claim, completion and failure functions. Browser roles have no table/view or
 function access. There is no SECURITY DEFINER bypass or new public data surface.
@@ -88,3 +88,13 @@ three message IDs: retry reused the frozen payload/key and original provider ID.
 Two additional simultaneous job runs sent nothing. The rendered participant and
 coach emails fit 1280px and 390px viewports without horizontal overflow. Real
 inbox placement and production scheduler delivery were not tested by these sinks.
+
+### Approved production migration
+
+The owner explicitly approved the production migration, PR #10 merge after CI,
+and deployment. Supabase applied the exact reviewed DDL successfully and assigned
+version `20261027225809`; the source filename is aligned with that authoritative
+history entry. The DDL contents are unchanged. Production checks verified RLS,
+the security-invoker view, browser-role denials and service-only function grants.
+At application time there were no group occurrences, eligible recipients or
+delivery rows. No production cron was manually invoked.

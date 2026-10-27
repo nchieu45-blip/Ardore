@@ -13,7 +13,7 @@ try{
  assert.equal((await sql(`SELECT count(*) FROM pg_database WHERE datname='${database}';`,'postgres')).trim(),'0','Refuse to replace another run')
  await sql(`CREATE DATABASE ${database};`,'postgres');created=true
  await sql(readFileSync(new URL('../supabase/tests/group_reminders_setup.sql',import.meta.url),'utf8'))
- const migration=readFileSync(new URL('../supabase/migrations/20261027165313_group_session_reminders.sql',import.meta.url),'utf8')
+ const migration=readFileSync(new URL('../supabase/migrations/20261027225809_group_session_reminders.sql',import.meta.url),'utf8')
  assert.equal(migration.split('REFERENCES auth.users(id)').length,2)
  // Substitute only the recipient FK in this synthetic SQL test. A separate
  // GoTrue integration validates real Auth FKs; never SQL-insert auth.users.
