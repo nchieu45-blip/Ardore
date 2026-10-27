@@ -2,6 +2,13 @@
 
 ## Release gate
 
+**Hostinger-Ausführungsplan, 2026-10-28:** Der konkrete, gestufte Ablauf und die
+verifizierte Produktionsverbindung des PR-Previews stehen in
+[`account-deletion-hostinger-rollout.md`](account-deletion-hostinger-rollout.md).
+Er verwendet nur nachgewiesene Bedienelemente, benennt einen lokal getesteten
+Rückfall und hält den fehlenden Nachweis der Stilllegung alter Requests als
+Stopppunkt ausdrücklich offen. Keine Produktionsfreigabe ist daraus abzuleiten.
+
 **Local repair update — 2026-10-27:** The branch incorporates current main
 `9ccb3bc`, including its group-booking implementation and restricted-key mode
 handling. Retention checks now cover every group reservation (paid or free,
@@ -20,13 +27,14 @@ All exact temporary fixtures were removed; the three original fictional Auth
 users were preserved. Stripe faults use an in-memory provider; no Stripe API,
 payment, email or production operation was executed. Lint (four existing
 warnings), non-emitting TypeScript and the test-config Webpack build pass on
-local Node 24; Node-22 CI has not run for this local revision.
+local Node 24. Subsequently, GitHub CI passed on Node 22.23.4 for `eccb417`:
+https://github.com/nchieu45-blip/Ardore/actions/runs/40545067492 (1,019 CI tests).
 
 The checkout's existing environment file was not used or changed: build sources
 were copied without environment files into a separate local build folder and
-used only the established loopback Supabase/test configuration. No push was
-performed because this open PR has an automatic Hostinger preview deployment.
-These changes are local on the PR branch until a preview-safe push is approved.
+used only the established loopback Supabase/test configuration. The owner later
+approved the feature-branch push and Hostinger PR preview, and `eccb417` was
+pushed. PR #7 remains draft and unmerged; production main is still `9ccb3bc`.
 The production transition/fallback gates below remain open; local correctness
 does not prove that old Hostinger handlers have retired.
 
@@ -36,7 +44,7 @@ locally by `20261023090520_account_deletion_write_barrier.sql`. The expanded
 buyer-less checkout-order races. This is not production migration/release
 approval. See `view-security-and-concurrency.md` for historical and current evidence.
 
-This change is not deployed. **Do not apply these migrations while any old
+This change is not deployed to production. **Do not apply these migrations while any old
 deletion handler can still receive or finish requests.** The old `main` handler
 deletes application rows in separate requests before deleting Auth; a later
 trigger rejection cannot undo those earlier deletes. The mandatory sequence is
