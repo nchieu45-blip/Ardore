@@ -28,7 +28,6 @@ export default function DeleteAccountSection({
   const [error,   setError]   = useState('')
   const router  = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
-  const deletingRef = useRef(false)
 
   useEffect(() => {
     if (open) {
@@ -41,23 +40,19 @@ export default function DeleteAccountSection({
   // Close on Escape
   useEffect(() => {
     if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !deletingRef.current) setOpen(false) }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [open])
 
   async function handleDelete() {
-    if (input !== CONFIRM_WORD || deletingRef.current) return
-    deletingRef.current = true
+    if (input !== CONFIRM_WORD) return
     setDeleting(true)
     setError('')
     try {
-      const res  = await fetch('/api/account/delete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: CONFIRM_WORD }),
-      })
+      const res  = await fetch('/api/account/delete', { method: 'POST' })
       const json = await res.json() as { ok?: boolean; error?: string }
-      if (!res.ok || json.ok !== true) throw new Error(json.error ?? 'Die Kontolöschung konnte nicht bestätigt werden. Bitte prüfe den Status erneut.')
+      if (!res.ok) throw new Error(json.error ?? 'Unbekannter Fehler')
 
       const supabase = createClient()
       await supabase.auth.signOut()
@@ -65,7 +60,6 @@ export default function DeleteAccountSection({
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Fehler beim Löschen des Kontos')
       setDeleting(false)
-      deletingRef.current = false
     }
   }
 
@@ -83,7 +77,7 @@ export default function DeleteAccountSection({
           <div>
             <p className="text-sm font-medium text-gray-900">Konto dauerhaft löschen</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Löscht dein Konto dauerhaft. Bei Buchungs-, Kauf- oder Zahlungsaufzeichnungen hilft dir der Ardore-Support.
+              Löscht dein Konto und alle zugehörigen Daten unwiderruflich (DSGVO Art. 17).
             </p>
           </div>
           <button
@@ -100,21 +94,19 @@ export default function DeleteAccountSection({
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
-          onClick={e => { if (e.target === e.currentTarget && !deletingRef.current) setOpen(false) }}
+          onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}
         >
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-account-title" className="w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-2xl shadow-2xl animate-scale-in">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </div>
-                <h3 id="delete-account-title" className="font-bold text-gray-900">Konto dauerhaft löschen</h3>
+                <h3 className="font-bold text-gray-900">Konto dauerhaft löschen</h3>
               </div>
               <button
                 onClick={() => setOpen(false)}
-                aria-label="Dialog schließen"
-                disabled={deleting}
                 className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -127,12 +119,13 @@ export default function DeleteAccountSection({
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Folgendes wird gelöscht:</p>
                 <ul className="space-y-1.5">
                   {[
-                    'Dein Profil und zugehörige Kontodaten',
+                    'Dein Profil und alle persönlichen Daten',
                     isCreator && 'Alle deine Produkte und Inhalte',
                     isCreator && 'Alle Abo-Preisstufen',
                     isCreator && 'Videocoaching-Einstellungen',
+                    'Alle Buchungen und Sessions',
                     'Alle Nachrichten und Chats',
-                    'Deine Abonnements (nach bestätigter Beendigung)',
+                    'Alle Käufe und Abonnements',
                   ].filter(Boolean).map((item, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
                       <span className="text-red-400 flex-shrink-0 mt-0.5">✕</span>
@@ -141,10 +134,6 @@ export default function DeleteAccountSection({
                   ))}
                 </ul>
               </div>
-
-              <p className="text-sm text-gray-600">
-                Bei Buchungen, Käufen oder Zahlungsaufzeichnungen ist keine automatische Löschung möglich. Bitte kontaktiere dafür den Ardore-Support. Kann Stripe die Beendigung nicht bestätigen, bleibt dein Konto erhalten; einzelne Abos können bereits beendet sein.
-              </p>
 
               {/* Active subscribers warning */}
               {activeSubscribersCount > 0 && (
@@ -165,7 +154,7 @@ export default function DeleteAccountSection({
                   <p className="text-sm text-amber-800">
                     <strong>Achtung:</strong> Du hast noch{' '}
                     <strong>{upcomingBookingsCount} bevorstehende{upcomingBookingsCount === 1 ? ' Session' : ' Sessions'}</strong>.
-                    {' '}Bitte kläre diese vor der Kontolöschung mit dem Ardore-Support.
+                    {' '}Diese werden storniert und die Kunden werden benachrichtigt.
                   </p>
                 </div>
               )}
@@ -190,13 +179,11 @@ export default function DeleteAccountSection({
 
               {/* Confirmation input */}
               <div>
-                <label htmlFor="delete-account-confirmation" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Schreibe <span className="font-mono font-bold text-red-600">{CONFIRM_WORD}</span> zum Bestätigen:
                 </label>
                 <input
                   ref={inputRef}
-                  id="delete-account-confirmation"
-                  disabled={deleting}
                   type="text"
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -213,7 +200,7 @@ export default function DeleteAccountSection({
 
               {error && (
                 <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3">
-                  <p role="alert" className="text-sm text-red-700">{error}</p>
+                  <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
 
