@@ -110,7 +110,7 @@ BEGIN
   IF TG_TABLE_NAME = 'purchases' THEN
     SELECT creator_id INTO creator FROM public.products WHERE id = NEW.product_id;
     IF creator IS NULL THEN RAISE EXCEPTION 'account_write_blocked' USING ERRCODE = '55000'; END IF;
-  ELSIF TG_TABLE_NAME = 'video_class_bookings' THEN
+  ELSIF TG_TABLE_NAME IN ('video_class_bookings', 'video_class_occurrences') THEN
     SELECT creator_id INTO creator FROM public.video_classes WHERE id = NEW.video_class_id;
     IF creator IS NULL THEN RAISE EXCEPTION 'account_write_blocked' USING ERRCODE = '55000'; END IF;
   END IF;
@@ -134,6 +134,8 @@ CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF buyer_id,pr
 CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF user_id,video_class_id ON public.video_class_bookings FOR EACH ROW EXECUTE FUNCTION private.guard_account_record_write('user_id','creator_id');
 CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF creator_id ON public.verification_requests FOR EACH ROW EXECUTE FUNCTION private.guard_account_record_write('buyer_id','creator_id');
 CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF user_id ON public.creator_profiles FOR EACH ROW EXECUTE FUNCTION private.guard_account_record_write('user_id','unused_creator_id');
+CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF buyer_id,creator_id ON public.group_booking_reservations FOR EACH ROW EXECUTE FUNCTION private.guard_account_record_write('buyer_id','creator_id');
+CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF video_class_id ON public.video_class_occurrences FOR EACH ROW EXECUTE FUNCTION private.guard_account_record_write('unused_buyer_id','creator_id');
 
 -- Supported Storage validation hook: no managed functions/tables are replaced,
 -- no metadata is manually inserted/updated/deleted. Includes service-role uploads
@@ -189,6 +191,8 @@ BEGIN
     OR EXISTS(SELECT 1 FROM public.coaching_payment_attempts WHERE buyer_id=OLD.id OR creator_id=creator)
     OR EXISTS(SELECT 1 FROM public.discount_redemptions WHERE buyer_id=OLD.id OR creator_id=creator)
     OR EXISTS(SELECT 1 FROM public.bookings WHERE buyer_id=OLD.id OR creator_id=creator)
+    OR EXISTS(SELECT 1 FROM public.group_booking_reservations WHERE buyer_id=OLD.id OR creator_id=creator)
+    OR EXISTS(SELECT 1 FROM public.video_class_occurrences o JOIN public.video_classes c ON c.id=o.video_class_id WHERE c.creator_id=creator)
     OR EXISTS(SELECT 1 FROM public.purchases p JOIN public.products product ON product.id=p.product_id WHERE p.buyer_id=OLD.id OR product.creator_id=creator)
     OR EXISTS(SELECT 1 FROM public.video_class_bookings b JOIN public.video_classes c ON c.id=b.video_class_id WHERE b.user_id=OLD.id OR c.creator_id=creator) THEN
     RAISE EXCEPTION 'account_records_require_review' USING ERRCODE = '23503';

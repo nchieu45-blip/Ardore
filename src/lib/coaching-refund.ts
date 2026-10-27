@@ -139,7 +139,8 @@ function refundTotals(snapshot: ProviderSnapshot) {
 async function providerSnapshot(service: SupabaseClient, booking: CoachingRefundBooking, target?: CoachingRefundTarget): Promise<ProviderSnapshot> {
   const checkedAt = new Date().toISOString()
   if (!booking.stripe_payment_intent_id || booking.stripe_livemode === null) throw new RefundValidationError('missing_booking_payment')
-  const configuredLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
+  const credential = process.env.STRIPE_SECRET_KEY
+  const configuredLiveMode = credential?.startsWith('sk_live_') === true || credential?.startsWith('rk_live_') === true
   if (booking.stripe_livemode !== configuredLiveMode) throw new RefundValidationError('payment_mode_mismatch')
   const intent = await stripe.paymentIntents.retrieve(booking.stripe_payment_intent_id)
   const chargeId = objectId(intent.latest_charge)

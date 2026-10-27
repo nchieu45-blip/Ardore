@@ -28,15 +28,22 @@ let stage = 'setup', createdVerificationBucket = false
 const sessions = []
 // Execute the actual orchestration against LOCAL services, without loading any
 // provider/email client. This is not a mocked database or a Stripe integration.
-const deletionModule = { exports: {} }
-new Function('require','exports','module', ts.transpileModule(readFileSync(new URL('../src/lib/account-deletion.ts', import.meta.url),'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText)(name => {
-  if (name === 'server-only') return {}
-  if (name === '@/lib/subscription-cancellation') return { ownedProviderSubscription() { throw new Error('Stripe forbidden in local barrier suite') } }
-  throw new Error('External service import forbidden in local barrier suite')
-}, deletionModule.exports, deletionModule)
-const { deleteAccountSafely } = deletionModule.exports
+function loadLocal(path, modules) {
+  const fixtureModule = { exports: {} }
+  new Function('require','exports','module', ts.transpileModule(readFileSync(new URL(path, import.meta.url),'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText)(name => {
+    assert.ok(name in modules, 'External service import forbidden in local barrier suite')
+    return modules[name]
+  }, fixtureModule.exports, fixtureModule)
+  return fixtureModule.exports
+}
+const cancellation = loadLocal('../src/lib/subscription-cancellation.ts', {
+  '@/lib/subscription-entitlement': loadLocal('../src/lib/subscription-entitlement.ts', {}),
+})
+const { deleteAccountSafely } = loadLocal('../src/lib/account-deletion.ts', {
+  'server-only': {}, '@/lib/subscription-cancellation': cancellation,
+})
 const providerForbidden = async () => { throw new Error('Stripe forbidden in local barrier suite') }
 function record(name, passed, detail) {
   run.results.push({ name, passed, ...(detail ? { detail } : {}) })
@@ -149,7 +156,13 @@ async function cleanup() {
   for (const path of run.files) {
     const result = await service.storage.from('verification-docs').remove([path]); if (result.error) throw new Error('Exact local fixture file cleanup failed')
   }
-  for (const table of ['payment_orders', 'session_reviews', 'reviews', 'purchases', 'bookings', 'chat_conversations', 'subscriptions', 'products', 'subscription_tiers', 'creator_profiles']) {
+  // Exact fixture class IDs also own their composite-key occurrence rows.
+  if (run.tables.video_classes?.length) {
+    db(await service.from('video_class_bookings').delete().in('video_class_id', run.tables.video_classes))
+    db(await service.from('group_booking_reservations').delete().in('video_class_id', run.tables.video_classes))
+    db(await service.from('video_class_occurrences').delete().in('video_class_id', run.tables.video_classes))
+  }
+  for (const table of ['video_classes', 'payment_orders', 'session_reviews', 'reviews', 'purchases', 'bookings', 'chat_conversations', 'subscriptions', 'products', 'subscription_tiers', 'creator_profiles']) {
     if (run.tables[table]?.length) db(await service.from(table).delete().in('id', run.tables[table]))
   }
   for (const id of run.users) {
@@ -326,6 +339,92 @@ try {
     const duplicate = await user('double-delete')
     const results = await Promise.all([service.auth.admin.deleteUser(duplicate), service.auth.admin.deleteUser(duplicate)])
     record('parallel_duplicate_delete_has_no_false_retained_account', results.some(r => !r.error) && !await accountExists(duplicate))
+
+    stage = 'group_retention_and_races'
+    const startsAt = new Date(Date.now() + 7 * 86400000).toISOString()
+    async function groupClass(host, price = 0) {
+      return insert('video_classes', { creator_id: host.id, title: 'LOCAL group agreement', schedule_type: 'once',
+        starts_at: startsAt, duration_minutes: 45, price_cents: price, included_in_subscription: false,
+        max_participants: 9, active: true })
+    }
+    async function reserve(course, buyerId) {
+      return service.rpc('reserve_group_class_booking', { p_class_id: course.id, p_buyer_id: buyerId,
+        p_request_id: randomUUID(), p_occurrence_start: startsAt, p_livemode: course.price_cents ? false : null,
+        p_account_id: course.price_cents ? 'acct_LocalFixture' : null, p_expected_price_cents: course.price_cents })
+    }
+    async function retainedByApp(id) {
+      let status
+      try { await deleteAccountSafely({ service, userId: id, getProvider: providerForbidden }) } catch (error) { status = error.status }
+      return status === 409 && await accountExists(id)
+    }
+    for (const price of [0, 500]) {
+      const host = await coach(`group-host-${price}`, true), participant = await user(`group-buyer-${price}`)
+      const course = await groupClass(host, price)
+      const agreement = db(await reserve(course, participant))
+      assert.ok(agreement.reservation?.id)
+      record(`group_${price}_buyer_and_host_history_prevents_app_deletion_before_stripe`,
+        await retainedByApp(participant) && await retainedByApp(host.user_id))
+      const direct = await service.auth.admin.deleteUser(participant)
+      record(`group_${price}_buyer_history_also_blocks_direct_auth_delete`, !!direct.error && await accountExists(participant))
+    }
+    const emptyHost = await coach('occurrence-only-host', true), emptyCourse = await groupClass(emptyHost)
+    db(await service.rpc('ensure_group_class_occurrence', { p_class_id: emptyCourse.id, p_occurrence_start: startsAt }))
+    record('host_initialized_occurrence_without_participants_prevents_app_deletion', await retainedByApp(emptyHost.user_id))
+
+    const raceHost = await coach('group-race-host', true), raceCourse = await groupClass(raceHost)
+    db(await service.rpc('ensure_group_class_occurrence', { p_class_id: raceCourse.id, p_occurrence_start: startsAt }))
+    const raceBuyer = await user('group-delete-first')
+    let reservationResult
+    const groupDelete = await pausedDelete(raceBuyer, async () => { reservationResult = await reserve(raceCourse, raceBuyer) })
+    record('delete_first_group_rpc_rejects_stale_buyer_without_orphan_reservation', !groupDelete.error
+      && !await accountExists(raceBuyer) && reservationResult.error?.code === '55000'
+      && db(await service.from('group_booking_reservations').select('id').eq('buyer_id', raceBuyer)).length === 0)
+
+    const busyHost = await coach('group-deleting-host', true), busyCourse = await groupClass(busyHost), newcomer = await user('group-newcomer')
+    const busyToken = db(await service.rpc('begin_account_deletion', { p_user_id: busyHost.user_id }))
+    const blockedGroup = await reserve(busyCourse, newcomer)
+    record('durable_coach_barrier_rejects_group_rpc_and_rolls_back_occurrence', blockedGroup.error?.code === '55000'
+      && db(await service.from('video_class_occurrences').select('video_class_id').eq('video_class_id', busyCourse.id)).length === 0)
+    db(await service.rpc('release_account_deletion', { p_user_id: busyHost.user_id, p_attempt_id: busyToken }))
+
+    const writingBuyer = await user('group-writer-first'), writingRequest = randomUUID(), groupWriter = session()
+    await send(groupWriter, `BEGIN; SELECT public.reserve_group_class_booking('${raceCourse.id}','${writingBuyer}','${writingRequest}','${startsAt}',NULL,NULL,0);`)
+    stage = 'writer_first_group_app_deletion'
+    const groupRemoving = deleteAccountSafely({ service, userId: writingBuyer, getProvider: providerForbidden })
+      .then(() => ({ status: 200 }), error => ({ status: error.status }))
+    try {
+      for (let i = 0; i < 60; i++) {
+        if (sql("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted);") === 't') break
+        if (i === 59) throw new Error('Deletion did not wait for in-flight writer')
+        await new Promise(resolve => setTimeout(resolve, 30))
+      }
+    } finally { await send(groupWriter, 'COMMIT;') }
+    record('writer_first_group_rpc_commit_preserves_buyer_and_retained_agreement', (await groupRemoving).status === 409
+      && await accountExists(writingBuyer) && db(await service.from('group_booking_reservations').select('id').eq('buyer_id', writingBuyer)).length === 1)
+
+    stage = 'stripe_faults_with_real_local_auth'
+    const stripeBuyer = await user('stripe-fault-buyer')
+    const localProviderId = `sub_local${suffix}`
+    await insert('subscriptions', { buyer_id: stripeBuyer, creator_id: pub.id, tier_id: tier.id,
+      stripe_subscription_id: localProviderId, stripe_livemode: false, status: 'active', current_period_end: '2099-01-01T00:00:00Z' })
+    let providerStatus = 'active', cancelCount = 0, fault = 'cancel'
+    const fakeProvider = { subscriptions: {
+      async retrieve() { if (fault === 'retrieve') throw new Error('Local injected Stripe failure'); return { id: localProviderId, livemode: false, status: providerStatus,
+        metadata: { buyer_id: stripeBuyer, creator_id: pub.id, tier_id: tier.id } } },
+      async cancel() { cancelCount++; if (fault === 'cancel') throw new Error('Local injected Stripe failure'); providerStatus = 'canceled';
+        if (fault === 'timeout') throw new Error('Local injected ambiguous Stripe timeout') },
+    } }
+    for (const injected of ['retrieve', 'cancel', 'timeout']) {
+      fault = injected; let status
+      try { await deleteAccountSafely({ service, userId: stripeBuyer, getProvider: async () => ({ provider: fakeProvider, livemode: false }) }) } catch (error) { status = error.status }
+      record(`stripe_${injected}_fault_keeps_real_local_account_and_subscription`, status === 503 && await accountExists(stripeBuyer)
+        && db(await service.from('subscriptions').select('id').eq('buyer_id', stripeBuyer)).length === 1)
+    }
+    const priorCancels = cancelCount; fault = null
+    const parallelApp = await Promise.allSettled(Array.from({ length: 4 }, () => deleteAccountSafely({ service, userId: stripeBuyer,
+      getProvider: async () => ({ provider: fakeProvider, livemode: false }) })))
+    record('parallel_actual_app_retry_after_stripe_timeout_deletes_once_without_recancellation',
+      parallelApp.filter(r => r.status === 'fulfilled').length === 1 && !await accountExists(stripeBuyer) && cancelCount === priorCancels)
   }
   stage = 'cleanup'
   await cleanup()

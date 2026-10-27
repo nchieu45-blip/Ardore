@@ -117,12 +117,16 @@ export async function sendSessionCancellation(to: string, data: SessionCancellat
   })
 }
 
+function groupEmailHtmlText(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 export async function sendVideoClassConfirmation(to: string, data: VideoClassConfirmationData) {
   await sendEmail({
     from: FROM,
     to,
     subject: `Du bist angemeldet: ${data.classTitle}`,
-    html: videoClassConfirmationHtml(data),
+    html: videoClassConfirmationHtml({ ...data, classTitle: groupEmailHtmlText(data.classTitle), coachName: groupEmailHtmlText(data.coachName) }),
     text: videoClassConfirmationText(data),
   })
 }
@@ -132,7 +136,7 @@ export async function sendVideoClassNewParticipant(to: string, data: VideoClassN
     from: FROM,
     to,
     subject: `Neue Anmeldung: ${data.participantName} für „${data.classTitle}"`,
-    html: videoClassNewParticipantHtml(data),
+    html: videoClassNewParticipantHtml({ ...data, classTitle: groupEmailHtmlText(data.classTitle), coachName: groupEmailHtmlText(data.coachName), participantName: groupEmailHtmlText(data.participantName) }),
     text: videoClassNewParticipantText(data),
   })
 }

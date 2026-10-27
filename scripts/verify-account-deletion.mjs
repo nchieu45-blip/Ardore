@@ -185,10 +185,10 @@ for (const [name, options, status] of [
   assert.ok(!state.events.includes('service')); assert.equal(state.retrieved, 0)
 })
 
-for (const table of ['bookings', 'payment_orders', 'payment_settlements', 'coaching_payment_attempts', 'discount_redemptions', 'purchases', 'video_class_bookings']) {
+for (const table of ['bookings', 'payment_orders', 'payment_settlements', 'coaching_payment_attempts', 'discount_redemptions', 'purchases', 'video_class_bookings', 'group_booking_reservations', 'video_class_occurrences']) {
   for (const [name, option, status] of [['existing records', 'protectedTable', 409], ['read failure', 'readError', 503], ['unknown count', 'nullCount', 503]]) {
     test(`${table}: ${name} prevents Stripe access and deletion`, async () => {
-      const state = fixture({ [option]: table }); await response(state, status)
+      const state = fixture({ isCreator: table === 'video_class_occurrences', [option]: table }); await response(state, status)
       assert.equal(state.retrieved, 0); assert.equal(state.canceled, 0)
     })
   }

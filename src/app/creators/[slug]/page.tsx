@@ -31,6 +31,7 @@ import ReviewSection from './ReviewSection'
 import BookingWidget from './BookingWidget'
 import HeartButton from '@/components/HeartButton'
 import VideoClassBookButton from './VideoClassBookButton'
+import { MAX_GROUP_PARTICIPANTS, nextGroupOccurrences } from '@/lib/group-schedule'
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
@@ -220,23 +221,18 @@ export default async function CreatorProfilePage({
   const videoClasses = (videoClassesRes.data ?? []) as VideoClass[]
   const videoClassIds = videoClasses.map(vc => vc.id)
 
-  // Participant counts and user's own bookings for video classes
-  const [vcParticipantRows, vcUserBookingRows] = await Promise.all([
-    videoClassIds.length > 0
-      ? supabase.from('video_class_bookings').select('video_class_id').eq('status', 'confirmed').in('video_class_id', videoClassIds)
-      : Promise.resolve({ data: [] }),
-    videoClassIds.length > 0 && user
-      ? supabase.from('video_class_bookings').select('video_class_id').eq('user_id', user.id).eq('status', 'confirmed').in('video_class_id', videoClassIds)
-      : Promise.resolve({ data: [] }),
-  ])
-
-  const vcParticipantCounts: Record<string, number> = {}
-  for (const row of (vcParticipantRows.data ?? []) as { video_class_id: string }[]) {
-    vcParticipantCounts[row.video_class_id] = (vcParticipantCounts[row.video_class_id] ?? 0) + 1
-  }
-  const vcUserBookedIds = new Set(
-    (vcUserBookingRows.data ?? []).map((r: { video_class_id: string }) => r.video_class_id)
-  )
+  // Registration is per occurrence. Public capacity comes from the aggregate
+  // availability endpoint, never from participant rows filtered by caller RLS.
+  const vcUserBookingRows = videoClassIds.length > 0 && user
+    ? await supabase.from('video_class_bookings')
+      .select('video_class_id, occurrence_start, price_paid_cents, payment_status, stripe_livemode')
+      .eq('user_id', user.id).eq('status', 'confirmed').in('video_class_id', videoClassIds)
+    : { data: [], error: null }
+  const vcRegistrations = (vcUserBookingRows.data ?? []).filter(row => row.occurrence_start && (
+    row.payment_status === 'not_required' && row.price_paid_cents === 0
+    || row.payment_status === 'paid' && row.stripe_livemode === true
+  ))
+  const groupNow = new Date().getTime()
 
   const activeSubscription = hasActiveSubscriptionEntitlement(subscriptionRes.data) ? subscriptionRes.data : null
   const purchasedIds = new Set((purchasesRes.data ?? []).map((p: { product_id: string }) => p.product_id))
@@ -754,23 +750,22 @@ export default async function CreatorProfilePage({
             {videoClasses.length > 0 && (
               <div className="space-y-4 ">
                 <h2 className="text-xl font-semibold tracking-tight text-foreground">Gruppen-Videokurse</h2>
+                {vcUserBookingRows.error && <p role="alert" className="text-sm text-red-700">Deine Gruppenanmeldungen konnten nicht geladen werden. Bitte lade die Seite erneut, um deine Buchungen zu prüfen.</p>}
                 {videoClasses.map((vc: VideoClass) => {
                   const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
                   const scheduleLabel = vc.schedule_type === 'recurring' && vc.recurring_weekday !== null && vc.recurring_time
                     ? `Jeden ${WEEKDAYS_DE[vc.recurring_weekday]}, ${vc.recurring_time} Uhr`
                     : vc.starts_at
-                      ? new Date(vc.starts_at).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' Uhr'
+                      ? new Date(vc.starts_at).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) + ' Uhr (Berlin)'
                       : null
                   const priceLabel = vc.price_cents === 0
                     ? 'Kostenlos'
                     : vc.included_in_subscription && vc.price_cents > 0
                       ? `${formatCurrency(vc.price_cents / 100)} · Gratis für Abonnenten`
                       : formatCurrency(vc.price_cents / 100)
-                  const participantCount  = vcParticipantCounts[vc.id] ?? 0
-                  const isFull            = vc.max_participants !== null && participantCount >= vc.max_participants
-                  const userIsRegistered  = vcUserBookedIds.has(vc.id)
+                  const occurrences = nextGroupOccurrences(vc, groupNow)
                   return (
-                    <div key={vc.id} className="rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
+                    <div key={vc.id} id={`group-${vc.id}`} className="scroll-mt-24 rounded-2xl border border-gray-100 bg-white p-5 hover:shadow-sm transition-shadow">
                       <div className="flex items-start gap-4">
                         <div className="h-11 w-11 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
                           <Users className="h-5 w-5 text-violet-600" />
@@ -796,9 +791,7 @@ export default async function CreatorProfilePage({
                             </span>
                             <span className="inline-flex items-center gap-1">
                               <Users className="h-3.5 w-3.5" />
-                              {vc.max_participants !== null
-                                ? `${participantCount} / ${vc.max_participants} Plätze`
-                                : `${participantCount} Teilnehmer`}
+                              Max. {Math.min(vc.max_participants ?? MAX_GROUP_PARTICIPANTS, MAX_GROUP_PARTICIPANTS)} Teilnehmer je Termin
                             </span>
                             {vc.included_in_subscription && (
                               <span className="inline-flex items-center gap-1 text-green-600 font-medium">
@@ -812,9 +805,10 @@ export default async function CreatorProfilePage({
                       <div className="mt-4">
                         <VideoClassBookButton
                           classId={vc.id}
+                          listedPriceCents={vc.price_cents}
                           priceCents={vc.included_in_subscription && activeSubscription?.creator_id === vc.creator_id ? 0 : vc.price_cents}
-                          isFull={isFull}
-                          userIsRegistered={userIsRegistered}
+                          occurrences={occurrences}
+                          registeredOccurrences={vcRegistrations.filter(row => row.video_class_id === vc.id).map(row => row.occurrence_start as string)}
                           isLoggedIn={!!user}
                           loginHref={`/login?redirect=${encodeURIComponent(`/creators/${creator.slug}`)}`}
                         />

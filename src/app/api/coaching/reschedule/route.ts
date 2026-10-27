@@ -4,7 +4,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
 import { validateCoachingSlot } from '@/lib/coaching-booking'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
-import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -18,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, cancellation_policy_hours, status, payment_status, stripe_livemode, creator_id, daily_room_name, creator_profiles!inner(user_id, display_name, slug)')
+    .select('id, buyer_id, buyer_name, buyer_email, scheduled_at, duration_minutes, cancellation_policy_hours, status, payment_status, stripe_livemode, creator_id, creator_profiles!inner(user_id, display_name, slug)')
     .eq('id', bookingId)
     .single()
 
@@ -95,18 +94,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Die Buchung wurde inzwischen geändert. Bitte lade die Seite erneut.' }, { status: 409 })
   }
 
-  // Update Daily.co room expiry to match new session time (best-effort)
-  if (VIDEO_CALLS_ENABLED && process.env.DAILY_API_KEY && booking.daily_room_name) {
-    const newRoomExp = Math.floor(newScheduledAt.getTime() / 1000) + (durationMin + 30) * 60
-    fetch(`https://api.daily.co/v1/rooms/${booking.daily_room_name}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${process.env.DAILY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ properties: { exp: newRoomExp } }),
-    }).catch(() => {})
-  }
+  // The join endpoint keys its private room to this immutable scheduled time.
+  // A rescheduled appointment therefore cannot reuse the former room or token.
 
   const fmtDate = (d: Date) => d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' })
   const fmtTime = (d: Date) => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })

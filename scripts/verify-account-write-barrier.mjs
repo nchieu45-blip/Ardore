@@ -30,7 +30,7 @@ test('service-only deletion API keeps privileged code private and fences stale w
 })
 test('all actual account record producers, including async fulfillment, have insert/ownership guards', () => {
   for (const table of ['payment_orders','payment_settlements','coaching_payment_attempts','discount_redemptions',
-    'bookings','subscriptions','purchases','video_class_bookings','verification_requests','creator_profiles']) {
+    'bookings','subscriptions','purchases','video_class_bookings','verification_requests','creator_profiles','group_booking_reservations','video_class_occurrences']) {
     assert.match(sql, new RegExp(`CREATE TRIGGER guard_account_record_write BEFORE INSERT OR UPDATE OF [^;]* ON public\\.${table} FOR EACH ROW`))
   }
 })

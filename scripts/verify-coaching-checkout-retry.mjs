@@ -15,8 +15,9 @@ function load(path, overrides, globals = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText
   const loadedModule = { exports: {} }
-  new Function('require', 'exports', 'module', 'fetch', 'window', compiled)(
+  new Function('require', 'exports', 'module', 'fetch', 'window', 'process', compiled)(
     name => name in overrides ? overrides[name] : require(name), loadedModule.exports, loadedModule, globals.fetch, globals.window,
+    { env: globals.env ?? process.env },
   )
   return loadedModule.exports
 }
@@ -450,6 +451,29 @@ test('malformed request UUID cannot touch commercial data or create checkout', a
   assert.equal((await fixture.request({ requestId: 'not-a-uuid' })).status, 400)
   assert.equal(fixture.rows.length, 0); assert.equal(fixture.offerReads, 0); assert.equal(fixture.resumed, 0)
 })
+
+for (const [credential, livemode] of [
+  ['sk_test_synthetic', false], ['rk_test_synthetic', false],
+  ['sk_live_synthetic', true], ['rk_live_synthetic', true],
+]) {
+  test(`${credential}: recovery finds its exact session and rejects the opposite mode before provider reads`, async () => {
+    const attempt = { id: 'attempt-lost', booking_id: 'booking-synthetic', buyer_id: 'buyer-synthetic', creator_id: 'coach-synthetic',
+      price_cents: 500, stripe_livemode: livemode, provider_state: 'creating', stripe_checkout_session_id: null, created_at: future(-25) }
+    let registered = 0; let reads = 0
+    const service = { from: () => ({ select() { return this }, eq() { return this }, single: async () => ({ data: attempt }) }),
+      rpc: async (name, args) => { assert.equal(name, 'register_coaching_checkout'); assert.equal(args.p_session_id, 'cs_lost'); registered++; return { data: { registered: true } } } }
+    const session = { id: 'cs_lost', livemode, mode: 'payment', currency: 'eur', amount_total: 500,
+      metadata: { checkout_type: 'coaching_session', payment_attempt_id: attempt.id, booking_id: attempt.booking_id, buyer_id: attempt.buyer_id, creator_id: attempt.creator_id } }
+    const provider = { checkout: { sessions: { list: () => ({ async *[Symbol.asyncIterator]() { reads++; yield session } }) } } }
+    const recovery = load('src/lib/coaching-checkout-recovery.ts', { '@/lib/stripe/server': { stripe: provider } }, { env: { STRIPE_SECRET_KEY: credential } })
+    attempt.stripe_livemode = !livemode
+    await assert.rejects(recovery.recoverCreatingCoachingCheckout({ service, attemptId: attempt.id, provider }), /payment mode mismatch/)
+    assert.equal(reads, 0); assert.equal(registered, 0)
+    attempt.stripe_livemode = livemode
+    assert.equal((await recovery.recoverCreatingCoachingCheckout({ service, attemptId: attempt.id, provider })).sessionId, session.id)
+    assert.equal(reads, 1); assert.equal(registered, 1)
+  })
+}
 
 test('recovery registers only one exact trusted provider session without creating any new session', async () => {
   const attempt = { id: 'attempt-lost', booking_id: 'booking-synthetic', buyer_id: 'buyer-synthetic', creator_id: 'coach-synthetic',

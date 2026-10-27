@@ -23,11 +23,14 @@ async function protectRecords(service: SupabaseClient, userId: string, creatorId
   if (storage.error || typeof storage.data !== 'boolean') throw new AccountDeletionError(503, unavailable)
   if (!storage.data) throw new AccountDeletionError(409, 'Zu diesem Konto gehören noch gespeicherte Dateien. Bitte kontaktiere den Ardore-Support, damit diese vor der Kontolöschung sicher geprüft werden.')
   const ownership = `buyer_id.eq.${userId}${creatorId ? `,creator_id.eq.${creatorId}` : ''}`
-  const queries: PromiseLike<{ count: number | null; error: unknown }>[] = ['bookings', 'payment_orders', 'payment_settlements', 'coaching_payment_attempts', 'discount_redemptions']
+  const queries: PromiseLike<{ count: number | null; error: unknown }>[] = ['bookings', 'payment_orders', 'payment_settlements', 'coaching_payment_attempts', 'discount_redemptions', 'group_booking_reservations']
     .map(table => service.from(table).select('id', { count: 'exact', head: true }).or(ownership))
   queries.push(service.from('purchases').select('id', { count: 'exact', head: true }).eq('buyer_id', userId))
   queries.push(service.from('video_class_bookings').select('id', { count: 'exact', head: true }).eq('user_id', userId))
   if (creatorId) {
+    // Even a free/host-initialized occurrence is a retained agreement. Do not
+    // cancel subscriptions before discovering its restrictive class/profile FK.
+    queries.push(service.from('video_class_occurrences').select('video_class_id,video_classes!inner(creator_id)', { count: 'exact', head: true }).eq('video_classes.creator_id', creatorId))
     queries.push(service.from('purchases').select('id,products!inner(creator_id)', { count: 'exact', head: true }).eq('products.creator_id', creatorId))
     queries.push(service.from('video_class_bookings').select('id,video_classes!inner(creator_id)', { count: 'exact', head: true }).eq('video_classes.creator_id', creatorId))
   }

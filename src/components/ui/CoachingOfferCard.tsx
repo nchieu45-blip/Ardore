@@ -11,7 +11,7 @@ import { formatCurrency } from '@/lib/utils'
 
 export function CoachingOfferCard({ offer }: { offer: MarketplaceServiceOffer }) {
   const group = offer.kind === 'group'
-  const href = `/creators/${offer.creator.slug}`
+  const href = `/creators/${offer.creator.slug}${group ? `#group-${offer.id}` : ''}`
   const schedule = formatServiceSchedule(offer)
   const reviewed = hasValidServiceRating(offer)
   const duration = Number.isFinite(offer.durationMinutes) && offer.durationMinutes > 0
@@ -56,7 +56,7 @@ export function CoachingOfferCard({ offer }: { offer: MarketplaceServiceOffer })
         <p className="text-lg font-semibold tracking-tight">{price}</p>
         <p className="mt-1 text-xs text-muted">{group ? 'Je Gruppentermin' : 'Je 1:1 Session'}</p>
         {offer.includedInSubscription && <p className="mt-2 text-xs leading-relaxed text-muted">Abo-Konditionen im Coach-Profil.</p>}
-        {group && offer.priceCents > 0 && <p className="mt-3 text-xs leading-relaxed text-muted">Bezahlte Gruppenbuchung derzeit nicht verfügbar.</p>}
+        {group && <p className="mt-3 text-xs leading-relaxed text-muted">Termin im Coach-Profil auswählen. Jeder Termin wird separat gebucht.</p>}
         <Link href={href} className={buttonStyles({ variant: 'secondary', className: 'mt-4 w-full' })} aria-label={`${offer.title} bei ${offer.creator.display_name} ansehen`}>
           Angebot ansehen<ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>

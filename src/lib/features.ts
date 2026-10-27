@@ -1,1 +1,1 @@
-export const VIDEO_CALLS_ENABLED = false
+export const VIDEO_CALLS_ENABLED = true

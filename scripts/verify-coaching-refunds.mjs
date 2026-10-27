@@ -158,7 +158,7 @@ function fixture(options = {}) {
         }
       },
     }
-  }, loadedModule.exports, loadedModule, { env: { STRIPE_SECRET_KEY: options.liveKey ? 'sk_live_synthetic' : 'sk_test_synthetic' } })
+  }, loadedModule.exports, loadedModule, { env: { STRIPE_SECRET_KEY: options.credential ?? (options.liveKey ? 'sk_live_synthetic' : 'sk_test_synthetic') } })
   return { booking, intent, charge, transfer, applicationFee, refunds, posts, rpcCalls, addRefund, settlementCalls, settlementContext, reversalIds,
     request: () => request,
     failProviderReads: count => { failedProviderReads = count },
@@ -172,6 +172,23 @@ function fixture(options = {}) {
         request: structuredClone(request), target: options.target, resumeCapture: settings.resumeCapture ?? false })
       : loadedModule.exports.reconcileCoachingRefund({ service: database, paymentIntentId: intent.id, stripeLivemode: false,
         resumeCapture: settings.resumeCapture ?? false }) }
+}
+
+for (const [credential, livemode] of [
+  ['sk_test_synthetic', false], ['rk_test_synthetic', false],
+  ['sk_live_synthetic', true], ['rk_live_synthetic', true],
+]) {
+  test(`${credential}: refund accepts its payment mode and never refunds the opposite mode`, async () => {
+    const f = fixture({ credential })
+    for (const object of [f.booking, f.intent, f.charge]) object[object === f.booking ? 'stripe_livemode' : 'livemode'] = livemode
+    assert.equal((await f.process()).state, 'succeeded')
+    await f.process()
+    assert.equal(f.posts.length, 1); assert.equal(f.posts[0].parameters.amount, 4500)
+    const wrong = fixture({ credential })
+    wrong.booking.stripe_livemode = !livemode
+    assert.equal((await wrong.process()).errorCode, 'payment_mode_mismatch')
+    assert.equal(wrong.posts.length, 0)
+  })
 }
 
 test('eligible customer receives every actually paid cent; fees never reduce refund', async () => {

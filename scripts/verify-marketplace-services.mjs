@@ -149,7 +149,7 @@ test('1:1 cards label genuine session ratings, exact duration and base price wit
   for (const href of html.matchAll(/href="([^"]+)"/g)) assert.equal(href[1], '/creators/fixture-coach')
 })
 
-test('group cards expose limited booking, maximum capacity and conditional subscription information honestly', () => {
+test('group cards lead to per-session booking and expose maximum capacity and conditional subscription information honestly', () => {
   const html = render(React.createElement(CoachingOfferCard, { offer: offer('group', {
     kind: 'group',
     includedInSubscription: true,
@@ -160,7 +160,8 @@ test('group cards expose limited booking, maximum capacity and conditional subsc
   assert.ok(html.includes('Gruppencoaching'))
   assert.ok(html.includes('Max. 8 Personen'))
   assert.ok(html.includes('69,00'))
-  assert.ok(html.includes('Bezahlte Gruppenbuchung derzeit nicht verfügbar.'))
+  assert.ok(html.includes('Jeder Termin wird separat gebucht.'))
+  assert.ok(html.includes('href="/creators/fixture-coach#group-group"'))
   assert.ok(html.includes('Abo-Konditionen im Coach-Profil.'))
   assert.ok(html.includes('Verifiziert'))
   assert.ok(!/Kostenlos|Gratis|Sessionbewertung|Produktbewertung|Plätze frei|Jetzt buchen/.test(html))

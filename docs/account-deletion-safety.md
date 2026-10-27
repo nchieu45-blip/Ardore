@@ -2,6 +2,34 @@
 
 ## Release gate
 
+**Local repair update — 2026-10-27:** The branch incorporates current main
+`9ccb3bc`, including its group-booking implementation and restricted-key mode
+handling. Retention checks now cover every group reservation (paid or free,
+including subscription benefits) and host-initialized occurrences without
+participants. The pending write-barrier migration also guards both group tables
+and rechecks them at the final Auth/profile cascade boundary. This is an amendment
+to the still-unapplied production migration, not an edit to applied group history.
+Existing payment/group migrations on main remain byte-for-byte unchanged.
+
+Current local evidence: 1,024 offline regressions and 57 real local Supabase
+checks pass. The latter cover paid/free group history, both race directions,
+deleting-host admission, uploads/orders, worker fencing, simulated Stripe read/
+cancel/ambiguous-timeout failures with real local account preservation, and four
+parallel app retries with one successful deletion and no repeated cancellation.
+All exact temporary fixtures were removed; the three original fictional Auth
+users were preserved. Stripe faults use an in-memory provider; no Stripe API,
+payment, email or production operation was executed. Lint (four existing
+warnings), non-emitting TypeScript and the test-config Webpack build pass on
+local Node 24; Node-22 CI has not run for this local revision.
+
+The checkout's existing environment file was not used or changed: build sources
+were copied without environment files into a separate local build folder and
+used only the established loopback Supabase/test configuration. No push was
+performed because this open PR has an automatic Hostinger preview deployment.
+These changes are local on the PR branch until a preview-safe push is approved.
+The production transition/fallback gates below remain open; local correctness
+does not prove that old Hostinger handlers have retired.
+
 **REVIEW REQUIRED:** The two previously reproduced parallel failures are fixed
 locally by `20261023090520_account_deletion_write_barrier.sql`. The expanded
 45-check local suite passes, including the original service-role upload and
@@ -132,7 +160,8 @@ No hold, deployment, migration or production test was executed to write this pla
   trusted Origin, JSON request and `LÖSCHEN` confirmation. No browser-supplied
   user, creator or provider IDs are accepted. Responses are private/no-store.
 - Any booking, purchase, class booking, payment order/settlement, coaching payment
-  attempt or discount redemption involving the account requires support review.
+  attempt, group reservation, host-initialized group occurrence or discount
+  redemption involving the account requires support review.
   This intentionally conservative policy also covers completed/failed history.
 - Stored files require support review. A service-only RPC checks both current
   `owner_id`, legacy `owner` and all existing Ardore bucket folder conventions,

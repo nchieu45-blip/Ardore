@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
 
   // The event's mode must match the configured Stripe secret. Persisting the
   // mode also prevents test purchases from becoming production entitlement.
-  const configuredLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
+  const credential = process.env.STRIPE_SECRET_KEY
+  const configuredLiveMode = credential?.startsWith('sk_live_') === true || credential?.startsWith('rk_live_') === true
   if (event.livemode !== configuredLiveMode) {
     return NextResponse.json({ error: 'Stripe mode mismatch' }, { status: 400 })
   }
