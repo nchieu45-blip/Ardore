@@ -1,6 +1,33 @@
 # PR #7: Hostinger-Auslieferung und sicherer Rückfall
 
-Stand: 28. Oktober 2026, Europe/Berlin. Vorbereitung, keine Ausführung.
+Stand: 28. Oktober 2026, Europe/Berlin. Vorschau-/CI-Vorbereitung ausgeführt;
+Produktionsauslieferung und Migrationen weiterhin nicht freigegeben.
+
+## Ausführungsnachweis: Preview und Node-22-CI
+
+Der Eigentümer hat die Preview-Abschaltung und CI-Prüfung separat freigegeben.
+Hostinger bestätigte die Abschaltung; nach Neuladen bietet das Menü nur noch
+"Pull-Request-Vorschau aktivieren" an. Das bestehende Preview lief zunächst weiter.
+PR #7 wurde deshalb ohne Merge geschlossen, die Entfernung abgewartet und der PR
+danach unverändert als Draft wieder geöffnet. Wiederholte anonyme Prüfungen,
+auch nach beiden CI-Läufen: Startseite HTTP 403, bisheriges App-Bundle HTTP 404.
+Die Ardore-Anwendung wird dort nicht mehr ausgeliefert. Dies ist kein Nachweis
+für den Abschluss früherer Requests/Transaktionen und erfüllt nicht Schritt 3.5.
+
+Beide Kandidaten wurden nur auf ihre Feature-Branches gepusht. Der vorhandene
+Workflow `ci.yml` wurde gezielt per `workflow_dispatch` auf diesen Branches
+gestartet; dafür wurden keine neuen PRs/Previews angelegt:
+
+| Kandidat | Laufzeit | Ergebnis |
+| --- | --- | --- |
+| `70ddca2`, Sperrbasis | Node 22.23.4 | `npm ci`, Lint, TypeScript, 923 CI-Tests und Build erfolgreich; [CI](https://github.com/nchieu45-blip/Ardore/actions/runs/40602483511) |
+| `878c315`, Rückfall | Node 22.23.3 | `npm ci`, Lint, TypeScript, 923 CI-Tests und Build erfolgreich; [CI](https://github.com/nchieu45-blip/Ardore/actions/runs/40602486503) |
+
+Die fünf zusätzlichen App-URL-Tests sind im lokalen 928-Test-Lauf enthalten,
+nicht im bestehenden CI-Glob. Produktion/main blieb `b182637`; Hostinger zeigt
+weiterhin denselben abgeschlossenen Produktionsbuild. Der Migrationsschalter
+fehlt weiterhin sowohl auf Repository- als auch auf Environment-Ebene. Keine
+Produktionsmigration, kein main-Merge oder Produktionsdeployment wurde ausgelöst.
 
 ## Entscheidung und Grenze
 
@@ -25,9 +52,9 @@ Risikofreigabe braucht eine eigene Entscheidung. Kein Timeout/Neustart ersetzt s
 | --- | --- |
 | Produktion | `ardore-health.com`, GitHub `nchieu45-blip/Ardore`, `main`, Node 22, veröffentlichter Stand `b182637` |
 | Reparatur | PR #7, Draft, `eccb417`; Node 22.23.4 CI erfolgreich, 1.019 CI-Tests; vorher 57 echte lokale Supabase-Prüfungen. Abgleich mit dem inzwischen neueren main noch erforderlich |
-| Geprüfte Sperrbasis | Lokal `70ddca2`, Branch `codex/account-deletion-hostinger-baseline`; neuer main `b182637` plus vier geprüfte Sperr-/Testdateien, ohne PR-#7-Abstammung |
-| Vorbereiteter Rückfall | Lokal `878c315`, Branch `codex/account-deletion-recovery`; gleiche Anwendungs-/Testdateien wie Sperrbasis, alle SQL-Dateien aus aktuellem main und die drei PR-#7-Dateien erhalten |
-| Rückfallprüfung | Je 928 Offline-Tests; Lint, TypeScript und Webpack-Build erfolgreich für den gemeinsamen Anwendungsstand; 137 HTTP-Sperrprüfungen und drei Redirect-Prüfungen, nur Loopback, ohne Service-Zugangsdaten; Node-22-CI für diese Kandidaten noch erforderlich |
+| Geprüfte Sperrbasis | GitHub-Branch `codex/account-deletion-hostinger-baseline`, `70ddca2`; main `b182637` plus vier geprüfte Sperr-/Testdateien, ohne PR-#7-Abstammung; Node-22-CI erfolgreich |
+| Vorbereiteter Rückfall | GitHub-Branch `codex/account-deletion-recovery`, `878c315`; gleiche Anwendungs-/Testdateien wie Sperrbasis, alle SQL-Dateien aus aktuellem main und die drei PR-#7-Dateien erhalten; Node-22-CI erfolgreich |
+| Rückfallprüfung | Je 928 lokale Offline-Tests; Lint, TypeScript und Webpack-Build erfolgreich; 137 lokale HTTP-Sperrprüfungen und drei Redirect-Prüfungen ohne Service-Zugangsdaten; zusätzlich je 923 erfolgreiche Node-22-CI-Tests |
 | Automatische Migrationen | Schalter in Repository und Environment `production` nicht gesetzt; Job ist dadurch gesperrt. Das Environment selbst hat keine Freigaberegeln |
 | Supabase | Projekt `yboeyxqeileicecqpwke`, die drei PR-Migrationen fehlen; Gruppenmigrationen vorhanden; geprüfte View-/Storage-Verträge und DDL-Rechte passen |
 
@@ -64,12 +91,14 @@ Ihre Schlüssel oder übrige Konfiguration wurden nicht verändert.
 
 Im vorhandenen Dashboard wurde folgender Menüpunkt gelesen:
 **Websites → ardore-health.com → Dashboard → ⋮ → Pull-Request-Vorschau deaktivieren**.
-Nicht angeklickt. Seine Wirkung auf bereits laufende Previews ist nicht belegt.
+Bei Planerstellung nicht angeklickt; inzwischen freigegeben ausgeführt. Der
+Schalter allein entfernte das vorhandene Preview nicht, siehe Nachweis oben.
 Das Preview ist auch keine eigene Website im verfügbaren Hostinger-MCP.
 
 ## Ausführung: Verantwortliche, Nachweis und Stopppunkt
 
-Alle nachstehenden Änderungen brauchen noch eine konkrete Freigabe. Codex kann
+Die oben protokollierte Vorbereitung ist ausgeführt. Alle weiteren nachstehenden
+Änderungen brauchen noch eine konkrete Freigabe. Codex kann
 Git, Prüfungen und einzeln genehmigte Supabase-Migrationen übernehmen. Der
 Eigentümer genehmigt Produktion; Hostinger/Betreiber liefert Plattformnachweise.
 Keine Datenbank-/Schlüsseländerung wird aus einer Code-Freigabe abgeleitet.
@@ -102,8 +131,9 @@ HTTP-Unerreichbarkeit ist ein Zugriffscheck, kein Prozess-/Transaktionsnachweis.
 3. `SUPABASE_MIGRATIONS_ENABLED` in Repository und Environment absent/false prüfen;
    Workflow nicht starten. GitHub-PR-/CI-Schutz beibehalten. Das Environment-Label
    allein erfordert derzeit keine Genehmigung.
-4. Für `70ddca2` und `878c315` noch Node-22-CI durchführen, erst nachdem Previews
-   abgesichert sind. Branch-Push/Review-PR separat freigeben; nicht in main mergen.
+4. Node-22-CI für `70ddca2` und `878c315` ist nach Preview-Abschaltung bestanden.
+   Vor einer Freigabe weiterhin exakte SHAs und unveränderte Basis prüfen.
+   Keine main-Merges aus dem CI-Erfolg ableiten.
 5. Rückfall-SHA und -Quellstand als erlaubtes Ziel dokumentieren. `878c315` ist
    **nur ein Rückfall nach PR #7**, kein Vorlauf-Merge: sein Elternstand enthält
    `eccb417`, und ein früher Merge würde PR #7 bereits historisch integrieren.
@@ -198,8 +228,9 @@ keine manuelle Kundendaten-Reparatur ohne gesonderte Freigabe.
 
 ## Was heute vorbereitet, aber nicht ausgeführt wurde
 
-Preview-Verbindung und echte Dashboard-Menüs geprüft; Sperrbasis `70ddca2` und
-Rückfall `878c315` lokal vorbereitet/getestet; Plan dokumentiert. Kein Preview deaktiviert/geschlossen, kein
-Repository-/Hosting-Schalter geändert, kein Push, Merge, Hosting-Deployment,
-Produktions-SQL oder Produktionsdaten-Schreibtest ausgeführt. Die operative
-Übergangsgrenze in Schritt 3.5 bleibt offen und ist keine Code-Testlücke.
+Preview-Verbindung geprüft, Preview nach Freigabe abgeschaltet und entfernt;
+Sperrbasis `70ddca2` und Rückfall `878c315` lokal und in Node-22-CI geprüft. Nur
+die beiden Feature-Branches wurden gepusht. PR #7 bleibt offen/Draft/ungemergt.
+Kein Produktionsdeployment, Produktions-SQL oder Produktionsdaten-Schreibtest
+ausgeführt. Die operative Übergangsgrenze in Schritt 3.5 bleibt offen und ist
+keine Code-Testlücke.
