@@ -1,8 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
+import { accountDeletionHoldResponse, isAccountDeletionPath } from '@/lib/account-deletion-hold'
 
 export async function proxy(request: NextRequest) {
+  // Stop before session refresh: this endpoint must not call any service.
+  if (isAccountDeletionPath(request.nextUrl.pathname)) return accountDeletionHoldResponse()
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
