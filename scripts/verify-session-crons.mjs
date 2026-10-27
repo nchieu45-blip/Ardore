@@ -357,7 +357,7 @@ test('thin session routes reject unauthorized access and expose failed deliverie
       assert.equal(supplied, kind)
       if (throws) throw new Error('PRIVATE service details')
       return { sent: 1, skipped: 0, failed: 1, legacySkipped: 0, busy: 0, held: 0 }
-    } } }
+    } }, '@/lib/group-session-reminders': { runGroupSessionReminders: async () => ({ sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }) } }
     const api = load(`src/app/api/cron/${route}/route.ts`, modules)
     assert.equal((await api.GET(new Request('https://ardore.example.test'))).status, 401)
     assert.equal(calls, 0)

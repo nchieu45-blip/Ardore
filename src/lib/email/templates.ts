@@ -526,3 +526,29 @@ export function videoClassNewParticipantHtml(d: VideoClassNewParticipantData) {
 export function videoClassNewParticipantText(d: VideoClassNewParticipantData) {
   return `Hey ${d.coachName},\n\n${d.participantName} hat sich für deinen Kurs "${d.classTitle}" (${d.scheduleLabel}) angemeldet.\n\nKurs verwalten: ${d.dashboardUrl}\n\n– Das Ardore-Team`
 }
+
+export interface GroupSessionReminderData {
+  recipientName: string
+  classTitle: string
+  coachName: string
+  scheduleLabel: string
+  durationMinutes: number
+  sessionUrl: string
+  role: 'participant' | 'coach'
+}
+
+export function groupSessionReminderHtml(d: GroupSessionReminderData) {
+  return layout(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Erinnerung an dein Gruppencoaching ⏰</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Hallo ${d.recipientName},
+      ${d.role === 'coach' ? 'dein Gruppentermin' : `dein Gruppencoaching mit <strong>${d.coachName}</strong>`} steht bevor.</p>
+    <p style="font-size:15px;font-weight:600;color:#111827;">${d.classTitle}</p>
+    <p style="font-size:14px;color:#6b7280;">${d.scheduleLabel} (Europe/Berlin) · ${d.durationMinutes} Minuten</p>
+    <p style="text-align:center;margin:24px 0;">${button(d.sessionUrl, 'Gruppentermin öffnen →')}</p>
+    <p style="font-size:12px;color:#9ca3af;">Melde dich mit deinem Ardore-Konto an. Den Videozugang findest du auf der geschützten Terminseite.</p>
+  `)
+}
+
+export function groupSessionReminderText(d: GroupSessionReminderData) {
+  return `Hallo ${d.recipientName},\n\n${d.role === 'coach' ? 'Dein Gruppentermin steht bevor.' : `Dein Gruppencoaching mit ${d.coachName} steht bevor.`}\n\n${d.classTitle}\nTermin: ${d.scheduleLabel} (Europe/Berlin)\nDauer: ${d.durationMinutes} Minuten\n\nGruppentermin: ${d.sessionUrl}\nMelde dich mit deinem Ardore-Konto an. Den Videozugang findest du auf der geschützten Terminseite.\n\n– Das Ardore-Team`
+}
