@@ -34,7 +34,10 @@ The checkout's existing environment file was not used or changed: build sources
 were copied without environment files into a separate local build folder and
 used only the established loopback Supabase/test configuration. The owner later
 approved the feature-branch push and Hostinger PR preview, and `eccb417` was
-pushed. PR #7 remains draft and unmerged; production main is still `9ccb3bc`.
+pushed. PR #7 remains draft and unmerged. Production was `9ccb3bc` at that push;
+main subsequently advanced independently to `b182637` (group reminders). The
+repaired code must incorporate that newer baseline and be checked again before
+release; the Hostinger plan pins prepared hold/recovery versions retaining it.
 The production transition/fallback gates below remain open; local correctness
 does not prove that old Hostinger handlers have retired.
 

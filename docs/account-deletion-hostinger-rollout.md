@@ -23,15 +23,22 @@ Risikofreigabe braucht eine eigene Entscheidung. Kein Timeout/Neustart ersetzt s
 
 | Bestandteil | Ergebnis |
 | --- | --- |
-| Produktion | `ardore-health.com`, GitHub `nchieu45-blip/Ardore`, `main`, Node 22, veröffentlichter Stand `9ccb3bc` |
-| Reparatur | PR #7, Draft, `eccb417`; Node 22.23.4 CI erfolgreich, 1.019 CI-Tests; vorher 57 echte lokale Supabase-Prüfungen |
-| Geprüfte Sperrbasis | Lokal `44f12d4`, Branch `codex/account-deletion-maintenance`; Anwendung entspricht aktuellem main plus harter Sperre |
-| Vorbereiteter Rückfall | Lokal `38f6e03`, Branch `codex/account-deletion-recovery`; Anwendung/Skripte aus `44f12d4`, alle SQL-Dateien aus `eccb417` erhalten |
-| Rückfallprüfung | 916 Offline-Tests, Lint, TypeScript und Webpack-Build erfolgreich; 137 HTTP-Sperrprüfungen und drei Redirect-Prüfungen, nur Loopback, ohne Service-Zugangsdaten; Node-22-CI für diesen Rückfall noch erforderlich |
+| Produktion | `ardore-health.com`, GitHub `nchieu45-blip/Ardore`, `main`, Node 22, veröffentlichter Stand `b182637` |
+| Reparatur | PR #7, Draft, `eccb417`; Node 22.23.4 CI erfolgreich, 1.019 CI-Tests; vorher 57 echte lokale Supabase-Prüfungen. Abgleich mit dem inzwischen neueren main noch erforderlich |
+| Geprüfte Sperrbasis | Lokal `70ddca2`, Branch `codex/account-deletion-hostinger-baseline`; neuer main `b182637` plus vier geprüfte Sperr-/Testdateien, ohne PR-#7-Abstammung |
+| Vorbereiteter Rückfall | Lokal `878c315`, Branch `codex/account-deletion-recovery`; gleiche Anwendungs-/Testdateien wie Sperrbasis, alle SQL-Dateien aus aktuellem main und die drei PR-#7-Dateien erhalten |
+| Rückfallprüfung | Je 928 Offline-Tests; Lint, TypeScript und Webpack-Build erfolgreich für den gemeinsamen Anwendungsstand; 137 HTTP-Sperrprüfungen und drei Redirect-Prüfungen, nur Loopback, ohne Service-Zugangsdaten; Node-22-CI für diese Kandidaten noch erforderlich |
 | Automatische Migrationen | Schalter in Repository und Environment `production` nicht gesetzt; Job ist dadurch gesperrt. Das Environment selbst hat keine Freigaberegeln |
 | Supabase | Projekt `yboeyxqeileicecqpwke`, die drei PR-Migrationen fehlen; Gruppenmigrationen vorhanden; geprüfte View-/Storage-Verträge und DDL-Rechte passen |
 
 CI: https://github.com/nchieu45-blip/Ardore/actions/runs/40545067492
+
+Während der Vorbereitung wurde PR #10 unabhängig von dieser Arbeit in main
+übernommen und durch Hostinger veröffentlicht. Seine Gruppenerinnerungen und
+die bereits angewendete Migration `20261027225809_group_session_reminders.sql`
+bleiben in beiden Kandidaten erhalten. **Die älteren Kandidaten `44f12d4` und
+`38f6e03` sind keine freigegebenen Ziele mehr**, da sie diese main-Änderung nicht
+enthalten. Die aktuelle ursprüngliche Reparatur-CI prüft noch den älteren Stand.
 
 Die Hostinger-Buildprotokolle zeigen beim Publish einen Versionswechsel und
 "Stopping processes from the previous version". Das belegt den protokollierten
@@ -95,17 +102,17 @@ HTTP-Unerreichbarkeit ist ein Zugriffscheck, kein Prozess-/Transaktionsnachweis.
 3. `SUPABASE_MIGRATIONS_ENABLED` in Repository und Environment absent/false prüfen;
    Workflow nicht starten. GitHub-PR-/CI-Schutz beibehalten. Das Environment-Label
    allein erfordert derzeit keine Genehmigung.
-4. Für `44f12d4` und `38f6e03` noch Node-22-CI durchführen, erst nachdem Previews
+4. Für `70ddca2` und `878c315` noch Node-22-CI durchführen, erst nachdem Previews
    abgesichert sind. Branch-Push/Review-PR separat freigeben; nicht in main mergen.
-5. Rückfall-SHA und -Quellstand als erlaubtes Ziel dokumentieren. `38f6e03` ist
+5. Rückfall-SHA und -Quellstand als erlaubtes Ziel dokumentieren. `878c315` ist
    **nur ein Rückfall nach PR #7**, kein Vorlauf-Merge: sein Elternstand enthält
    `eccb417`, und ein früher Merge würde PR #7 bereits historisch integrieren.
-6. Bei Änderungen an main nach `9ccb3bc` beide Kandidaten neu abgleichen und
+6. Bei Änderungen an main nach `b182637` beide Kandidaten neu abgleichen und
    testen. Nicht einen alten Snapshot über neue, unabhängige Funktionen schreiben.
 
 ### 3. Gesperrte Basis herstellen — eigene Produktionsfreigabe
 
-1. Nur die Sperrbasis `44f12d4` über einen eigenen geprüften PR in main übernehmen.
+1. Nur die Sperrbasis `70ddca2` über einen eigenen geprüften PR in main übernehmen.
    Dafür braucht es Zustimmung zum Merge **und** Hostinger-Autodeployment.
    PR #7 bleibt zunächst ungemergt. Keine Migration zu diesem Zeitpunkt.
 2. Deployment-SHA/Status/Protokoll prüfen. Mit einem neuen, cookielosen HTTP-Client
@@ -130,7 +137,7 @@ https://www.hostinger.com/support/how-to-deploy-a-nodejs-website-in-hostinger/
 
 ### 4. Reparatur gegen die neue Basis integrieren und erneut prüfen
 
-Nach der Basis-Auslieferung ändern sich main und damit die Integrationsbasis.
+Schon durch `b182637`, und erneut nach der Basis-Auslieferung, ändert sich die Integrationsbasis.
 PR #7 lokal gegen diese Basis abgleichen. Die harte Proxy-/Route-Sperre aus der
 Basis darf in der später reparierten Version nicht versehentlich bestehen bleiben.
 Bewusst nur den geprüften neuen Löschpfad aktivieren; keine anderen Proxy-/Auth-
@@ -179,7 +186,7 @@ Produktionsprüfung bleibt lesend; erfolgreiche Löschung wurde isoliert geteste
 | Vor erster erfolgreicher Sperrbasis | Stoppen. Alte Produktion kann weiterlaufen; keine Migration und keine zugesicherte Sperre. |
 | Sperrbasis aktiv, Reparatur/CI/SQL noch nicht erfolgreich | Gesperrte Basis behalten. Bereits erfolgreiche SQL-Dateien nicht zurücknehmen. |
 | Einzelne Migration fehlgeschlagen | Historie/Katalog lesen, nur eine noch fehlende Datei oder eine neu geprüfte Vorwärtskorrektur freigeben. Basis bleibt gesperrt. |
-| Reparierte Anwendung läuft fehlerhaft | Nach dokumentierter Rückfallfreigabe den vorab geprüften Rückfall-PR auf Basis `38f6e03` über normalen main-PR-/CI-Weg veröffentlichen. Kein Force-Push/Reset und kein unbelegter hPanel-Rollback-Knopf. |
+| Reparierte Anwendung läuft fehlerhaft | Nach dokumentierter Rückfallfreigabe den vorab geprüften Rückfall-PR auf Basis `878c315` über normalen main-PR-/CI-Weg veröffentlichen. Kein Force-Push/Reset und kein unbelegter hPanel-Rollback-Knopf. |
 | Rückfall selbst baut nicht oder unklare Plattformreaktion | Keine alte Version freigeben. Betreiber einschalten; keine Trigger/Barrieren/SQL-Historie entfernen, um die Seite vermeintlich zu reparieren. |
 
 Der Rückfall ist ein neuer Code-Release mit hart gesperrter Löschung und erhaltener
@@ -191,8 +198,8 @@ keine manuelle Kundendaten-Reparatur ohne gesonderte Freigabe.
 
 ## Was heute vorbereitet, aber nicht ausgeführt wurde
 
-Preview-Verbindung und echte Dashboard-Menüs geprüft; Rückfall `38f6e03` lokal
-gebaut/getestet; Plan dokumentiert. Kein Preview deaktiviert/geschlossen, kein
+Preview-Verbindung und echte Dashboard-Menüs geprüft; Sperrbasis `70ddca2` und
+Rückfall `878c315` lokal vorbereitet/getestet; Plan dokumentiert. Kein Preview deaktiviert/geschlossen, kein
 Repository-/Hosting-Schalter geändert, kein Push, Merge, Hosting-Deployment,
 Produktions-SQL oder Produktionsdaten-Schreibtest ausgeführt. Die operative
 Übergangsgrenze in Schritt 3.5 bleibt offen und ist keine Code-Testlücke.
