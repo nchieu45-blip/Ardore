@@ -11,7 +11,7 @@ const creatorId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 const attemptId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
 const nextAttemptId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
 
-function load(path, overrides, logs = []) {
+function load(path, overrides, logs = [], credential = 'sk_test_synthetic') {
   const source = readFileSync(new URL(path, import.meta.url), 'utf8')
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -19,15 +19,16 @@ function load(path, overrides, logs = []) {
   const loadedModule = { exports: {} }
   new Function('require', 'exports', 'module', 'process', 'console', compiled)(
     name => name in overrides ? overrides[name] : require(name), loadedModule.exports, loadedModule,
-    { env: { STRIPE_SECRET_KEY: 'sk_test_synthetic' } }, { error: (...items) => logs.push(items) },
+    { env: { STRIPE_SECRET_KEY: credential } }, { error: (...items) => logs.push(items) },
   )
   return loadedModule.exports
 }
 
-function fixture({ legacy = false, slotTaken = false, separate = false, bookingChanges = {}, attemptChanges = {} } = {}) {
+function fixture({ legacy = false, slotTaken = false, separate = false, bookingChanges = {}, attemptChanges = {},
+  credential = 'sk_test_synthetic', livemode = false } = {}) {
   const booking = {
     id: bookingId, buyer_id: buyerId, creator_id: creatorId, price_cents: 500,
-    status: 'pending_payment', payment_status: 'pending', stripe_livemode: false,
+    status: 'pending_payment', payment_status: 'pending', stripe_livemode: livemode,
     stripe_checkout_session_id: 'cs_synthetic', current_payment_attempt_id: attemptId, fulfilled_payment_attempt_id: null,
     reservation_expires_at: new Date(Date.now() - 1000).toISOString(),
     payment_updated_at: '2000-01-01T00:00:00.000Z',
@@ -35,7 +36,7 @@ function fixture({ legacy = false, slotTaken = false, separate = false, bookingC
   }
   const attempt = {
     id: attemptId, booking_id: bookingId, buyer_id: buyerId, creator_id: creatorId,
-    price_cents: 500, stripe_livemode: false, stripe_checkout_session_id: 'cs_synthetic',
+    price_cents: 500, stripe_livemode: livemode, stripe_checkout_session_id: 'cs_synthetic',
     stripe_payment_intent_id: null, destination_account_id: null, application_fee_cents: 0,
     legacy_checkout: legacy, provider_state: 'creating', fulfillment_state: 'not_fulfilled',
     charge_architecture: separate ? 'separate' : 'destination',
@@ -47,18 +48,18 @@ function fixture({ legacy = false, slotTaken = false, separate = false, bookingC
     ...(separate ? { ardore_order_id: attemptId } : {}),
   }
   const session = {
-    id: 'cs_synthetic', livemode: false, mode: 'payment', currency: 'eur', amount_total: 500,
+    id: 'cs_synthetic', livemode, mode: 'payment', currency: 'eur', amount_total: 500,
     status: 'open', payment_status: 'unpaid', payment_intent: 'pi_synthetic', metadata: { ...metadata },
     expires_at: Math.floor(Date.now() / 1000) + 1800,
   }
   const intent = {
-    id: 'pi_synthetic', livemode: false, currency: 'eur', amount: 500, amount_received: 0,
+    id: 'pi_synthetic', livemode, currency: 'eur', amount: 500, amount_received: 0,
     status: 'requires_payment_method', latest_charge: null, metadata: { ...metadata },
     transfer_data: null, application_fee_amount: null, last_payment_error: null,
     transfer_group: separate ? `ardore-order-${attemptId}` : null,
   }
   const charge = {
-    id: 'ch_synthetic', payment_intent: intent.id, livemode: false, currency: 'eur', paid: true,
+    id: 'ch_synthetic', payment_intent: intent.id, livemode, currency: 'eur', paid: true,
     captured: true, disputed: false, amount_captured: 500, amount_refunded: 0,
     metadata: { ...metadata }, transfer_data: null, transfer_group: separate ? `ardore-order-${attemptId}` : null,
   }
@@ -257,14 +258,14 @@ function fixture({ legacy = false, slotTaken = false, separate = false, bookingC
       if (recoveryError) throw recoveryError
       return { sessionId: recoveredSessionId, unresolved: !recoveredSessionId, noSessionProven: false }
     } },
-  }, logs)
+  }, logs, credential)
   const route = load('../src/app/api/webhooks/stripe/route.ts', {
     '@/lib/stripe/server': { stripe: provider }, '@/lib/supabase/server': { createServiceClient: async () => service },
     '@/lib/coaching-refund': refund, '@/lib/coaching-payment-reconciliation': refund, '@/lib/coaching-payment-lifecycle': helper,
     '@/lib/email/send': {},
     '@/lib/subscription-notifications': { notifyNewSubscriber() { throw new Error('Unexpected subscription notification') } },
     '@/lib/stripe/settlement': settlement,
-  }, logs)
+  }, logs, credential)
   return {
     booking, attempt, session, intent, charge, sessions, intents, charges, attempts, claims,
     observations, reconciliations, providerReads, recoveries, legacyRegistrations, orders, touches, additionalBookings, logs, helper, settlementRecords, settlementTransfers, settlementEffects, confirmations: () => confirmations,
@@ -277,13 +278,29 @@ function fixture({ legacy = false, slotTaken = false, separate = false, bookingC
     failRecovery(error) { recoveryError = error },
     failTouch(error = { code: '40001' }) { touchError = error },
     beforeTouch(callback) { beforeTouch = callback },
-    run(type, object = type.startsWith('payment_intent.') ? intent : session, id = `evt_${type}`, mode = false) {
+    run(type, object = type.startsWith('payment_intent.') ? intent : session, id = `evt_${type}`, mode = livemode) {
       const event = { id, type, livemode: mode, data: { object: structuredClone(object) } }
       return route.POST({ text: async () => JSON.stringify(event), headers: new Headers({ 'stripe-signature': 'synthetic' }) })
     },
-    reconcile: (id = session.id) => helper.reconcileCoachingCheckout({ service, sessionId: id, stripeLivemode: false }),
+    reconcile: (id = session.id) => helper.reconcileCoachingCheckout({ service, sessionId: id, stripeLivemode: livemode }),
     timeouts: options => helper.reconcileExpiredCoachingReservations({ service, ...options }),
   }
+}
+
+for (const [credential, livemode] of [
+  ['sk_test_synthetic', false], ['rk_test_synthetic', false],
+  ['sk_live_synthetic', true], ['rk_live_synthetic', true],
+]) {
+  test(`${credential}: paid webhook fulfills once and rejects the opposite mode before writes`, async () => {
+    const state = fixture({ credential, livemode, separate: true }); state.paid()
+    assert.equal((await state.run('checkout.session.completed', state.session, 'evt_wrong_mode', !livemode)).status, 400)
+    assert.equal(state.claims.size, 0); assert.equal(state.providerReads.length, 0)
+    assert.equal(state.confirmations(), 0); assert.equal(state.settlementRecords.size, 0)
+    assert.equal((await state.run('checkout.session.completed')).status, 200)
+    assert.equal((await state.run('checkout.session.completed')).status, 200)
+    assert.equal(state.booking.status, 'confirmed'); assert.equal(state.confirmations(), 1)
+    assert.equal(state.settlementRecords.size, 1); assert.equal(state.settlementTransfers.size, 1)
+  })
 }
 
 test('captured payment confirms once, recording the provider amount and exact identities', async () => {
