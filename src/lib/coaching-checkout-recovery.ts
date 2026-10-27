@@ -8,7 +8,8 @@ export async function recoverCreatingCoachingCheckout({
 }: { service: SupabaseClient; attemptId: string; bookingId?: string; provider?: Stripe }) {
   const { data: attempt, error } = await service.from('coaching_payment_attempts').select('*').eq('id', attemptId).single()
   if (error || !attempt || (bookingId && attempt.booking_id !== bookingId)) throw new Error('Recovery attempt not found')
-  const mode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
+  const credential = process.env.STRIPE_SECRET_KEY
+  const mode = credential?.startsWith('sk_live_') === true || credential?.startsWith('rk_live_') === true
   if (attempt.stripe_livemode !== mode) throw new Error('Recovery payment mode mismatch')
   if (attempt.stripe_checkout_session_id) return { sessionId: attempt.stripe_checkout_session_id as string, unresolved: false, noSessionProven: false as const }
   if (attempt.provider_state !== 'creating') return { sessionId: null, unresolved: true, noSessionProven: false as const }

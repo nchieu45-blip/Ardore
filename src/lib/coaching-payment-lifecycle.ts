@@ -58,7 +58,8 @@ function objectId(value: string | { id: string } | null | undefined) {
 }
 
 function configuredMode() {
-  return process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') === true
+  const credential = process.env.STRIPE_SECRET_KEY
+  return credential?.startsWith('sk_live_') === true || credential?.startsWith('rk_live_') === true
 }
 
 function assertMode(livemode: boolean) {
