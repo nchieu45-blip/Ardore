@@ -117,7 +117,7 @@ export default function VideoClassBookButton({ classId, priceCents, listedPriceC
         <select id={selectorId} value={selected} disabled={loading} onChange={event => {
           setSelected(event.target.value); setAvailability(null); setAvailabilityError(false); setError(''); setStatus('idle')
         }} className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
-          {occurrences.map(occurrence => <option key={occurrence.startsAt} value={occurrence.startsAt}>{formatGroupOccurrence(occurrence.startsAt, 'compact')}</option>)}
+          {occurrences.map(occurrence => <option key={occurrence.startsAt} value={occurrence.startsAt}>{formatGroupOccurrence(occurrence.scheduledAt ?? occurrence.startsAt, 'compact')}</option>)}
         </select>
         <p className="mt-1.5 text-xs text-muted">Alle Terminzeiten: Europe/Berlin.</p>
         <p className="mt-2 text-xs leading-relaxed text-muted">{priceCents === 0 ? 'Kostenlose Teilnahme an diesem Termin.' : `${formatCurrency(priceCents / 100)} für diesen Termin. Jeder weitere Termin wird separat gebucht.`}</p>

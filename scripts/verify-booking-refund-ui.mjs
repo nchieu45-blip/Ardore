@@ -36,7 +36,7 @@ function load(path, overrides = {}, globals = {}) {
 
 const ui = load('src/components/BookingActions.tsx', { 'next/navigation': { useRouter: () => ({ refresh() {} }) } })
 const future = hours => new Date(Date.now() + hours * 3_600_000).toISOString()
-const props = { bookingId: 'synthetic-booking', creatorId: 'synthetic-creator', coachName: 'Synthetic coach', scheduledAt: future(48), policyHours: 24, role: 'buyer' }
+const props = { bookingId: '10000000-0000-4000-8000-000000000001', creatorId: 'synthetic-creator', coachName: 'Synthetic coach', scheduledAt: future(48), policyHours: 24, role: 'buyer' }
 
 function markup(properties) {
   return renderToStaticMarkup(React.createElement(ui.default, { ...props, ...properties }))
@@ -270,6 +270,9 @@ function rescheduleFixture({ cutoff = 24, hoursUntil = 48, concurrentChange = fa
         createClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: 'synthetic-user' } } }) }, from: query }),
         createServiceClient: async () => service,
       },
+      'next/server': { ...require('next/server'), after: () => {} },
+      '@/lib/coaching-emails': { runCoachingEmails: async () => ({ sent: 0 }) },
+      '@/lib/coaching-slots': load('src/lib/coaching-slots.ts'),
       '@/lib/notifications': { createNotification: async () => {} },
       '@/lib/coaching-booking': { validateCoachingSlot: async () => ({ ok: true, scheduledAt: future(96), bufferMinutes: 10 }) },
       '@/lib/email/send': { sendRescheduleConfirmation: async () => {} },

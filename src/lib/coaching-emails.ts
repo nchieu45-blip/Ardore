@@ -9,10 +9,10 @@ import type { SessionCronResult } from '@/lib/session-cron'
 type Service = Awaited<ReturnType<typeof createServiceClient>>
 type Delivery = {
   id: string; booking_kind: 'individual' | 'group'; booking_id: string
-  event_kind: 'cancellation' | 'refund'; recipient_id: string; recipient_role: 'customer' | 'coach'
+  event_kind: 'cancellation' | 'refund' | 'reschedule'; recipient_id: string; recipient_role: 'customer' | 'coach'
   payload: CreateEmailOptions | null
   details: { customer_id: string | null; coach_name: string; title: string; scheduled_at: string
-    amount_cents: number; total_refunded_cents: number }
+    amount_cents: number; total_refunded_cents: number; old_scheduled_at?: string }
 }
 async function user(service: Service, id: string) {
   const result = await service.auth.admin.getUserById(id)
@@ -35,13 +35,14 @@ async function payload(service: Service, row: Delivery): Promise<CreateEmailOpti
     title: row.details.title, scheduleLabel: new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin',
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
     }).format(new Date(row.details.scheduled_at)) + ' Uhr', role: row.recipient_role, event: row.event_kind,
+    oldScheduleLabel: row.details.old_scheduled_at ? new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', dateStyle: 'full', timeStyle: 'short' }).format(new Date(row.details.old_scheduled_at)) + ' Uhr' : undefined,
     amountCents: row.details.amount_cents, totalRefundedCents: row.details.total_refunded_cents,
     bookingsUrl: `${appOrigin()}${row.booking_kind === 'group'
       ? row.recipient_role === 'coach' ? '/creator/settings/video-classes' : '/buyer/video-classes'
       : row.recipient_role === 'coach' ? '/creator/sessions' : '/buyer/sessions'}`,
   }
   return { from: FROM, to: recipient.email!,
-    subject: `${row.event_kind === 'refund' ? 'Erstattung bestätigt' : 'Buchung storniert'}: ${row.details.title}`,
+    subject: `${row.event_kind === 'reschedule' ? 'Termin verschoben' : row.event_kind === 'refund' ? 'Erstattung bestätigt' : 'Buchung storniert'}: ${row.details.title}`,
     html: coachingUpdateHtml(details), text: coachingUpdateText(details) }
 }
 

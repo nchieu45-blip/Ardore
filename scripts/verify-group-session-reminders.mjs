@@ -25,8 +25,8 @@ function fixture(options = {}) {
   const service = { from(table) {
     assert.equal(table, 'group_reminder_recipients')
     let start = 0, end = Infinity
-    const q = { select(fields) { queries.push(fields); return q }, gt(k,v) { assert.equal(k,'occurrence_start'); assert.equal(v,NOW.toISOString()); return q },
-      lte(k,v) { assert.equal(k,'occurrence_start'); assert.equal(v,'2026-10-28T08:00:00.000Z'); return q }, order() { return q },
+    const q = { select(fields) { queries.push(fields); return q }, gt(k,v) { assert.equal(k,'scheduled_at'); assert.equal(v,NOW.toISOString()); return q },
+      lte(k,v) { assert.equal(k,'scheduled_at'); assert.equal(v,'2026-10-28T08:00:00.000Z'); return q }, order() { return q },
       range(a,b) { start=a; end=b; return q }, then(resolve,reject) { return Promise.resolve(options.readFailure
         ? { data: null, error: new Error('PRIVATE') } : { data: rows.slice(start,end+1), error: null }).then(resolve,reject) } }
     return q
