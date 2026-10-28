@@ -156,6 +156,9 @@ async function cleanup() {
   for (const path of run.files) {
     const result = await service.storage.from('verification-docs').remove([path]); if (result.error) throw new Error('Exact local fixture file cleanup failed')
   }
+  if (run.tables.group_reminder_deliveries?.length) {
+    db(await service.from('group_reminder_deliveries').delete().in('id', run.tables.group_reminder_deliveries))
+  }
   // Exact fixture class IDs also own their composite-key occurrence rows.
   if (run.tables.video_classes?.length) {
     db(await service.from('video_class_bookings').delete().in('video_class_id', run.tables.video_classes))
@@ -342,14 +345,14 @@ try {
 
     stage = 'group_retention_and_races'
     const startsAt = new Date(Date.now() + 7 * 86400000).toISOString()
-    async function groupClass(host, price = 0) {
+    async function groupClass(host, price = 0, when = startsAt) {
       return insert('video_classes', { creator_id: host.id, title: 'LOCAL group agreement', schedule_type: 'once',
-        starts_at: startsAt, duration_minutes: 45, price_cents: price, included_in_subscription: false,
+        starts_at: when, duration_minutes: 45, price_cents: price, included_in_subscription: false,
         max_participants: 9, active: true })
     }
     async function reserve(course, buyerId) {
       return service.rpc('reserve_group_class_booking', { p_class_id: course.id, p_buyer_id: buyerId,
-        p_request_id: randomUUID(), p_occurrence_start: startsAt, p_livemode: course.price_cents ? false : null,
+        p_request_id: randomUUID(), p_occurrence_start: course.starts_at, p_livemode: course.price_cents ? false : null,
         p_account_id: course.price_cents ? 'acct_LocalFixture' : null, p_expected_price_cents: course.price_cents })
     }
     async function retainedByApp(id) {
@@ -401,6 +404,31 @@ try {
     } finally { await send(groupWriter, 'COMMIT;') }
     record('writer_first_group_rpc_commit_preserves_buyer_and_retained_agreement', (await groupRemoving).status === 409
       && await accountExists(writingBuyer) && db(await service.from('group_booking_reservations').select('id').eq('buyer_id', writingBuyer)).length === 1)
+
+    stage = 'current_main_group_reminder_interaction'
+    const reminderHost = await coach('reminder-host', true), reminderBuyer = await user('reminder-buyer')
+    const reminderCourse = await groupClass(reminderHost, 0, new Date(Date.now() + 6 * 3600000).toISOString())
+    assert.ok(db(await reserve(reminderCourse, reminderBuyer)).reservation?.id)
+    const reminderArgs = { p_class_id: reminderCourse.id, p_occurrence: reminderCourse.starts_at,
+      p_recipient_id: reminderBuyer, p_role: 'participant' }
+    record('current_main_reminder_eligibility_matches_retained_local_group_agreement',
+      db(await service.rpc('group_reminder_is_eligible', reminderArgs)) === true)
+    // Real local SQL delivery claim, never SMTP/Resend or a production request.
+    const [claimResult, reminderBuyerKept] = await Promise.all([
+      service.rpc('claim_group_reminder', { ...reminderArgs, p_token: randomUUID(), p_payload: {
+        from: 'fixture@example.invalid', to: 'fixture@example.invalid', subject: `LOCAL ${run.id}`,
+        html: 'Fictional local fixture, not sent', text: 'Fictional local fixture, not sent',
+      } }),
+      retainedByApp(reminderBuyer),
+    ])
+    const claimed = db(claimResult)
+    assert.ok(claimed.id && claimed.state === 'claimed')
+    ;(run.tables.group_reminder_deliveries ??= []).push(claimed.id)
+    record('parallel_reminder_claim_and_account_deletion_preserve_local_buyer', reminderBuyerKept
+      && await accountExists(reminderBuyer))
+    record('rejected_coach_deletion_preserves_reminder_ledger_and_recipient', await retainedByApp(reminderHost.user_id)
+      && db(await service.from('group_reminder_deliveries').select('id,state').eq('id', claimed.id).single()).state === 'processing'
+      && await accountExists(reminderBuyer))
 
     stage = 'stripe_faults_with_real_local_auth'
     const stripeBuyer = await user('stripe-fault-buyer')

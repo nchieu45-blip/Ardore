@@ -29,6 +29,13 @@ weiterhin denselben abgeschlossenen Produktionsbuild. Der Migrationsschalter
 fehlt weiterhin sowohl auf Repository- als auch auf Environment-Ebene. Keine
 Produktionsmigration, kein main-Merge oder Produktionsdeployment wurde ausgelöst.
 
+Beim erneuten main-Abgleich am 28.10. zeigt das frisch geladene hPanel weiterhin
+"Pull-Request-Vorschau aktivieren" (Previews aus) und Produktion auf `b182637`.
+Anonyme CLI-/Browserabrufe des alten Preview-Hosts scheitern derzeit mit
+Verbindungs-/HTTP2-Protokollfehlern; ein aktueller HTTP-403/404-Status lässt sich
+daher nicht erneut belegen. Das ersetzt weder den früheren Entfernen-Nachweis
+noch den weiterhin offenen Nachweis über ausgelaufene alte Anfragen.
+
 ## Entscheidung und Grenze
 
 Empfohlen ist eine gestufte Umstellung: kurzzeitig gesperrte Anwendung als
@@ -51,7 +58,7 @@ Risikofreigabe braucht eine eigene Entscheidung. Kein Timeout/Neustart ersetzt s
 | Bestandteil | Ergebnis |
 | --- | --- |
 | Produktion | `ardore-health.com`, GitHub `nchieu45-blip/Ardore`, `main`, Node 22, veröffentlichter Stand `b182637` |
-| Reparatur | PR #7, Draft, `eccb417`; Node 22.23.4 CI erfolgreich, 1.019 CI-Tests; vorher 57 echte lokale Supabase-Prüfungen. Abgleich mit dem inzwischen neueren main noch erforderlich |
+| Reparatur | PR #7, Draft; main `b182637` am 28.10. konfliktfrei integriert. 1.036 lokale Offline-Tests, 60 echte lokale Supabase-Prüfungen sowie Lint, TypeScript und Webpack-Build erfolgreich. Exakten neuen Reparatur-SHA und zugehörige Node-22-CI im PR prüfen; frühere CI von `eccb417` gilt nicht für die neue Revision |
 | Geprüfte Sperrbasis | GitHub-Branch `codex/account-deletion-hostinger-baseline`, `70ddca2`; main `b182637` plus vier geprüfte Sperr-/Testdateien, ohne PR-#7-Abstammung; Node-22-CI erfolgreich |
 | Vorbereiteter Rückfall | GitHub-Branch `codex/account-deletion-recovery`, `878c315`; gleiche Anwendungs-/Testdateien wie Sperrbasis, alle SQL-Dateien aus aktuellem main und die drei PR-#7-Dateien erhalten; Node-22-CI erfolgreich |
 | Rückfallprüfung | Je 928 lokale Offline-Tests; Lint, TypeScript und Webpack-Build erfolgreich; 137 lokale HTTP-Sperrprüfungen und drei Redirect-Prüfungen ohne Service-Zugangsdaten; zusätzlich je 923 erfolgreiche Node-22-CI-Tests |
@@ -167,14 +174,17 @@ https://www.hostinger.com/support/how-to-deploy-a-nodejs-website-in-hostinger/
 
 ### 4. Reparatur gegen die neue Basis integrieren und erneut prüfen
 
-Schon durch `b182637`, und erneut nach der Basis-Auslieferung, ändert sich die Integrationsbasis.
-PR #7 lokal gegen diese Basis abgleichen. Die harte Proxy-/Route-Sperre aus der
+Der Abgleich von PR #7 mit `b182637` ist lokal erfolgt und erneut getestet,
+einschließlich paralleler Erinnerungs-Claims und erhaltener Konten/Versanddaten.
+Nach der Basis-Auslieferung ändert sich die Integrationsbasis erneut; PR #7 dann
+gegen diesen neuen main-Stand abgleichen. Die harte Proxy-/Route-Sperre aus der
 Basis darf in der später reparierten Version nicht versehentlich bestehen bleiben.
 Bewusst nur den geprüften neuen Löschpfad aktivieren; keine anderen Proxy-/Auth-
 Regeln entfernen. Danach alle Checks erneut, inklusive echter lokaler HTTP-
 Löschung mit isolierten Fixtures sowie Gruppen-/Stripe-/Paralleltests und Node-22-CI.
-Den neuen endgültigen Reparatur-SHA festschreiben; `eccb417` ist die heutige
-geprüfte Ausgangsversion, kein erfundener zukünftiger Integrations-SHA.
+Den neuen endgültigen Reparatur-SHA festschreiben. Der aktuelle PR-Stand ist
+Ausgangspunkt, kein vorweggenommener zukünftiger Integrations-SHA. Eine grüne CI
+nach dem jetzigen main-Abgleich ersetzt diese spätere Integrationsprüfung nicht.
 
 ### 5. Nur die drei genehmigten SQL-Dateien anwenden, während die Basis sperrt
 

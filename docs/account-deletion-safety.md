@@ -9,35 +9,45 @@ Er verwendet nur nachgewiesene Bedienelemente, benennt einen lokal getesteten
 Rückfall und hält den fehlenden Nachweis der Stilllegung alter Requests als
 Stopppunkt ausdrücklich offen. Keine Produktionsfreigabe ist daraus abzuleiten.
 
-**Local repair update — 2026-10-27:** The branch incorporates current main
-`9ccb3bc`, including its group-booking implementation and restricted-key mode
-handling. Retention checks now cover every group reservation (paid or free,
+**Local repair update — 2026-10-28:** The branch incorporates current main
+`b182637`, including group reminders, group bookings and restricted-key mode
+handling. Retention checks cover every group reservation (paid or free,
 including subscription benefits) and host-initialized occurrences without
 participants. The pending write-barrier migration also guards both group tables
 and rechecks them at the final Auth/profile cascade boundary. This is an amendment
 to the still-unapplied production migration, not an edit to applied group history.
 Existing payment/group migrations on main remain byte-for-byte unchanged.
 
-Current local evidence: 1,024 offline regressions and 57 real local Supabase
+Current local evidence: 1,036 offline regressions and 60 real local Supabase
 checks pass. The latter cover paid/free group history, both race directions,
 deleting-host admission, uploads/orders, worker fencing, simulated Stripe read/
 cancel/ambiguous-timeout failures with real local account preservation, and four
 parallel app retries with one successful deletion and no repeated cancellation.
+The added main-integration checks claim a real local group reminder concurrently
+with deletion: the retained buyer/coach and delivery ledger survive. No mail is
+sent. The separate isolated group-reminder SQL suite also passes, including two
+contending SQL connections; its own disposable database was removed.
 All exact temporary fixtures were removed; the three original fictional Auth
 users were preserved. Stripe faults use an in-memory provider; no Stripe API,
 payment, email or production operation was executed. Lint (four existing
 warnings), non-emitting TypeScript and the test-config Webpack build pass on
-local Node 24. Subsequently, GitHub CI passed on Node 22.23.4 for `eccb417`:
+local Node 24. Previous GitHub CI passed on Node 22.23.4 for `eccb417`:
 https://github.com/nchieu45-blip/Ardore/actions/runs/40545067492 (1,019 CI tests).
+The updated PR needs its own exact-revision Node-22 CI result; consult the PR
+checks rather than treating that previous run as evidence for the new revision.
 
 The checkout's existing environment file was not used or changed: build sources
 were copied without environment files into a separate local build folder and
 used only the established loopback Supabase/test configuration. The owner later
 approved the feature-branch push and Hostinger PR preview, and `eccb417` was
 pushed. PR #7 remains draft and unmerged. Production was `9ccb3bc` at that push;
-main subsequently advanced independently to `b182637` (group reminders). The
-repaired code must incorporate that newer baseline and be checked again before
-release; the Hostinger plan pins prepared hold/recovery versions retaining it.
+main subsequently advanced independently to `b182637` (group reminders), now
+incorporated conflict-free. Applied main migrations and the three pending repair
+migration files remain byte-for-byte unchanged. Only the new main reminder SQL
+was prepared in the isolated local stack to run the integration tests; no
+production migration was executed. The Hostinger plan pins prepared hold/recovery
+versions retaining the same main baseline. If the held basis is later released,
+the repair must incorporate that new main revision and be tested again.
 The production transition/fallback gates below remain open; local correctness
 does not prove that old Hostinger handlers have retired.
 
