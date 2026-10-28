@@ -44,3 +44,17 @@ test('keyset pagination does not starve a failing first page',async()=>{const ba
 
 test('a deleted customer does not prevent coach notices',async()=>{const f=fixture({deletedCustomer:true});const r=await f.run();assert.equal(r.sent,4);assert.equal(r.failed,4);assert.ok(f.emails.every(e=>e.payload.to.startsWith('coach')));assert.ok(f.emails.every(e=>e.payload.text.includes('Kunde')))})
 test('a release transport failure does not abort other recipients',async()=>{const f=fixture({fail:true,releaseFail:true});const r=await f.run();assert.equal(r.failed,8);assert.equal(f.emails.length,8)})
+
+const movedRows=()=>['individual','group'].flatMap(kind=>['customer','coach'].map(role=>({
+ id:kind+'-reschedule-'+role,booking_kind:kind,booking_id:kind,event_kind:'reschedule',recipient_id:role,recipient_role:role,state:'pending',payload:null,
+ details:{customer_id:role==='coach'&&kind==='group'?null:'customer',coach_name:'Coach <b>',title:kind==='group'?'Yoga & Ruhe':'1:1-Coaching',old_scheduled_at:'2026-10-30T10:00:00Z',scheduled_at:'2026-10-30T12:00:00Z',amount_cents:0,total_refunded_cents:0}
+})))
+test('all reschedule roles/formats show old/new Berlin time with escaped names and no refund claim',async()=>{
+ const f=fixture({rows:movedRows()});assert.equal((await f.run()).sent,4)
+ for(const {payload:p}of f.emails){assert.match(p.subject,/Termin verschoben/);assert.match(p.text,/Alter Termin:.*11:00.*Europe\/Berlin/);assert.match(p.text,/Neuer Termin:.*13:00.*Europe\/Berlin/);assert.doesNotMatch(p.html,/<script>|<b>|wurde eine Erstattung/);assert.match(p.html,/&lt;script&gt;/)}
+})
+test('reschedule parallel jobs and completed retries send each recipient only once',async()=>{const f=fixture({rows:movedRows()});await Promise.all([f.run(),f.run()]);assert.equal(f.emails.length,4);assert.equal((await f.run()).sent,0)})
+for(const failure of ['provider','completion'])test('reschedule '+failure+' retry preserves frozen request and provider identity',async()=>{
+ const f=fixture({rows:movedRows(),fail:failure==='provider',completeFail:failure==='completion'});assert.equal((await f.run()).failed,4);const first=structuredClone(f.emails);f.setFail(false);f.setCompleteFail(false);assert.equal((await f.run()).sent,4);assert.deepEqual(f.emails.slice(4),first)
+})
+test('one failing reschedule customer does not suppress coach notices and retries independently',async()=>{const f=fixture({rows:movedRows(),fail:p=>p.to.startsWith('customer')});assert.equal((await f.run()).sent,2);f.setFail(false);assert.equal((await f.run()).sent,2);assert.equal(f.emails.filter(e=>e.payload.to.startsWith('coach')).length,2)})

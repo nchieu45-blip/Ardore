@@ -10,7 +10,7 @@ type Service = Awaited<ReturnType<typeof createServiceClient>>
 type Recipient = {
   video_class_id: string; occurrence_start: string; recipient_id: string
   recipient_role: 'participant' | 'coach'; class_title: string
-  duration_minutes: number; coach_name: string
+  duration_minutes: number; coach_name: string; scheduled_at?: string
 }
 type Claim = { state: 'claimed' | 'sent' | 'busy' | 'held' | 'ineligible'; id?: string; payload?: CreateEmailOptions }
 const PAGE_SIZE = 200
@@ -36,7 +36,7 @@ async function deliver(service: Service, row: Recipient, result: SessionCronResu
     ? user.data.user.user_metadata.full_name : row.recipient_role === 'coach' ? row.coach_name : 'Teilnehmer'
   const scheduleLabel = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin',
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  }).format(new Date(row.occurrence_start)) + ' Uhr'
+  }).format(new Date(row.scheduled_at ?? row.occurrence_start)) + ' Uhr'
   const details = { recipientName: name, coachName: row.coach_name, classTitle: row.class_title,
     scheduleLabel, durationMinutes: row.duration_minutes, role: row.recipient_role,
     sessionUrl: `${appOrigin()}/group-session/${row.video_class_id}?occurrenceStart=${encodeURIComponent(row.occurrence_start)}` }
@@ -46,7 +46,7 @@ async function deliver(service: Service, row: Recipient, result: SessionCronResu
       coachName: escapeHtml(row.coach_name), classTitle: escapeHtml(row.class_title) }),
     text: groupSessionReminderText(details) }
   const token = randomUUID()
-  const claimResult = await service.rpc('claim_group_reminder', { ...identity(row), p_payload: payload, p_token: token })
+  const claimResult = await service.rpc(row.scheduled_at ? 'claim_current_group_reminder' : 'claim_group_reminder', { ...identity(row), p_payload: payload, p_token: token, ...(row.scheduled_at ? { p_expected_start: row.scheduled_at } : {}) })
   if (claimResult.error || !claimResult.data) throw new Error('group_reminder_claim_failed')
   const claim = claimResult.data as Claim
   if (claim.state === 'sent' || claim.state === 'ineligible') { result.skipped++; return }
@@ -80,9 +80,9 @@ export async function runGroupSessionReminders(now = new Date()): Promise<Sessio
   const result: SessionCronResult = { sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const page = await service.from('group_reminder_recipients')
-      .select('video_class_id,occurrence_start,recipient_id,recipient_role,class_title,duration_minutes,coach_name')
-      .gt('occurrence_start', now.toISOString())
-      .lte('occurrence_start', new Date(now.getTime() + 24 * 3_600_000).toISOString())
+      .select('video_class_id,occurrence_start,recipient_id,recipient_role,class_title,duration_minutes,coach_name,scheduled_at')
+      .gt('scheduled_at', now.toISOString())
+      .lte('scheduled_at', new Date(now.getTime() + 24 * 3_600_000).toISOString())
       .order('video_class_id').order('occurrence_start').order('recipient_id')
       .range(offset, offset + PAGE_SIZE - 1)
     if (page.error || !page.data) throw new Error('group_reminder_read_failed')

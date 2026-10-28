@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications'
+import { berlinDateTimeToIso, isValidDateString, isValidTimeString } from '@/lib/coaching-slots'
+import { runCoachingEmails } from '@/lib/coaching-emails'
 import { validateCoachingSlot } from '@/lib/coaching-booking'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 
@@ -10,8 +12,9 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
-  const { bookingId, newDate, newTime } = await req.json()
-  if (!bookingId || !newDate || !newTime) {
+  const body = await req.json().catch(() => null)
+  const { bookingId, newDate, newTime } = body ?? {}
+  if (typeof bookingId !== 'string' || !/^[0-9a-f-]{36}$/i.test(bookingId) || !isValidDateString(newDate) || !isValidTimeString(newTime)) {
     return NextResponse.json({ error: 'Fehlende Pflichtfelder' }, { status: 400 })
   }
 
@@ -32,9 +35,19 @@ export async function POST(req: NextRequest) {
   const isCreator = cp?.user_id === user.id
   if (!isBuyer && !isCreator) return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 })
 
+  const requestedStart = berlinDateTimeToIso(newDate, newTime)
+  if (requestedStart && Date.parse(requestedStart) === Date.parse(booking.scheduled_at)) {
+    after(async () => { await runCoachingEmails(bookingId) })
+    return NextResponse.json({ ok: true, unchanged: true })
+  }
+
   const sessionEnd = new Date(booking.scheduled_at).getTime() + booking.duration_minutes * 60_000
   if (!Number.isFinite(sessionEnd) || sessionEnd <= Date.now()) {
     return NextResponse.json({ error: 'Abgeschlossene Termine können nicht verschoben werden.' }, { status: 409 })
+  }
+
+  if (Date.parse(booking.scheduled_at) <= Date.now() + 15 * 60_000) {
+    return NextResponse.json({ error: 'Der Videoraum ist bereits geöffnet. Dieser Termin kann nicht mehr verschoben werden.' }, { status: 409 })
   }
 
   // Both participants use the cutoff agreed at booking, never a later offer edit.
@@ -74,7 +87,6 @@ export async function POST(req: NextRequest) {
   }
 
   const newScheduledAt = new Date(slotValidation.scheduledAt)
-  const oldScheduledAt = new Date(booking.scheduled_at)
 
   const service = await createServiceClient()
   const { data: updatedBooking, error: updateError } = await service
@@ -94,70 +106,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Die Buchung wurde inzwischen geändert. Bitte lade die Seite erneut.' }, { status: 409 })
   }
 
-  // The join endpoint keys its private room to this immutable scheduled time.
-  // A rescheduled appointment therefore cannot reuse the former room or token.
-
-  const fmtDate = (d: Date) => d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' })
-  const fmtTime = (d: Date) => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })
-
-  const oldDate = fmtDate(oldScheduledAt)
-  const oldTime = fmtTime(oldScheduledAt)
-  const newDateFmt = fmtDate(newScheduledAt)
-  const newTimeFmt = fmtTime(newScheduledAt)
-
-  ;(async () => {
-    try {
-      const { sendRescheduleConfirmation } = await import('@/lib/email/send')
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ardore-health.com').replace(/\/$/, '')
-      const sessionUrl = `${appUrl}/session/${bookingId}`
-
-      const sharedData = {
-        oldDate, oldTime,
-        newDate: newDateFmt, newTime: newTimeFmt,
-        durationMinutes: durationMin,
-        sessionUrl,
-      }
-
-      // Notify buyer
-      if (booking.buyer_id) {
-        await createNotification({
-          userId: booking.buyer_id,
-          type: 'booking_confirmed',
-          title: 'Session verschoben',
-          message: `Deine Session mit ${cp?.display_name ?? 'deinem Coach'} wurde auf ${newDateFmt} um ${newTimeFmt} Uhr verschoben.`,
-          link: `/session/${bookingId}`,
-        })
-      }
-      await sendRescheduleConfirmation(booking.buyer_email, {
-        recipientName: booking.buyer_name,
-        coachName: cp?.display_name ?? 'Dein Coach',
-        ...sharedData,
-        role: 'buyer',
-      })
-
-      // Notify coach
-      if (cp?.user_id) {
-        await createNotification({
-          userId: cp.user_id,
-          type: 'new_booking',
-          title: 'Session verschoben',
-          message: `Die Session mit ${booking.buyer_name} wurde auf ${newDateFmt} um ${newTimeFmt} Uhr verschoben.`,
-          link: '/creator/sessions',
-        })
-        const { data: { user: creatorUser } } = await service.auth.admin.getUserById(cp.user_id)
-        if (creatorUser?.email) {
-          await sendRescheduleConfirmation(creatorUser.email, {
-            recipientName: cp.display_name,
-            coachName: booking.buyer_name,
-            ...sharedData,
-            role: 'creator',
-          })
-        }
-      }
-    } catch (e) {
-      console.error('[reschedule notification]', e)
-    }
-  })()
-
+  after(async () => {
+    const label = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', dateStyle: 'full', timeStyle: 'short' }).format(newScheduledAt)
+    await Promise.allSettled([runCoachingEmails(bookingId),
+      ...(booking.buyer_id ? [createNotification({ userId: booking.buyer_id, type: 'booking_confirmed', title: 'Session verschoben', message: `Dein neuer Termin: ${label} Uhr.`, link: `/session/${bookingId}` })] : []),
+      ...(cp?.user_id ? [createNotification({ userId: cp.user_id, type: 'new_booking', title: 'Session verschoben', message: `Neuer Termin mit ${booking.buyer_name}: ${label} Uhr.`, link: '/creator/sessions' })] : []),
+    ])
+  })
   return NextResponse.json({ ok: true })
 }

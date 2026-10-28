@@ -17,7 +17,7 @@ const labels: Record<string, string> = {
 }
 
 interface Reservation {
-  id: string; video_class_id: string; occurrence_start: string; duration_minutes: number; class_title: string
+  id: string; scheduled_at?: string; video_class_id: string; occurrence_start: string; duration_minutes: number; class_title: string
   creator_slug: string; price_cents: number; status: string; booking_id: string | null
   refund_status: string; amount_refunded_cents: number; stripe_livemode: boolean | null
 }
@@ -30,7 +30,7 @@ export default async function BuyerVideoClassesPage({ searchParams }: { searchPa
   // This security-invoker view exposes only the caller's safe status fields.
   // The browser never receives Checkout keys, payment identities or room URLs.
   const [reservations, historical] = await Promise.all([
-    client.from('group_booking_status').select('id,video_class_id,occurrence_start,duration_minutes,class_title,creator_slug,price_cents,status,booking_id,refund_status,amount_refunded_cents,stripe_livemode').order('created_at', { ascending: false }),
+    client.from('group_booking_status').select('scheduled_at,id,video_class_id,occurrence_start,duration_minutes,class_title,creator_slug,price_cents,status,booking_id,refund_status,amount_refunded_cents,stripe_livemode').order('created_at', { ascending: false }),
     client.from('video_class_bookings').select('id,status,created_at,video_classes(title)').eq('user_id', user.id).is('reservation_id', null).order('created_at', { ascending: false }),
   ])
   const rows = (reservations.data ?? []) as Reservation[]
@@ -45,10 +45,10 @@ export default async function BuyerVideoClassesPage({ searchParams }: { searchPa
       {rows.map(row => {
         const paidTest = row.price_cents > 0 && row.stripe_livemode === false
         const confirmed = row.status === 'confirmed' && (row.price_cents === 0 || row.stripe_livemode === true) && row.refund_status === 'not_requested' && row.amount_refunded_cents === 0
-        const canCancel = row.status === 'confirmed' && Date.parse(row.occurrence_start) > now
+        const canCancel = row.status === 'confirmed' && Date.parse(row.scheduled_at ?? row.occurrence_start) > now
         return <article key={row.id} id={`reservation-${row.id}`} className="scroll-mt-24 rounded-xl border border-border bg-white p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3"><h2 className="min-w-0 break-words text-lg font-semibold">{row.class_title}</h2><span className="text-sm font-medium">{labels[row.status] ?? 'Status wird geprüft'}</span></div>
-          <p className="mt-2 text-sm text-muted">{formatGroupOccurrence(row.occurrence_start)} · {row.duration_minutes} Min.</p>
+          <p className="mt-2 text-sm text-muted">{formatGroupOccurrence(row.scheduled_at ?? row.occurrence_start)} · {row.duration_minutes} Min.</p>
           <p className="mt-2 text-sm font-medium">{row.price_cents === 0 ? 'Kostenlos oder im Abo enthalten' : `${formatCurrency(row.price_cents / 100)} für diesen Termin`}</p>
           {row.creator_slug && <Link href={`/creators/${row.creator_slug}`} className="mr-4 mt-2 inline-flex min-h-11 items-center text-sm font-medium text-brand underline underline-offset-4">Zum Coach-Profil</Link>}
           {paidTest && <p role="status" className="mt-3 text-sm leading-relaxed text-muted">Testzahlung: Diese Zahlung schaltet keine reale kostenpflichtige Teilnahme frei.</p>}

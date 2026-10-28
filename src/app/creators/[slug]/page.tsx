@@ -211,7 +211,7 @@ export default async function CreatorProfilePage({
       .is('code', null),
     supabase
       .from('video_classes')
-      .select('*')
+      .select('*,group_occurrence_schedules(occurrence_start,scheduled_at,revision)')
       .eq('creator_id', creator.id)
       .eq('active', true)
       .order('created_at', { ascending: false }),
@@ -756,7 +756,7 @@ export default async function CreatorProfilePage({
                   const scheduleLabel = vc.schedule_type === 'recurring' && vc.recurring_weekday !== null && vc.recurring_time
                     ? `Jeden ${WEEKDAYS_DE[vc.recurring_weekday]}, ${vc.recurring_time} Uhr`
                     : vc.starts_at
-                      ? new Date(vc.starts_at).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) + ' Uhr (Berlin)'
+                      ? new Date(vc.group_occurrence_schedules?.find(row => Date.parse(row.occurrence_start) === Date.parse(vc.starts_at!))?.scheduled_at ?? vc.starts_at).toLocaleString('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' }) + ' Uhr (Berlin)'
                       : null
                   const priceLabel = vc.price_cents === 0
                     ? 'Kostenlos'

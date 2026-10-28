@@ -18,11 +18,13 @@ export interface GroupSchedule {
   recurring_weekday: number | null
   recurring_time: string | null
   duration_minutes: number
+  group_occurrence_schedules?: { occurrence_start: string; scheduled_at: string; revision: number }[]
   active?: boolean
 }
 
 export interface GroupOccurrence {
   startsAt: string
+  scheduledAt?: string
   endsAt: string
 }
 
@@ -46,7 +48,7 @@ function occurrence(startsAt: number, durationMinutes: number, subMillisecond = 
 }
 
 /** Upcoming selectable sessions only; payment/availability RPCs remain authoritative. */
-export function nextGroupOccurrences(
+function baseGroupOccurrences(
   schedule: GroupSchedule | null | undefined,
   now: number,
   limit = 8,
@@ -93,6 +95,26 @@ export function nextGroupOccurrences(
     if (value) results.push(value)
   }
   return results
+}
+
+/** Display effective times, submit stable booking identities. */
+export function nextGroupOccurrences(schedule: GroupSchedule | null | undefined, now: number, limit = 8): GroupOccurrence[] {
+  if (!Number.isFinite(limit)) return []
+  const base = baseGroupOccurrences(schedule, now, 12)
+  if (!schedule || !Array.isArray(schedule.group_occurrence_schedules) || schedule.group_occurrence_schedules.length === 0) return base.slice(0, Math.max(0, Math.min(12, Math.floor(limit))))
+  if (schedule.active === false || !Number.isFinite(now) || !Number.isFinite(limit) || !Number.isInteger(schedule.duration_minutes)
+    || schedule.duration_minutes < 5 || schedule.duration_minutes > 480) return []
+  const moves = schedule.group_occurrence_schedules.filter(row => timestamp(row.occurrence_start) !== null && timestamp(row.scheduled_at) !== null)
+  const replaced = new Set(moves.map(row => timestamp(row.occurrence_start)))
+  const shifted = moves.flatMap(row => {
+    const start = timestamp(row.scheduled_at)!
+    const value = occurrence(start, schedule.duration_minutes)
+    return value && start > now && start <= now + GROUP_BOOKING_HORIZON_DAYS * DAY_MS
+      ? [{ ...value, startsAt: row.occurrence_start, scheduledAt: row.scheduled_at }] : []
+  })
+  return [...base.filter(row => !replaced.has(timestamp(row.startsAt))), ...shifted]
+    .sort((a,b) => Date.parse(a.scheduledAt ?? a.startsAt) - Date.parse(b.scheduledAt ?? b.startsAt))
+    .slice(0, Math.max(0, Math.min(12, Math.floor(limit))))
 }
 
 const occurrenceFormatter = new Intl.DateTimeFormat('de-DE', {

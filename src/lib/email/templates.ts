@@ -561,7 +561,8 @@ export interface CoachingUpdateData {
   title: string
   scheduleLabel: string
   role: 'customer' | 'coach'
-  event: 'cancellation' | 'refund'
+  event: 'cancellation' | 'refund' | 'reschedule'
+  oldScheduleLabel?: string
   amountCents: number
   totalRefundedCents: number
   bookingsUrl: string
@@ -569,6 +570,7 @@ export interface CoachingUpdateData {
 function coachingUpdateCopy(d: CoachingUpdateData) {
   const amount = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(d.amountCents / 100)
   const total = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(d.totalRefundedCents / 100)
+  if (d.event === 'reschedule') return { heading: 'Termin verschoben', message: `${d.role === 'coach' ? 'Dein Termin' : 'Deine Buchung'} „${d.title}“ wurde verschoben. Alter Termin: ${d.oldScheduleLabel ?? 'siehe Buchung'} (Europe/Berlin).`, note: 'Der oben genannte neue Termin ersetzt den bisherigen Termin. Den aktuellen Stand findest du in deinen Buchungen.' }
   return d.event === 'cancellation'
     ? { heading: 'Buchung storniert', message: d.role === 'customer'
       ? `Deine Buchung für „${d.title}“ mit ${d.coachName} wurde storniert.`
@@ -588,11 +590,11 @@ export function coachingUpdateHtml(d: CoachingUpdateData) {
   return layout(`<h2 style="margin:0 0 16px;font-size:20px;color:#111827;">${copy.heading}</h2>
     <p style="font-size:14px;line-height:1.6;color:#374151;">Hallo ${escape(d.recipientName)},</p>
     <p style="font-size:14px;line-height:1.6;color:#374151;">${escape(copy.message)}</p>
-    <p style="font-size:14px;line-height:1.6;color:#374151;"><strong>Termin:</strong> ${escape(d.scheduleLabel)} (Europe/Berlin)</p>
+    <p style="font-size:14px;line-height:1.6;color:#374151;"><strong>${d.event === 'reschedule' ? 'Neuer Termin' : 'Termin'}:</strong> ${escape(d.scheduleLabel)} (Europe/Berlin)</p>
     <p style="font-size:13px;line-height:1.6;color:#6b7280;">${escape(copy.note)}</p>
     <p style="margin-top:24px;">${button(escape(d.bookingsUrl), 'Zu meinen Buchungen')}</p>`)
 }
 export function coachingUpdateText(d: CoachingUpdateData) {
   const copy = coachingUpdateCopy(d)
-  return `${copy.heading}\n\nHallo ${d.recipientName},\n\n${copy.message}\n\nTermin: ${d.scheduleLabel} (Europe/Berlin)\n\n${copy.note}\n\nMeine Buchungen: ${d.bookingsUrl}\n\nArdore`
+  return `${copy.heading}\n\nHallo ${d.recipientName},\n\n${copy.message}\n\n${d.event === 'reschedule' ? 'Neuer Termin' : 'Termin'}: ${d.scheduleLabel} (Europe/Berlin)\n\n${copy.note}\n\nMeine Buchungen: ${d.bookingsUrl}\n\nArdore`
 }

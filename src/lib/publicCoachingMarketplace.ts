@@ -141,7 +141,7 @@ export async function loadPublicCoachingMarketplace(kind: MarketplaceServiceOffe
     const isCoaching = kind === 'coaching'
     const fields = isCoaching
       ? `${OFFER_FIELDS}, is_enabled`
-      : `${OFFER_FIELDS}, title, active, schedule_type, starts_at, recurring_weekday, recurring_time, max_participants, included_in_subscription`
+      : `${OFFER_FIELDS}, title, active, schedule_type, starts_at, recurring_weekday, recurring_time, max_participants, included_in_subscription, group_occurrence_schedules(occurrence_start,scheduled_at,revision)`
     const { data, error } = await supabase
       .from(isCoaching ? 'coaching_offers' : 'video_classes')
       .select(`${fields}, creator_profiles!inner(${CREATOR_FIELDS})`)
@@ -153,7 +153,10 @@ export async function loadPublicCoachingMarketplace(kind: MarketplaceServiceOffe
     const now = Date.now()
     const seen = new Set<string>()
     offers = data.flatMap((row: unknown) => {
-      const offer = publicOffer(row, kind, now)
+      const entry = row as PublicRow
+      const moves = Array.isArray(entry?.group_occurrence_schedules) ? entry.group_occurrence_schedules as { occurrence_start: string; scheduled_at: string }[] : []
+      const moved = kind === 'group' && entry?.schedule_type === 'once' ? moves.find(move => Date.parse(move.occurrence_start) === Date.parse(String(entry.starts_at))) : null
+      const offer = publicOffer(moved ? { ...entry, starts_at: moved.scheduled_at } : row, kind, now)
       if (!offer || seen.has(offer.id)) return []
       seen.add(offer.id)
       return [offer]
