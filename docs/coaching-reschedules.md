@@ -36,6 +36,6 @@ Opt-in integration uses a disposable, migrated database with a dedicated GoTrue/
 
 ## Release sequence
 
-Migration `20261028144343_coaching_reschedule_emails.sql` and the matching application must ship together. Pause 1:1 rescheduling during migration and rollout of all instances: the old application sends directly and its worker cannot process the new event kind. Apply the migration before enabling the new application, then resume and check the outbox/cron. Test a current session link and confirm all views show the same effective time.
+Migration `20261028144343_coaching_reschedule_emails.sql` and the matching application must ship together. Pause 1:1 rescheduling during migration and rollout of all instances: the old application sends directly and its worker cannot process the new event kind. For this release, apply `20261028191441_pause_reschedule_email_cutover` first, then `20261028144343_coaching_reschedule_emails`, deploy the new application and stop old instances, and only then apply `20261028191449_resume_reschedule_email_cutover`. The two temporary gate migrations replay harmlessly in timestamp order on a fresh database. Keep recorded migration versions aligned with these source files. Then check the outbox/cron. Test a current session link and confirm all views show the same effective time.
 
 This PR prepares the migration only. Production migration, merge and deployment require the owner's separate release authorization.
