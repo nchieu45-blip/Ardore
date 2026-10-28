@@ -1,3 +1,4 @@
+import { runCoachingEmails } from '@/lib/coaching-emails'
 import { isCronAuthorized, cronJson } from '@/lib/cron'
 import { runSessionNotifications } from '@/lib/session-cron'
 import { runGroupSessionReminders } from '@/lib/group-session-reminders'
@@ -7,7 +8,7 @@ export async function GET(request: Request) {
   try {
     // One reminder type failing must not suppress the other one.
     const outcomes = await Promise.allSettled([
-      runSessionNotifications('session_reminder'), runGroupSessionReminders(),
+      runSessionNotifications('session_reminder'), runGroupSessionReminders(), runCoachingEmails(),
     ])
     const result = { sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }
     for (const outcome of outcomes) {
