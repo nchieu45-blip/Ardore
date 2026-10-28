@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import test from 'node:test'
 import ts from 'typescript'
 const require=createRequire(import.meta.url)
-function load(file,overrides={}){const mod={exports:{}};new Function('require','module','exports',ts.transpileModule(readFileSync(new URL('../'+file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}}).outputText)(n=>overrides[n]??require(n),mod,mod.exports);return mod.exports}
+function load(file,overrides={}){const mod={exports:{}};new Function('require','module','exports','process',ts.transpileModule(readFileSync(new URL('../'+file,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}}).outputText)(n=>overrides[n]??require(n),mod,mod.exports,{env:{NEXT_PUBLIC_APP_URL:'https://www.ardore-health.com'}});return mod.exports}
 function fixture(options={}){
  const rows=options.rows??['individual','group'].flatMap(kind=>['cancellation','refund'].flatMap(event=>['customer','coach'].map(role=>({
   id:kind+'-'+event+'-'+role,booking_kind:kind,booking_id:kind,event_kind:event,recipient_id:role,recipient_role:role,state:'pending',payload:null,
