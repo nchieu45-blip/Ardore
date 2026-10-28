@@ -1,3 +1,5 @@
+import { effectiveGroupStart } from '@/lib/group-effective-schedule'
+import GroupRescheduleDialog from '@/components/GroupRescheduleDialog'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
@@ -55,10 +57,12 @@ export default async function GroupSessionPage({ params, searchParams }: {
     .select('video_class_id,starts_at,class_title,duration_minutes').eq('video_class_id', id).eq('starts_at', startsAt).maybeSingle()
   if (occurrenceError) return <LoadError path={path} />
   if (!occurrence && !isCoach) return <LoadError path={path} />
+  let scheduledAt: string
+  try { scheduledAt = await effectiveGroupStart(client, id, startsAt) } catch { return <LoadError path={path} /> }
   const duration = occurrence?.duration_minutes ?? course.duration_minutes
   const title = occurrence?.class_title ?? course.title
   const now = new Date().getTime()
-  const end = Date.parse(startsAt) + duration * 60_000
+  const end = Date.parse(scheduledAt) + duration * 60_000
   const eligible = isCoach || Boolean(attendee && attendee.status === 'confirmed' && attendee.reservation_id
     && attendee.refund_status === 'not_requested' && attendee.amount_refunded_cents === 0 && (
       attendee.payment_status === 'not_required' && attendee.price_paid_cents === 0
@@ -83,10 +87,11 @@ export default async function GroupSessionPage({ params, searchParams }: {
     <Link href={isCoach ? '/creator/settings/video-classes' : '/buyer/video-classes'} className="inline-flex min-h-11 items-center text-sm font-medium text-brand underline underline-offset-4">← {isCoach ? 'Meine Gruppen-Kurse' : 'Meine Gruppenbuchungen'}</Link>
     <div className="mb-6 mt-4 border-b border-border pb-6">
       <h1 className="section-title break-words">{title}</h1>
-      <p className="mt-3 text-sm leading-relaxed text-muted">{formatGroupOccurrence(startsAt)} · {duration} Min.</p>
+      <p className="mt-3 text-sm leading-relaxed text-muted">{formatGroupOccurrence(scheduledAt)} · {duration} Min.</p>
       <p className="mt-2 text-sm text-muted">{isCoach ? 'Du leitest diesen Gruppentermin.' : `Mit ${coach?.display_name ?? 'deinem Coach'}. Diese Anmeldung gilt nur für diesen Termin.`}</p>
     </div>
-    {eligible && VIDEO_CALLS_ENABLED ? <ProtectedVideoRoom key={`${id}:${startsAt}`} endpoint={`/api/video-classes/${id}/meeting`} request={{ occurrenceStart: startsAt }} scheduledAt={startsAt} durationMinutes={duration} configurationReady={Boolean(process.env.DAILY_API_KEY?.trim())} />
+    {isCoach && occurrence && now < Date.parse(scheduledAt) - 15 * 60_000 && <GroupRescheduleDialog classId={id} occurrenceStart={startsAt} scheduledAt={scheduledAt} />}
+    {eligible && VIDEO_CALLS_ENABLED ? <ProtectedVideoRoom key={`${id}:${startsAt}:${scheduledAt}`} endpoint={`/api/video-classes/${id}/meeting`} request={{ occurrenceStart: startsAt }} scheduledAt={scheduledAt} durationMinutes={duration} configurationReady={Boolean(process.env.DAILY_API_KEY?.trim())} />
       : <p role="status" className="rounded-xl border border-border p-5 text-sm text-muted">Für diese Anmeldung ist kein bestätigter Videozugang verfügbar. Prüfe den Buchungs- und Zahlungsstatus in deiner Übersicht.</p>}
     {isCoach && <section className="mt-8 border-t border-border pt-6"><h2 className="text-lg font-semibold">Anmeldungen für diesen Termin</h2>
       {rosterError ? <p role="alert" className="mt-3 text-sm text-red-700">Die Anmeldungen konnten nicht geladen werden. Bitte lade die Seite erneut.</p>
@@ -98,7 +103,7 @@ export default async function GroupSessionPage({ params, searchParams }: {
           {row.refund_status === 'failed' && <p role="alert" className="mt-2 text-sm text-red-700">Erstattung noch nicht abgeschlossen. Bitte kontaktiere den Support mit Buchungsnummer {row.id}.</p>}
           {row.reservation_id && <GroupBookingActions reservationId={row.reservation_id} bookingId={row.id} status={row.status} canCancel={row.status === 'confirmed' && now < end} paid={row.price_paid_cents > 0} role="coach" />}
         </li>)}</ul>}
-      <p className="mt-4 text-xs leading-relaxed text-muted">Bereits gebuchte Termine werden nicht durch eine Änderung der Kursvorlage verschoben. Sage betroffene Anmeldungen einzeln ab, wenn der Termin nicht stattfinden kann.</p>
+      <p className="mt-4 text-xs leading-relaxed text-muted">Die Kursvorlage bleibt unverändert. Eine Terminverschiebung gilt für alle bestätigten Anmeldungen dieses Termins; Teilnehmer und Coach erhalten eine E-Mail.</p>
     </section>}
   </div>
 }

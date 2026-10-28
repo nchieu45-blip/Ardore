@@ -1,3 +1,4 @@
+import { effectiveGroupStart } from '@/lib/group-effective-schedule'
 import { validGroupId, validGroupInstant, sameGroupInstant } from '@/lib/group-booking-validation'
 import { MAX_GROUP_PARTICIPANTS } from '@/lib/group-capacity'
 export { validGroupId, validGroupInstant } from '@/lib/group-booking-validation'
@@ -27,6 +28,7 @@ export class GroupPaymentError extends Error {
 }
 const idOf = (value: string | { id: string } | null | undefined) => typeof value === 'string' ? value : value?.id ?? null
 const messages: Record<string, string> = {
+  coach_busy: 'Der Coach hat zu dieser Zeit bereits einen Termin. Bitte wähle einen anderen Termin.',
   full: 'Dieser Termin ist inzwischen ausgebucht.', already_booked: 'Du bist für diesen Termin bereits angemeldet.',
   not_found: 'Anmeldung oder Kurs nicht gefunden.', forbidden: 'Keine Berechtigung für diese Anmeldung.',
   request_conflict: 'Diese Buchungsanfrage gehört zu einem anderen Termin.',
@@ -54,6 +56,7 @@ function result(reservation: GroupReservation, url?: string): GroupPaymentResult
 }
 async function rpc<T>(service: SupabaseClient, name: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await service.rpc(name, args)
+  if (error?.code === '23P01' && name === 'reserve_group_class_booking') throw new GroupPaymentError('coach_busy', 409)
   if (error || data === null) throw new GroupPaymentError('payment_status_unavailable')
   return data as T
 }
@@ -196,6 +199,7 @@ export async function startOrResumeGroupCheckout({ service, reservationId, buyer
     }
     return result(r, session.url)
   } catch (error) {
+    if (error instanceof GroupPaymentError && error.code === 'coach_busy') return failure(error.code, error.status)
     if (error instanceof ConnectReadinessError) return { httpStatus: error.status, error: error.message, code: error.code,
       ...(r ? { reservationId: r.id, status: r.status } : {}) }
     return failure(error instanceof GroupPaymentError ? error.code : 'payment_status_unavailable',
@@ -228,7 +232,7 @@ export async function reserveGroupBooking({ service, classId, buyerId, requestId
       return failure('group_size_unavailable')
     }
     const start = occurrenceStart ?? (course.schedule_type === 'once' ? course.starts_at : null)
-    if (!validGroupInstant(start) || Date.parse(start) <= Date.now()) return failure('invalid_occurrence', 400)
+    if (!validGroupInstant(start) || Date.parse(await effectiveGroupStart(service, classId, start)) <= Date.now()) return failure('invalid_occurrence', 400)
     if (!Number.isSafeInteger(expectedPriceCents) || expectedPriceCents !== course.price_cents) return failure('price_changed')
     let included = false
     if (course.included_in_subscription) {

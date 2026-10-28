@@ -1,3 +1,4 @@
+import { effectiveGroupStart } from '@/lib/group-effective-schedule'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { appOrigin } from '@/lib/app-url'
@@ -82,7 +83,8 @@ export async function POST(request: NextRequest, context: Context) {
         || (booking && booking.duration_minutes !== occurrence.duration_minutes)) {
         throw new VideoAccessError(409, 'Dieser Kurstermin ist nicht verfügbar.')
       }
-      videoJoinWindow(occurrenceStart, occurrence.duration_minutes)
+      const scheduledAt = await effectiveGroupStart(admin, id, occurrenceStart)
+      videoJoinWindow(scheduledAt, occurrence.duration_minutes)
       if (booking?.payment_status === 'paid') {
         const [orderResult, reservationResult] = await Promise.all([
           admin.from('payment_orders').select('id,kind,buyer_id,creator_id,state,reference,gross_cents,stripe_livemode')
@@ -107,15 +109,15 @@ export async function POST(request: NextRequest, context: Context) {
           throw new VideoAccessError(409, 'Die bestätigte Zahlung gehört nicht zu dieser Anmeldung.')
         }
       }
-      return { occurrence, owner, bookingId: booking?.id ?? null, name: owner ? coach?.display_name ?? 'Coach' : 'Teilnehmer' }
+      return { occurrence, scheduledAt, owner, bookingId: booking?.id ?? null, name: owner ? coach?.display_name ?? 'Coach' : 'Teilnehmer' }
     }
     const initial = await load()
     const access = await createVideoAccess({
-      kind: 'group', identity: id, startsAt: occurrenceStart, durationMinutes: initial.occurrence.duration_minutes,
+      kind: 'group', identity: id, startsAt: initial.scheduledAt, durationMinutes: initial.occurrence.duration_minutes,
       userId: user.id, userName: initial.name, isOwner: initial.owner,
       reauthorize: async () => {
         const fresh = await load()
-        if (fresh.owner !== initial.owner || fresh.bookingId !== initial.bookingId
+        if (fresh.scheduledAt !== initial.scheduledAt || fresh.owner !== initial.owner || fresh.bookingId !== initial.bookingId
           || fresh.occurrence.duration_minutes !== initial.occurrence.duration_minutes) {
           throw new VideoAccessError(409, 'Die Anmeldung wurde inzwischen geändert. Bitte lade die Seite neu.')
         }

@@ -352,7 +352,7 @@ test('thin session routes reject unauthorized access and expose failed deliverie
   for (const [route, kind] of [['session-reminders', 'session_reminder'], ['session-review-prompts', 'session_review_prompt']]) {
     let calls = 0
     let throws = false
-    const modules = { '@/lib/session-cron': { runSessionNotifications: async supplied => {
+    const modules = { '@/lib/coaching-emails': { runCoachingEmails: async () => ({ sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }) }, '@/lib/session-cron': { runSessionNotifications: async supplied => {
       calls++
       assert.equal(supplied, kind)
       if (throws) throw new Error('PRIVATE service details')

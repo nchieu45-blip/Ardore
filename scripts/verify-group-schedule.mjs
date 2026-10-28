@@ -110,3 +110,17 @@ test('date labels consistently name Berlin time and fail safely on invalid input
     assert.equal(formatGroupOccurrence(value), 'Termin nicht verfügbar')
   }
 })
+
+test('moved occurrence displays effective time while retaining its original booking identity',()=>{
+ const original='2026-10-19T08:00:00Z',shifted='2026-10-21T12:00:00Z',now=Date.parse('2026-10-18T08:00:00Z')
+ const rows=nextGroupOccurrences(once({starts_at:original,group_occurrence_schedules:[{occurrence_start:original,scheduled_at:shifted,revision:1}]}),now)
+ assert.equal(rows.length,1);assert.equal(rows[0].startsAt,original);assert.equal(rows[0].scheduledAt,shifted)
+ assert.equal(rows[0].endsAt,new Date(Date.parse(shifted)+60*60000).toISOString())
+ assert.equal(nextGroupOccurrences(once({starts_at:original,group_occurrence_schedules:[{occurrence_start:original,scheduled_at:shifted,revision:1}]}),Date.parse('2026-10-20T08:00:00Z')).length,1)
+})
+test('moving one weekly occurrence preserves later weeks and reorders effective times',()=>{
+ const now=Date.parse('2026-10-18T08:00:00Z'),schedule=weekly(),base=nextGroupOccurrences(schedule,now,3)
+ const shifted=new Date(Date.parse(base[0].startsAt)+9*86400000).toISOString()
+ const rows=nextGroupOccurrences({...schedule,group_occurrence_schedules:[{occurrence_start:base[0].startsAt,scheduled_at:shifted,revision:2}]},now,3)
+ assert.equal(rows[0].startsAt,base[1].startsAt);assert.ok(rows.some(r=>r.startsAt===base[0].startsAt&&r.scheduledAt===shifted));assert.ok(rows.some(r=>r.startsAt===base[2].startsAt))
+})

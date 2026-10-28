@@ -23,7 +23,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('video_classes')
-    .select('*')
+    .select('*,group_occurrence_schedules(occurrence_start,scheduled_at,revision)')
     .eq('creator_id', creatorId)
     .order('created_at', { ascending: false })
 

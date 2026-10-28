@@ -120,6 +120,7 @@ export interface Review {
 }
 
 export interface VideoClass {
+  group_occurrence_schedules?: { occurrence_start: string; scheduled_at: string; revision: number }[]
   id: string
   creator_id: string
   title: string
