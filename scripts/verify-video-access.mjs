@@ -8,6 +8,7 @@ import ts from 'typescript'
 
 const require = createRequire(import.meta.url)
 function load(path, mocks = {}) {
+  mocks = { '@/lib/group-effective-schedule': { effectiveGroupStart: async (_client, _class, start) => start }, ...mocks }
   const loadedModule = { exports: {} }
   const source = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -428,4 +429,22 @@ test('group access rejects malformed/cross-site identities and notices cancellat
   const local = groupRoute({ changed: true })
   assert.equal((await local.post()).response.status, 404)
   assert.equal(local.fixture.calls.length, 0)
+})
+
+test('a moved paid group keeps original order/booking identity while joining the effective video room',async()=>{
+ const original=new Date(Date.now()-86400000).toISOString(),effective=new Date(Date.now()-5*60000).toISOString()
+ let minted=0,scheduleReads=0,changed=false,seen
+ const classId='20000000-0000-4000-8000-000000000001',creatorId='10000000-0000-4000-8000-000000000001',rid='30000000-0000-4000-8000-000000000001'
+ const course={id:classId,creator_id:creatorId,duration_minutes:60,creator_profiles:{user_id:actor,display_name:'Coach'}}
+ const booking={id:bookingId,user_id:buyer,video_class_id:classId,occurrence_start:original,duration_minutes:60,status:'confirmed',price_paid_cents:700,payment_status:'paid',stripe_livemode:true,payment_order_id:rid,reservation_id:rid,refund_status:'not_requested',amount_refunded_cents:0}
+ const rows={video_classes:course,video_class_bookings:booking,video_class_occurrences:{video_class_id:classId,starts_at:original,duration_minutes:60},payment_orders:{id:rid,kind:'group',buyer_id:buyer,creator_id:creatorId,state:'fulfilled',gross_cents:700,stripe_livemode:true,reference:{reservationId:rid,videoClassId:classId,occurrenceStart:original,durationMinutes:60}},group_booking_reservations:{id:rid,buyer_id:buyer,creator_id:creatorId,video_class_id:classId,occurrence_start:original,duration_minutes:60,price_cents:700,stripe_livemode:true,status:'confirmed',booking_id:bookingId,payment_order_id:rid,refund_status:'not_requested',amount_refunded_cents:0}}
+ const client={auth:{getUser:async()=>({data:{user:{id:buyer}},error:null})},from(table){const q={select:()=>q,eq:(k,v)=>{if(k==='occurrence_start')assert.equal(v,original);return q},maybeSingle:async()=>({data:rows[table],error:null})};return q}}
+ const api=load('src/app/api/video-classes/[id]/meeting/route.ts',{
+  '@/lib/supabase/server':{createClient:async()=>client,createServiceClient:async()=>client},'@/lib/app-url':{appOrigin:()=> 'https://ardore.synthetic'},'@/lib/features':{VIDEO_CALLS_ENABLED:true},
+  '@/lib/group-effective-schedule':{effectiveGroupStart:async()=>{scheduleReads++;return changed&&scheduleReads>1?new Date(Date.parse(effective)+3600000).toISOString():effective}},
+  '@/lib/video-provider':{...video,createVideoAccess:async input=>{seen=input;await input.reauthorize();minted++;return {url:'https://synthetic.daily.co/fixture',token:'fixture'}}},
+ })
+ const post=()=>api.POST(new Request('https://ardore.synthetic/api/video-classes/'+classId+'/meeting',{method:'POST',headers:{Origin:'https://ardore.synthetic','Content-Type':'application/json'},body:JSON.stringify({occurrenceStart:original})}),{params:Promise.resolve({id:classId})})
+ assert.equal((await post()).status,200);assert.equal(seen.startsAt,effective);assert.equal(minted,1)
+ changed=true;scheduleReads=0;assert.equal((await post()).status,409);assert.equal(minted,1,'A schedule race must not mint another token')
 })

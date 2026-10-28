@@ -38,6 +38,8 @@ function fixture({ user = { id: buyerId }, result = { httpStatus: 200, reservati
     async cancelGroupBooking(args) { calls.push(['cancel',args]); return result }, ...validation,
   }
   const overrides = {
+    'next/server': { ...require('next/server'), after: () => {} },
+    '@/lib/coaching-emails': { runCoachingEmails: async () => ({ sent: 0 }) },
     '@/lib/supabase/server': { createClient: async () => ({ auth: { getUser: async () => ({ data: { user }, error: null }) } }),
       createServiceClient: async () => { services.push(service); return service } },
     '@/lib/group-booking-payments': handlers, '@/lib/group-booking-http': http,

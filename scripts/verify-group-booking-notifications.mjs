@@ -6,6 +6,7 @@ import test from 'node:test'
 import ts from 'typescript'
 const require = createRequire(import.meta.url)
 function load(file, overrides) {
+  overrides = { '@/lib/group-effective-schedule': { effectiveGroupStart: async (_client, _class, start) => start }, ...overrides }
   const compiled=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{
     compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020},
   }).outputText

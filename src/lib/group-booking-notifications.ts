@@ -1,3 +1,4 @@
+import { effectiveGroupStart } from '@/lib/group-effective-schedule'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { appOrigin } from '@/lib/app-url'
 import { checkNotificationPreference, createNotification } from '@/lib/notifications'
@@ -6,7 +7,7 @@ import { checkNotificationPreference, createNotification } from '@/lib/notificat
 export async function notifyGroupBookingConfirmed(service: SupabaseClient, reservationId: string) {
   try {
     const { data: r, error } = await service.from('group_booking_reservations')
-      .select('id,buyer_id,creator_id,class_title,occurrence_start,duration_minutes,price_cents,stripe_livemode,status,booking_id,refund_status')
+      .select('video_class_id,id,buyer_id,creator_id,class_title,occurrence_start,duration_minutes,price_cents,stripe_livemode,status,booking_id,refund_status')
       .eq('id', reservationId).maybeSingle()
     if (error || !r || r.status !== 'confirmed' || !r.booking_id || r.refund_status !== 'not_requested'
       || (r.price_cents > 0 && r.stripe_livemode !== true)) return
@@ -17,7 +18,7 @@ export async function notifyGroupBookingConfirmed(service: SupabaseClient, reser
     const buyer = buyerRes.data.user
     if (!coach?.user_id || !buyer) return
     const scheduleLabel = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', weekday: 'long', day: 'numeric',
-      month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(r.occurrence_start)) + ' Uhr'
+      month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(await effectiveGroupStart(service, r.video_class_id, r.occurrence_start))) + ' Uhr'
     const participantName = typeof buyer.user_metadata?.full_name === 'string' ? buyer.user_metadata.full_name : 'Ein Teilnehmer'
     const [inapp, email, send] = await Promise.all([
       checkNotificationPreference(coach.user_id, 'new_video_class_booking', 'inapp'),

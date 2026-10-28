@@ -17,7 +17,8 @@ const DURATION_OPTIONS = [30, 45, 60, 90]
 
 function formatSchedule(vc: VideoClass): string {
   if (vc.schedule_type === 'once' && vc.starts_at) {
-    const d = new Date(vc.starts_at)
+    const moved = vc.group_occurrence_schedules?.find(row => Date.parse(row.occurrence_start) === Date.parse(vc.starts_at!))
+    const d = new Date(moved?.scheduled_at ?? vc.starts_at)
     return formatGroupOccurrence(d.toISOString())
   }
   if (vc.schedule_type === 'recurring' && vc.recurring_weekday !== null) {
@@ -445,7 +446,7 @@ export default function VideoClassesPage() {
                     <p className="text-sm text-gray-500 mb-1.5 line-clamp-1">{vc.description}</p>
                   )}
                   <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
-                    {nextGroupOccurrences(vc, scheduleNow - vc.duration_minutes * 60_000, 3).map(occurrence => <Link key={occurrence.startsAt} href={`/group-session/${vc.id}?occurrenceStart=${encodeURIComponent(occurrence.startsAt)}`} className="inline-flex min-h-11 items-center text-xs font-medium text-brand underline underline-offset-4">{formatGroupOccurrence(occurrence.startsAt)} · Session verwalten</Link>)}
+                    {nextGroupOccurrences(vc, scheduleNow - vc.duration_minutes * 60_000, 3).map(occurrence => <Link key={occurrence.startsAt} href={`/group-session/${vc.id}?occurrenceStart=${encodeURIComponent(occurrence.startsAt)}`} className="inline-flex min-h-11 items-center text-xs font-medium text-brand underline underline-offset-4">{formatGroupOccurrence(occurrence.scheduledAt ?? occurrence.startsAt)} · Session verwalten</Link>)}
                   </div>
                   <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
                     <span className="flex items-center gap-1">
