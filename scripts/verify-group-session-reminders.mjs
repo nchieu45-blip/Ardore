@@ -96,14 +96,15 @@ test('pagination includes more than one candidate page',async()=>{
   const f=fixture({rows:Array.from({length:205},(_,i)=>row({recipient_id:'buyer-'+i}))});assert.equal((await f.run()).sent,205);assert.equal(f.queries.length,2)
 })
 test('the existing authenticated cron runs both kinds even if one fails and leaks no details',async()=>{
-  for(const fail of ['individual','group',null]){
+  for(const fail of ['individual','group','updates',null]){
     const calls=[];const good={sent:1,skipped:0,failed:0,legacySkipped:0,busy:0,held:0}
     const invoke=async kind=>{calls.push(kind);if(fail===kind)throw Error('PRIVATE');return good}
     const api=load('src/app/api/cron/session-reminders/route.ts',{
+      '@/lib/coaching-emails':{runCoachingEmails:()=>invoke('updates')},
       '@/lib/session-cron':{runSessionNotifications:()=>invoke('individual')},'@/lib/group-session-reminders':{runGroupSessionReminders:()=>invoke('group')},
       '@/lib/cron':{isCronAuthorized:r=>r.headers.get('authorization')==='Bearer test-cron',cronJson:(body,status=200)=>Response.json(body,{status})},
     })
     assert.equal((await api.GET(new Request('https://example.test'))).status,401);assert.equal(calls.length,0)
-    const r=await api.GET(new Request('https://example.test',{headers:{authorization:'Bearer test-cron'}}));assert.equal(r.status,fail?503:200);assert.deepEqual(calls,['individual','group']);const body=await r.json();assert.equal(body.sent,fail?1:2);assert.equal(body.failed,fail?1:0);assert.doesNotMatch(JSON.stringify(body),/PRIVATE/)
+    const r=await api.GET(new Request('https://example.test',{headers:{authorization:'Bearer test-cron'}}));assert.equal(r.status,fail?503:200);assert.deepEqual(calls,['individual','group','updates']);const body=await r.json();assert.equal(body.sent,fail?2:3);assert.equal(body.failed,fail?1:0);assert.doesNotMatch(JSON.stringify(body),/PRIVATE/)
   }
 })
