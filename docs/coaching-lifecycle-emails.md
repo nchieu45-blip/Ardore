@@ -69,9 +69,17 @@ credentials. Never insert or modify `auth.users` with raw SQL.
 
 ## Release
 
-Apply `20261027233747_coaching_lifecycle_emails.sql` before releasing the matching
+Apply `20261028081242_coaching_lifecycle_emails.sql` before releasing the matching
 application. Migration and production deployment each require owner approval.
 Do not roll out the new application without its queue table/functions/triggers.
 Coordinate the cutover with booking mutations paused: an old application instance
 can still send its former direct cancellation notice while the new trigger
 queues the same event. Resume mutations only when all instances run this version.
+
+Release history is recorded by the three migrations `20261028081234` (temporary
+transition gate), `20261028081242` (outbox) and `20261028081704` (remove gate).
+The gate rejects cancellation/refund status changes so clients can retry; it
+does not wait on long-lived table locks. It was tested in a rolled-back local
+SQL transaction. During the initial release, the already validated application
+was deployed before removing the gate; the final main deployment runs the same
+application code. Fresh database installs can apply all three in sequence.
