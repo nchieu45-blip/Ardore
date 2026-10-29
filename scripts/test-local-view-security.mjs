@@ -161,6 +161,8 @@ async function cleanup() {
   }
   // Exact fixture class IDs also own their composite-key occurrence rows.
   if (run.tables.video_classes?.length) {
+    db(await service.from('group_reschedule_requests').delete().in('video_class_id', run.tables.video_classes))
+    db(await service.from('group_occurrence_schedules').delete().in('video_class_id', run.tables.video_classes))
     db(await service.from('video_class_bookings').delete().in('video_class_id', run.tables.video_classes))
     db(await service.from('group_booking_reservations').delete().in('video_class_id', run.tables.video_classes))
     db(await service.from('video_class_occurrences').delete().in('video_class_id', run.tables.video_classes))
@@ -411,11 +413,12 @@ try {
     assert.ok(db(await reserve(reminderCourse, reminderBuyer)).reservation?.id)
     const reminderArgs = { p_class_id: reminderCourse.id, p_occurrence: reminderCourse.starts_at,
       p_recipient_id: reminderBuyer, p_role: 'participant' }
+    const reminderToken = randomUUID()
     record('current_main_reminder_eligibility_matches_retained_local_group_agreement',
       db(await service.rpc('group_reminder_is_eligible', reminderArgs)) === true)
     // Real local SQL delivery claim, never SMTP/Resend or a production request.
     const [claimResult, reminderBuyerKept] = await Promise.all([
-      service.rpc('claim_group_reminder', { ...reminderArgs, p_token: randomUUID(), p_payload: {
+      service.rpc('claim_group_reminder', { ...reminderArgs, p_token: reminderToken, p_payload: {
         from: 'fixture@example.invalid', to: 'fixture@example.invalid', subject: `LOCAL ${run.id}`,
         html: 'Fictional local fixture, not sent', text: 'Fictional local fixture, not sent',
       } }),
@@ -429,6 +432,100 @@ try {
     record('rejected_coach_deletion_preserves_reminder_ledger_and_recipient', await retainedByApp(reminderHost.user_id)
       && db(await service.from('group_reminder_deliveries').select('id,state').eq('id', claimed.id).single()).state === 'processing'
       && await accountExists(reminderBuyer))
+
+    stage = 'current_main_reschedule_and_email_interaction'
+    const moveArgs = { p_class_id: reminderCourse.id, p_occurrence: reminderCourse.starts_at,
+      p_expected_start: reminderCourse.starts_at, p_new_start: new Date(Date.now() + 8 * 3600000).toISOString(),
+      p_actor_id: reminderHost.user_id, p_request_id: randomUUID() }
+    record('processing_reminder_prevents_group_move_without_losing_deletion_retention',
+      db(await service.rpc('reschedule_group_occurrence', moveArgs)).error === 'busy'
+      && await retainedByApp(reminderBuyer))
+    assert.equal(db(await service.rpc('complete_group_reminder', { p_id: claimed.id, p_token: reminderToken })), true)
+    const agreementsBefore = db(await service.from('group_booking_reservations').select('*')
+      .eq('video_class_id', reminderCourse.id))
+    const [moveResult, movingBuyerKept, movingHostKept] = await Promise.all([
+      service.rpc('reschedule_group_occurrence', moveArgs), retainedByApp(reminderBuyer), retainedByApp(reminderHost.user_id),
+    ])
+    const moved = db(moveResult)
+    record('parallel_group_move_and_deletions_preserve_buyer_coach_and_effective_schedule',
+      moved.ok === true && movingBuyerKept && movingHostKept
+      && Date.parse(db(await service.rpc('effective_group_start', {
+        p_class_id: reminderCourse.id, p_occurrence: reminderCourse.starts_at,
+      }))) === Date.parse(moveArgs.p_new_start))
+    assert.deepEqual(db(await service.from('group_booking_reservations').select('*')
+      .eq('video_class_id', reminderCourse.id)), agreementsBefore)
+    record('repeated_group_move_keeps_original_booking_terms_and_two_unique_notices',
+      db(await service.rpc('reschedule_group_occurrence', moveArgs)).unchanged === true
+      && db(await service.from('coaching_email_deliveries').select('id').eq('booking_id', moveArgs.p_request_id)).length === 2)
+
+    // Actual worker, templates and local SQL; only the outbound mail transport
+    // is replaced. No SMTP/Resend client or production credentials are loaded.
+    const acceptedMail = new Map()
+    let rejectRecipient = true, rejectCompletion = true, mailAttempts = 0
+    const nativeRpc = service.rpc.bind(service)
+    service.rpc = async (name, params) => {
+      if (name === 'complete_coaching_email' && rejectCompletion) {
+        rejectCompletion = false
+        return { data: false, error: null }
+      }
+      return nativeRpc(name, params)
+    }
+    const templates = loadLocal('../src/lib/email/templates.ts', {
+      '@/lib/features': loadLocal('../src/lib/features.ts', {}),
+    })
+    const worker = loadLocal('../src/lib/coaching-emails.ts', {
+      'node:crypto': { randomUUID }, '@/lib/supabase/server': { createServiceClient: async () => service },
+      '@/lib/app-url': loadLocal('../src/lib/app-url.ts', {}), '@/lib/email/templates': templates,
+      '@/lib/email': { FROM: 'Local <fixture@example.invalid>', sendEmail: async (payload, options) => {
+        mailAttempts++
+        assert.ok(mailAttempts <= 10, 'Bound local mail attempts')
+        if (payload.to === loginFixtures.get(reminderBuyer).email && rejectRecipient) {
+          rejectRecipient = false
+          throw new Error('Local injected mail rejection')
+        }
+        assert.ok(run.users.some(id => loginFixtures.get(id)?.email === payload.to))
+        assert.match(options.idempotencyKey, /^coaching-update\//)
+        const previous = acceptedMail.get(options.idempotencyKey)
+        if (previous) assert.deepEqual(payload, previous)
+        else acceptedMail.set(options.idempotencyKey, structuredClone(payload))
+        return { id: options.idempotencyKey }
+      } },
+    })
+    try {
+      const [deliveryAttempt, emailBuyerKept, emailHostKept] = await Promise.all([
+        worker.runCoachingEmails(moveArgs.p_request_id), retainedByApp(reminderBuyer), retainedByApp(reminderHost.user_id),
+      ])
+      record('mail_transport_and_completion_faults_preserve_accounts_and_retryable_outbox',
+        deliveryAttempt.failed === 2 && emailBuyerKept && emailHostKept
+        && db(await service.from('coaching_email_deliveries').select('state').eq('booking_id', moveArgs.p_request_id))
+          .every(row => row.state === 'pending'))
+      const delivered = await worker.runCoachingEmails(moveArgs.p_request_id)
+      const notices = db(await service.from('coaching_email_deliveries').select('state,payload,details')
+        .eq('booking_id', moveArgs.p_request_id))
+      record('actual_mail_worker_retries_identical_payload_without_duplicate_acceptance',
+        delivered.sent === 2 && delivered.failed === 0 && acceptedMail.size === 2 && mailAttempts === 4
+        && notices.length === 2 && notices.every(row => row.state === 'sent' && row.payload === null
+          && Object.keys(row.details).length === 0))
+      const directHostDelete = await service.auth.admin.deleteUser(reminderHost.user_id)
+      record('direct_auth_delete_cannot_erase_moved_group_schedule_or_sent_notice_history',
+        !!directHostDelete.error && await accountExists(reminderHost.user_id)
+        && db(await service.from('group_occurrence_schedules').select('revision').eq('video_class_id', reminderCourse.id).single()).revision === 1
+        && db(await service.from('coaching_email_deliveries').select('id').eq('booking_id', moveArgs.p_request_id)).length === 2)
+
+      const mailCoach = await coach('lifecycle-email-host', true), mailBuyer = await user('lifecycle-email-buyer')
+      const mailBooking = await insert('bookings', { creator_id: mailCoach.id, buyer_id: mailBuyer,
+        scheduled_at: new Date(Date.now() + 10 * 86400000).toISOString(), duration_minutes: 30,
+        status: 'confirmed', price_cents: 0, payment_status: 'not_required',
+        buyer_email: loginFixtures.get(mailBuyer).email, buyer_name: 'Local fixture' })
+      db(await service.from('bookings').update({ status: 'cancelled' }).eq('id', mailBooking.id))
+      const [cancelMail, cancelBuyerKept, cancelCoachKept] = await Promise.all([
+        worker.runCoachingEmails(mailBooking.id), retainedByApp(mailBuyer), retainedByApp(mailCoach.user_id),
+      ])
+      record('parallel_cancellation_mail_and_deletion_preserve_both_accounts_and_booking',
+        cancelMail.sent === 2 && cancelMail.failed === 0 && cancelBuyerKept && cancelCoachKept
+        && db(await service.from('bookings').select('status').eq('id', mailBooking.id).single()).status === 'cancelled')
+      record('new_email_outbox_and_claim_rpc_remain_private', sql("SELECT NOT has_table_privilege('anon','public.coaching_email_deliveries','SELECT') AND NOT has_table_privilege('authenticated','public.coaching_email_deliveries','SELECT') AND NOT has_function_privilege('authenticated','public.claim_coaching_email(uuid,jsonb,uuid)','EXECUTE');") === 't')
+    } finally { service.rpc = nativeRpc }
 
     stage = 'stripe_faults_with_real_local_auth'
     const stripeBuyer = await user('stripe-fault-buyer')

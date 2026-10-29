@@ -287,6 +287,7 @@ test('reminder cron forwards current method presence and role for both participa
       return builder
     } }
     const cron = load('src/app/api/cron/session-reminders/route.ts', {
+      '@/lib/coaching-emails': { runCoachingEmails: async () => ({ sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }) },
       '@/lib/group-session-reminders': { runGroupSessionReminders: async () => ({ sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }) },
       '@/lib/supabase/server': { createServiceClient: async () => service },
       '@/lib/email': { FROM: 'Ardore <noreply@example.invalid>', sendEmail: async () => ({ id: 'fixture-email' }) },

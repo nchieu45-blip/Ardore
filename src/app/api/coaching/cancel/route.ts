@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { runCoachingEmails } from '@/lib/coaching-emails'
 import { createNotification } from '@/lib/notifications'
 import { processCoachingRefund, type CoachingRefundBooking, type CoachingRefundRequest } from '@/lib/coaching-refund'
 
@@ -65,11 +66,9 @@ export async function POST(req: NextRequest) {
   const isCreator = cancelledByRole === 'creator'
   const cp = { user_id: result.creator_user_id, display_name: result.creator_display_name }
 
-  // Notify and email the other party
+  // Keep the existing in-app notification for the other party.
   after(async () => {
     try {
-      const { sendSessionCancellation } = await import('@/lib/email/send')
-
       if (isBuyer && cp?.user_id) {
         // Notify coach
         await createNotification({
@@ -79,16 +78,6 @@ export async function POST(req: NextRequest) {
           message: `${booking.buyer_name} hat die Session am ${scheduledDate} um ${scheduledTime} Uhr storniert.`,
           link: '/creator/sessions',
         })
-        const { data: { user: creatorUser } } = await service.auth.admin.getUserById(cp.user_id)
-        if (creatorUser?.email) {
-          await sendSessionCancellation(creatorUser.email, {
-            recipientName: cp.display_name,
-            otherPartyName: booking.buyer_name,
-            scheduledDate,
-            scheduledTime,
-            cancelledByRole,
-          })
-        }
       } else if (isCreator && booking.buyer_id) {
         // Notify buyer
         await createNotification({
@@ -98,13 +87,6 @@ export async function POST(req: NextRequest) {
           message: `${cp?.display_name ?? 'Dein Coach'} hat die Session am ${scheduledDate} um ${scheduledTime} Uhr storniert.`,
           link: '/buyer/sessions',
         })
-        await sendSessionCancellation(booking.buyer_email, {
-          recipientName: booking.buyer_name,
-          otherPartyName: cp?.display_name ?? 'Dein Coach',
-          scheduledDate,
-          scheduledTime,
-          cancelledByRole,
-        })
       }
     } catch (e) {
       console.error('[cancel notification] delivery failed', e instanceof Error ? e.name : 'unknown')
@@ -112,6 +94,8 @@ export async function POST(req: NextRequest) {
   })
 
   }
+  // The queue was committed with cancellation; cron retries even if this callback fails.
+  after(async () => { await runCoachingEmails(booking.id) })
   if (!result.refund) return NextResponse.json({ ok: true, refundStatus: 'not_requested', refundAmountCents: 0 })
   try {
     const refund = await processCoachingRefund({ service, booking, request: result.refund })

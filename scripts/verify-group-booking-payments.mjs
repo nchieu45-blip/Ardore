@@ -15,6 +15,7 @@ const bookingId = '40000000-0000-4000-8000-000000000001'
 const requestId = '50000000-0000-4000-8000-000000000001'
 const origin = 'https://www.ardore-health.com'
 function load(path, overrides) {
+  overrides = { '@/lib/group-effective-schedule': { effectiveGroupStart: async (_client, _class, start) => start }, ...overrides }
   const compiled = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText

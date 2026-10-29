@@ -552,3 +552,49 @@ export function groupSessionReminderHtml(d: GroupSessionReminderData) {
 export function groupSessionReminderText(d: GroupSessionReminderData) {
   return `Hallo ${d.recipientName},\n\n${d.role === 'coach' ? 'Dein Gruppentermin steht bevor.' : `Dein Gruppencoaching mit ${d.coachName} steht bevor.`}\n\n${d.classTitle}\nTermin: ${d.scheduleLabel} (Europe/Berlin)\nDauer: ${d.durationMinutes} Minuten\n\nGruppentermin: ${d.sessionUrl}\nMelde dich mit deinem Ardore-Konto an. Den Videozugang findest du auf der geschützten Terminseite.\n\n– Das Ardore-Team`
 }
+
+// Transactional booking updates: cancellation is never a refund confirmation.
+export interface CoachingUpdateData {
+  recipientName: string
+  customerName: string
+  coachName: string
+  title: string
+  scheduleLabel: string
+  role: 'customer' | 'coach'
+  event: 'cancellation' | 'refund' | 'reschedule'
+  oldScheduleLabel?: string
+  amountCents: number
+  totalRefundedCents: number
+  bookingsUrl: string
+}
+function coachingUpdateCopy(d: CoachingUpdateData) {
+  const amount = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(d.amountCents / 100)
+  const total = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(d.totalRefundedCents / 100)
+  if (d.event === 'reschedule') return { heading: 'Termin verschoben', message: `${d.role === 'coach' ? 'Dein Termin' : 'Deine Buchung'} „${d.title}“ wurde verschoben. Alter Termin: ${d.oldScheduleLabel ?? 'siehe Buchung'} (Europe/Berlin).`, note: 'Der oben genannte neue Termin ersetzt den bisherigen Termin. Den aktuellen Stand findest du in deinen Buchungen.' }
+  return d.event === 'cancellation'
+    ? { heading: 'Buchung storniert', message: d.role === 'customer'
+      ? `Deine Buchung für „${d.title}“ mit ${d.coachName} wurde storniert.`
+      : `Die Buchung von ${d.customerName} für „${d.title}“ wurde storniert.`,
+      note: 'Diese Nachricht bestätigt die Stornierung. Falls eine Erstattung anfällt, erhältst du nach deren Bestätigung eine separate E-Mail.' }
+    : { heading: 'Erstattung bestätigt', message: d.role === 'customer'
+      ? `Für deine Buchung „${d.title}“ wurde eine Erstattung von ${amount} auf das ursprüngliche Zahlungsmittel bestätigt.`
+      : `Für die Buchung von ${d.customerName} für „${d.title}“ wurde eine Erstattung von ${amount} an den Kunden bestätigt.`,
+      note: `Insgesamt für diese Buchung erstattet: ${total}. ${d.role === 'customer'
+        ? 'Bis der Betrag auf deinem Konto sichtbar ist, kann es je nach Zahlungsanbieter einige Werktage dauern.'
+        : 'Den Stand deiner Auszahlung und etwaiger Rückbuchungen findest du in deiner Abrechnung.'}` }
+}
+export function coachingUpdateHtml(d: CoachingUpdateData) {
+  const escape = (v: string) => v.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;')
+  const copy = coachingUpdateCopy(d)
+  return layout(`<h2 style="margin:0 0 16px;font-size:20px;color:#111827;">${copy.heading}</h2>
+    <p style="font-size:14px;line-height:1.6;color:#374151;">Hallo ${escape(d.recipientName)},</p>
+    <p style="font-size:14px;line-height:1.6;color:#374151;">${escape(copy.message)}</p>
+    <p style="font-size:14px;line-height:1.6;color:#374151;"><strong>${d.event === 'reschedule' ? 'Neuer Termin' : 'Termin'}:</strong> ${escape(d.scheduleLabel)} (Europe/Berlin)</p>
+    <p style="font-size:13px;line-height:1.6;color:#6b7280;">${escape(copy.note)}</p>
+    <p style="margin-top:24px;">${button(escape(d.bookingsUrl), 'Zu meinen Buchungen')}</p>`)
+}
+export function coachingUpdateText(d: CoachingUpdateData) {
+  const copy = coachingUpdateCopy(d)
+  return `${copy.heading}\n\nHallo ${d.recipientName},\n\n${copy.message}\n\n${d.event === 'reschedule' ? 'Neuer Termin' : 'Termin'}: ${d.scheduleLabel} (Europe/Berlin)\n\n${copy.note}\n\nMeine Buchungen: ${d.bookingsUrl}\n\nArdore`
+}

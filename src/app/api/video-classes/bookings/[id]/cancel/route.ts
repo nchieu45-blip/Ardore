@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { runCoachingEmails } from '@/lib/coaching-emails'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { cancelGroupBooking, validGroupId } from '@/lib/group-booking-payments'
 import { GROUP_PRIVATE_HEADERS, groupRequestError, groupResult } from '@/lib/group-booking-http'
@@ -15,7 +16,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const client = await createClient()
     const { data: { user }, error } = await client.auth.getUser()
     if (error || !user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401, headers: GROUP_PRIVATE_HEADERS })
-    return groupResult(await cancelGroupBooking({ service: await createServiceClient(), bookingId: id, actorId: user.id }))
+    const result = await cancelGroupBooking({ service: await createServiceClient(), bookingId: id, actorId: user.id })
+    if (result.httpStatus < 400) after(async () => { await runCoachingEmails(id) })
+    return groupResult(result)
   } catch {
     return NextResponse.json({ error: 'Die Stornierung konnte momentan nicht bestätigt werden.' }, { status: 503, headers: GROUP_PRIVATE_HEADERS })
   }

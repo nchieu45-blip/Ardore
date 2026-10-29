@@ -71,7 +71,7 @@ function fixture({ authenticated = true, code = 'ok', free = false, state = 'suc
         errorCode: state === 'failed' ? 'synthetic_stripe_failure' : null }
     } },
     '@/lib/notifications': { createNotification: async input => { notifications.push(input) } },
-    '@/lib/email/send': { sendSessionCancellation: async (recipient, data) => { emails.push({ recipient, data }) } },
+    '@/lib/coaching-emails': { runCoachingEmails: async id => { emails.push({ bookingId: id }) } },
   }
   const source = readFileSync(new URL('../src/app/api/coaching/cancel/route.ts', import.meta.url), 'utf8')
   const compiled = ts.transpileModule(source, {
@@ -135,12 +135,12 @@ test('a free booking cancellation never contacts Stripe and notifies only after 
   assert.equal(response.status, 200)
   assert.equal((await response.json()).refundStatus, 'not_requested')
   assert.deepEqual(state.processed, [])
-  assert.equal(state.afterCallbacks.length, 1)
+  assert.equal(state.afterCallbacks.length, 2)
   assert.deepEqual(state.notifications, [])
   await state.deliverNotifications()
   assert.equal(state.notifications.length, 1)
   assert.equal(state.emails.length, 1)
-  assert.match(state.emails[0].recipient, /@resend\.dev$/)
+  assert.equal(state.emails[0].bookingId, bookingId)
 })
 
 test('a customer paid cancellation uses the trusted actor and full provider-confirmed refund result', async () => {
@@ -153,7 +153,7 @@ test('a customer paid cancellation uses the trusted actor and full provider-conf
   assert.equal(body.refundAmountCents, 4100)
   assert.deepEqual(state.rpcCalls, [{ p_booking_id: bookingId, p_actor_user_id: buyerId }])
   assert.equal(state.processed.length, 1)
-  assert.equal(state.afterCallbacks.length, 1)
+  assert.equal(state.afterCallbacks.length, 2)
 })
 
 test('a coach cancellation calls the same full-refund engine under the trusted coach identity', async () => {
@@ -164,7 +164,7 @@ test('a coach cancellation calls the same full-refund engine under the trusted c
   assert.deepEqual(state.rpcCalls, [{ p_booking_id: bookingId, p_actor_user_id: coachUserId }])
   assert.equal(state.processed.length, 1)
   await state.deliverNotifications()
-  assert.equal(state.emails[0].recipient, 'delivered+ardore-refund-buyer@resend.dev')
+  assert.equal(state.emails[0].bookingId, bookingId)
 })
 
 test('repeated cancellation reuses the durable refund request without repeating cancellation notices', async () => {
@@ -174,9 +174,10 @@ test('repeated cancellation reuses the durable refund request without repeating 
   }
   assert.equal(state.processed.length, 2, 'The engine receives the same durable request and enforces provider idempotency')
   assert.equal(state.processed[0].request, state.processed[1].request)
-  assert.deepEqual(state.afterCallbacks, [])
+  assert.equal(state.afterCallbacks.length, 2, 'Retry drains the durable queue without creating a new event')
+  await state.deliverNotifications()
   assert.deepEqual(state.notifications, [])
-  assert.deepEqual(state.emails, [])
+  assert.equal(state.emails.length, 2)
 })
 
 test('pending Stripe refunds are visible as pending, not successful refunds', async () => {
