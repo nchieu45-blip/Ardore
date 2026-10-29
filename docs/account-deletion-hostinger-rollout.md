@@ -32,6 +32,10 @@ Bereits vom Provider angenommene Wirkungen werden dadurch NICHT rückgängig.
 Unklare Vorgänge bleiben ein Stopppunkt; keine automatische Erstattung oder
 wiederholte Nachricht zur vermeintlichen Reparatur.
 
+Der konkrete [Schlüsselverbraucher- und Wechselplan](account-deletion-key-rotation.md)
+benennt die bestätigten Hostinger-/SMTP-Verbraucher, getrennte Zielschlüssel,
+Berechtigungen, sichere hPanel-Einzeländerungen und die noch offene Vercel-Prüfung.
+
 ## Vor dem Wartungsfenster alles vorbereiten
 
 1. Exakten PR-Head, komplette erfolgreiche Node-22-CI und dieses Runbook festhalten.
@@ -134,8 +138,8 @@ an Metadaten bestätigen, keine absichtlichen Live-Kündigungs-/E-Mail-Tests.
 Ein alter Prozess mit altem SDK-Key verliert zukünftigen Providerzugriff;
 ein altes neu gestartetes Programm mit frischem Key scheitert vor neuen Reads.
 
-Stripe-Request-/Event-Metadaten, Resend-Sendestatus, Auth-Audit und die vier
-Benachrichtigungsjournale lesend abgleichen. Für Mail insbesondere `processing`,
+Stripe-Request-/Event-Metadaten, Resend-Sendestatus, Auth-Audit und die drei
+Benachrichtigungsjournale lesend abgleichen (vier Claim-RPCs, drei Tabellen). Für Mail insbesondere `processing`,
 `pending` und `held` mit `first_attempt_at IS NOT NULL` untersuchen. Completion/
 Failure-RPCs bleiben während Claim-Pause zulässig. Bereits angenommene Sends
 können erst später sichtbar werden; unklarer Status ist KEIN Zustellfehlerbeweis.
