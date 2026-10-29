@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error } = await client.auth.getUser()
     if (error || !user) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401, headers })
     await deleteAccountSafely({
-      service: await createServiceClient(), userId: user.id,
+      service: await createServiceClient({ accountDeletionProtocol: 'v2' }), userId: user.id,
       // Accounts without paid subscriptions do not need Stripe configuration.
       async getProvider() {
         const { configuredStripeLivemode } = await import('@/lib/stripe/connect-readiness')

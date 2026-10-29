@@ -9,6 +9,7 @@ function fixture({ creator = true, creatorError = false, groupCount = 0, groupEr
   const queries = [], effects = []
   const service = {
     async rpc(name) {
+      if (name === 'account_deletion_release_ready') return { data: true, error: null }
       if (name === 'begin_account_deletion') return { data: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', error: null }
       if (name === 'account_deletion_storage_clear') return { data: true, error: null }
       assert.equal(name, 'release_account_deletion')

@@ -13,12 +13,17 @@ assert.ok(args.includes('--local'), 'Explicit --local required')
 const envPath = args[args.indexOf('--fixture-env') + 1]
 assert.ok(args.includes('--fixture-env') && envPath?.endsWith('/.env.local'), 'Explicit isolated fixture environment required')
 const env = parseEnv(readFileSync(envPath, 'utf8'))
-assert.ok(env.NEXT_PUBLIC_SUPABASE_URL === 'http://127.0.0.1:54331', 'Only the known loopback Supabase is permitted')
+const database = args.includes('--isolated-database') ? args[args.indexOf('--isolated-database') + 1] : 'postgres'
+assert.ok(database === 'postgres' || /^ardore_delete_release_test_[a-f0-9]{12}$/.test(database), 'Only the dedicated local test database is permitted')
+assert.equal(env.NEXT_PUBLIC_SUPABASE_URL, database === 'postgres' ? 'http://127.0.0.1:54331' : 'http://127.0.0.1:55141')
 assert.ok(env.NEXT_PUBLIC_APP_URL === 'http://127.0.0.1:3011', 'Only the known local application is permitted')
-const dockerArgs = ['--context', 'colima-ardore-test', 'exec', '-i', 'supabase_db_ardore-local-test', 'psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=sqlstate', '-U', 'postgres', '-d', 'postgres']
+const dockerArgs = ['--context', 'colima-ardore-test', 'exec', '-i', 'supabase_db_ardore-local-test', 'psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=sqlstate', '-U', 'postgres', '-d', database]
 const inspected = spawnSync('docker', ['--context', 'colima-ardore-test', 'inspect', 'supabase_db_ardore-local-test', '--format', '{{.Name}} {{.State.Running}} {{.HostConfig.NetworkMode}}'], { encoding: 'utf8' })
 assert.ok(inspected.status === 0 && inspected.stdout.trim() === '/supabase_db_ardore-local-test true ardore-local-loopback', 'Expected isolated container/network required')
-const service = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+const service = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: { headers: { 'X-Ardore-Service-Protocol': 'v2', 'X-Ardore-Account-Deletion-Protocol': 'v2' } },
+})
 const run = { id: randomUUID(), users: [], tables: {}, files: [], results: [], blockers: [] }
 const loginFixtures = new Map()
 const suffix = run.id.replaceAll('-', '')
@@ -77,6 +82,10 @@ async function coach(label, published = false) {
   return insert('creator_profiles', { user_id: id, display_name: `Local ${label}`, slug: `${label}-${run.id}`, category: 'fitness', categories: ['fitness'], is_published: published, onboarding_step: published ? 5 : 1 })
 }
 async function accountExists(id) { const r = await service.auth.admin.getUserById(id); return !r.error && r.data.user?.id === id }
+async function armForAuth(id) {
+  const attempt = db(await service.rpc('begin_account_deletion', { p_user_id: id }))
+  assert.equal(db(await service.rpc('mark_account_deletion_auth', { p_user_id: id, p_attempt_id: attempt })), true)
+}
 async function clientFor(id) {
   const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
   const result = await client.auth.signInWithPassword(loginFixtures.get(id))
@@ -122,6 +131,7 @@ async function waitForPause(key) {
   throw new Error('Expected local race boundary not reached')
 }
 async function pausedDelete(id, operation) {
+  await armForAuth(id)
   const key = randomInt(10000000, 20000000), barrier = session()
   await send(barrier, `BEGIN; SELECT pg_advisory_xact_lock(${key});`)
   // Test-only hook pauses AFTER the real guard, BEFORE the Auth cascade commits.
@@ -156,24 +166,26 @@ async function cleanup() {
   for (const path of run.files) {
     const result = await service.storage.from('verification-docs').remove([path]); if (result.error) throw new Error('Exact local fixture file cleanup failed')
   }
-  if (run.tables.group_reminder_deliveries?.length) {
-    db(await service.from('group_reminder_deliveries').delete().in('id', run.tables.group_reminder_deliveries))
-  }
+  const exactIds = ids => ids.map(id => { assert.match(id, /^[0-9a-f-]{36}$/i); return `'${id}'::uuid` }).join(',')
+  // Direct local operator SQL removes only this run's recorded public fixtures.
+  // REST manual deletes are intentionally forbidden by the new release gate.
+  // Auth rows are still deleted only through the GoTrue Admin API below.
+  if (run.tables.group_reminder_deliveries?.length) sql(`DELETE FROM public.group_reminder_deliveries WHERE id IN (${exactIds(run.tables.group_reminder_deliveries)});`)
   // Exact fixture class IDs also own their composite-key occurrence rows.
   if (run.tables.video_classes?.length) {
-    db(await service.from('group_reschedule_requests').delete().in('video_class_id', run.tables.video_classes))
-    db(await service.from('group_occurrence_schedules').delete().in('video_class_id', run.tables.video_classes))
-    db(await service.from('video_class_bookings').delete().in('video_class_id', run.tables.video_classes))
-    db(await service.from('group_booking_reservations').delete().in('video_class_id', run.tables.video_classes))
-    db(await service.from('video_class_occurrences').delete().in('video_class_id', run.tables.video_classes))
+    for (const table of ['group_reschedule_requests','group_occurrence_schedules','video_class_bookings','group_booking_reservations','video_class_occurrences']) {
+      sql(`DELETE FROM public.${table} WHERE video_class_id IN (${exactIds(run.tables.video_classes)});`)
+    }
   }
   for (const table of ['video_classes', 'payment_orders', 'session_reviews', 'reviews', 'purchases', 'bookings', 'chat_conversations', 'subscriptions', 'products', 'subscription_tiers', 'creator_profiles']) {
-    if (run.tables[table]?.length) db(await service.from(table).delete().in('id', run.tables[table]))
+    if (run.tables[table]?.length) sql(`DELETE FROM public.${table} WHERE id IN (${exactIds(run.tables[table])});`)
   }
   for (const id of run.users) {
     const found = await service.auth.admin.getUserById(id)
     if (found.error?.code === 'user_not_found') continue
     assert.ok(!found.error && found.data.user.user_metadata.local_security_run === run.id, 'Never clean unrelated accounts')
+    sql(`UPDATE private.account_deletion_barriers SET lease_until=clock_timestamp()-interval '1 second' WHERE user_id='${id}';`)
+    await armForAuth(id)
     const result = await service.auth.admin.deleteUser(id); if (result.error) throw new Error('Exact local fixture Auth cleanup failed')
   }
   if (run.users.length) sql(`DELETE FROM private.account_deletion_barriers WHERE user_id IN (${run.users.map(id => `'${id}'::uuid`).join(',')});`)
@@ -181,6 +193,7 @@ async function cleanup() {
 }
 try {
   const baseline = sql('SELECT count(*) FROM auth.users;')
+  assert.equal(db(await service.rpc('account_deletion_release_ready')), true, 'Explicitly enabled local release gate required')
   const pub = await coach('published-coach', true), hidden = await coach('private-coach')
   const own = await user('paid-buyer'), free = await user('free-buyer'), expired = await user('expired-buyer')
   const sandbox = await user('test-buyer'), mismatch = await user('wrong-tier-buyer'), historical = await user('history-buyer'), stranger = await user('stranger')
@@ -342,6 +355,7 @@ try {
 
     stage = 'duplicate_delete'
     const duplicate = await user('double-delete')
+    await armForAuth(duplicate)
     const results = await Promise.all([service.auth.admin.deleteUser(duplicate), service.auth.admin.deleteUser(duplicate)])
     record('parallel_duplicate_delete_has_no_false_retained_account', results.some(r => !r.error) && !await accountExists(duplicate))
 

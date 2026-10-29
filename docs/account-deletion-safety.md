@@ -1,77 +1,52 @@
 # Account deletion safety
 
-## Current validation — 2026-10-28/29
+## Current release preparation — 2026-10-29
 
-The repair on `codex/safe-account-deletion` now incorporates main
-`c3fed1ebbd799f9aa3723004d071e8224c97cdf6`, including PRs #11 and #12:
-durable cancellation/refund emails, group rescheduling and effective-time
-reminders. Applied main migrations and the three pending repair SQL files
-remain byte-for-byte unchanged.
+PR #7 incorporates main `ceea6d43f5aa2a85e9a5fcfeb2f3a201184e26a1`.
+The three original pending repairs and all 50 applied SQL files are unchanged.
+Two new, separately approved migrations install a CLOSED database release gate
+first and activate the new deletion protocol last. The application checks the
+service-only readiness RPC before any barrier, provider call or deletion.
+All current service clients carry a v2 marker; only the deletion client also
+carries the deletion-protocol marker. These are version markers, not credentials.
 
-- 1,069 offline regressions passed locally.
-- 68 real isolated Supabase checks passed with actual local GoTrue, PostgreSQL,
-  Storage and application deletion orchestration. This includes both directions
-  of group-booking/upload/order races; retained paid/free group history; reminder
-  claims and group moves concurrent with deletion; the real email worker with
-  simulated send/DB-completion faults and identical retries; simulated Stripe
-  read/cancel/ambiguous-timeout faults; and four concurrent app retries with one
-  successful deletion and no repeated cancellation.
-- The independent local reminder SQL suite passed, including two contending
-  connections. Its own disposable database was removed.
-- ESLint passed with four existing warnings; non-emitting TypeScript and the
-  Webpack production build passed (75 static pages). Local Node is 24.15.0;
-  exact-head Node-22 GitHub CI is still a separate release check.
-- Source was copied without environment files into an isolated build folder.
-  Only the established loopback test configuration was used. The six newly
-  integrated main schema files were applied ONLY to the local test database.
-  The original three fictional Auth users and four subscriptions remain; all
-  newly owned fixtures, mail rows, reschedule rows, pause hooks and barriers
-  were removed. No real Stripe call, email or production mutation occurred.
-
-Earlier verification sections below are historical evidence with their original
-scope/counts. Their old application SHAs and release order are not current
-deployment instructions. Refer to PR checks for the final exact head and Node-22
-result; an earlier green CI does not validate later commits.
-
-## Release decision and authoritative runbook
-
-The operational sequence, pinned hold/recovery candidates, exact SQL checksums,
-approvals and stop conditions are maintained in
+The authoritative execution order, SQL hashes, test command, approval boundaries,
+short maintenance impact and safe fallback are in
 [the Hostinger rollout plan](account-deletion-hostinger-rollout.md).
-It is the single authoritative operational sequence; do not combine it with
-older instructions that deployed the repair before SQL under an assumed
-independent hosting hold.
+It replaces older plans dependent on Hostinger providing an all-origin drain
+or two deployments proving that old work disappeared.
 
-The owner conditionally authorizes deployment if all checks and safety evidence
-pass. **Production release remains NO-GO:** retirement of old destructive
-handlers/in-flight requests and a hosting fallback that cannot reopen the legacy
-path are not established. Green CI, a new build, a 503 response, two builds,
-timeouts, a restart or the verified backup do not prove these conditions.
-Hostinger has not confirmed an independent all-origin admission/drain control.
-Do not treat its absence as owner acceptance of an undefined risk.
+**No production GO yet.** Production SQL and provider-key changes still require
+specific approval. Database guard triggers block legacy REST teardowns and
+unarmed Auth deletion. Legacy service reads are fenced, including restarted
+old software with new keys. Retiring every old production Stripe/Resend key
+also fences old processes that already cached provider references. Work already
+accepted externally must be reconciled; it is not undone by a database pause.
+New durable mail claims pause during this separately approved handover; prior
+claims may complete/fail. Unknown cross-key mail delivery status must not be
+blindly replayed. Final activation needs a separate approval after reconciliation.
 
-For the concrete staged plan: publish only the independent hard-hold baseline
-after its release gate; verify coverage/old-path retirement and fallback; keep
-that hard-hold application active during the three separately approved
-migrations; verify the resulting schema; then release the re-integrated,
-tested repair with explicit reopening coverage. The repair's missing-RPC 503
-is additional defense, not a substitute for retiring legacy executions.
-The repair currently opens deletion when deployed with its RPCs installed;
-there is no additional delayed reopen switch.
+The opt-in `test-isolated-account-deletion-release.mjs` runner rehearses this
+order in its OWN disposable local Supabase schema/services with fictional users,
+actual historical handlers and the complete 68-case group/Stripe-fault/mail/
+Storage/order/concurrency suite. Provider calls and credential retirement are
+simulated. No production data/keys used. Exact final test counts and Node-22-CI
+belong to the final PR revision, not the historical evidence below.
 
-Never run the SQL while an old destructive handler can still receive or finish
-requests. That old handler deletes application rows in separate calls before
-Auth deletion; a later trigger rejection cannot undo earlier committed writes.
-Keep `SUPABASE_MIGRATIONS_ENABLED` absent/false at repository/environment levels
-and never dispatch the migration workflow for this release.
-Production SQL requires separate approval for the three exact migration files;
-conditional application deployment approval does not authorize SQL.
+Final local checks for this preparation: 1,073 offline tests, 33 release-gate
+checks and all 68 Supabase integration checks passed. The runner removed its own
+containers/database/temporary local credentials. TypeScript and the Webpack
+production build passed (75 static pages); ESLint has zero errors and four
+pre-existing React Hook Form warnings. Builds use a separate copy without env
+files and explicit CI placeholders. Node-22 CI is checked after feature push.
 
-Fallback means a newly reviewed application release with deletion hard-held and
-applied SQL/history retained. Never restore an old active deletion handler,
-force-reset main, remove uncertain Auth-started barriers, disable triggers/RLS,
-replay applied migrations or restore the backup over later customer transactions.
-See the authoritative runbook for stage-specific stop and recovery actions.
+Fallback retains all applied guards/history, old keys stay revoked, deletion is
+paused through a separately approved forward control update before code fallback.
+Never disable triggers/RLS, remove uncertain Auth-started barriers, run raw SQL
+writes on `auth.users`, replay applied SQL or restore over newer customer data.
+Previously prepared unmarked hold/recovery SHAs are not current normal-service
+fallback candidates. Keep previews OFF and the GitHub Supabase migration switch
+absent/false. Do not dispatch its workflow.
 
 ## Behavior
 

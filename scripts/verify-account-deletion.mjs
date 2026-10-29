@@ -39,6 +39,12 @@ function fixture(options = {}) {
   let deleted = false, canceled = 0, retrieved = 0, snapshots = 0, protections = 0
   const service = {
     async rpc(name, args) {
+      if (name === 'account_deletion_release_ready') {
+        events.push('releaseReady')
+        assert.equal(args, undefined)
+        return { data: options.releasePaused ? false : options.releaseUnknown ? null : true,
+          error: options.releaseCheckError ? { message: privateError } : null }
+      }
       const userId = options.isCreator ? coachUser : buyer
       assert.equal(args.p_user_id, userId)
       if (name === 'begin_account_deletion') {
@@ -136,7 +142,10 @@ function fixture(options = {}) {
         if (options.clientError) throw new Error(privateError)
         return { auth: { async getUser() { return { data: { user: options.noUser ? null : { id: options.isCreator ? coachUser : buyer } }, error: options.authError ? { message: privateError } : null } } } }
       },
-      async createServiceClient() { events.push('service'); return service },
+      async createServiceClient(options) {
+        assert.deepEqual(options, { accountDeletionProtocol: 'v2' })
+        events.push('service'); return service
+      },
     },
     '@/lib/stripe/server': { stripe: provider },
     '@/lib/stripe/connect-readiness': { configuredStripeLivemode() { imports.push('mode'); if (options.configError) throw new Error(privateError); return false } },
@@ -316,9 +325,29 @@ for (const [name, options, status] of [
 })
 test('durable barrier precedes snapshots and auth fencing precedes the GoTrue delete', async () => {
   const state = fixture(); await response(state, 200)
+  assert.ok(state.events.indexOf('releaseReady') < state.events.indexOf('beginBarrier'))
   assert.ok(state.events.indexOf('beginBarrier') < state.events.indexOf('read:creator_profiles'))
   assert.ok(state.events.indexOf('markAuth') < state.events.indexOf('deleteUser'))
   assert.ok(!state.events.includes('releaseBarrier'))
+})
+for (const options of [{ releasePaused: true }, { releaseUnknown: true }, { releaseCheckError: true }]) {
+  test('closed, unavailable or unknown release gate stops before snapshots, Stripe and the write barrier', async () => {
+    const state = fixture(options); await response(state, 503)
+    assert.equal(state.queries.length, 0); assert.equal(state.canceled, 0)
+    assert.ok(!state.events.includes('beginBarrier')); assert.ok(!state.events.includes('deleteUser'))
+  })
+}
+test('server clients identify the current release; only the deletion client carries the deletion protocol', async () => {
+  const calls = []
+  const server = load('../src/lib/supabase/server.ts', {
+    '@supabase/ssr': { createServerClient() { assert.fail('Cookie client is not needed') } },
+    '@supabase/supabase-js': { createClient(_url, _key, options) { calls.push(options); return {} } },
+    'next/headers': { cookies() { assert.fail('Service client must not read cookies') } },
+  })
+  await server.createServiceClient()
+  await server.createServiceClient({ accountDeletionProtocol: 'v2' })
+  assert.deepEqual(calls[0].global.headers, { 'X-Ardore-Service-Protocol': 'v2' })
+  assert.deepEqual(calls[1].global.headers, { 'X-Ardore-Service-Protocol': 'v2', 'X-Ardore-Account-Deletion-Protocol': 'v2' })
 })
 test('lost/expired worker cannot issue an Auth deletion', async () => {
   const state = fixture({ markAuthError: true }); await response(state, 503)

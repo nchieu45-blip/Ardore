@@ -66,6 +66,10 @@ type DeletionInput = {
 
 export async function deleteAccountSafely(input: DeletionInput): Promise<void> {
   const { service, userId } = input
+  // A deployment never reopens deletion. The separately approved database gate
+  // must be explicitly enabled; absent/failed/paused checks stop before Stripe.
+  const ready = await service.rpc('account_deletion_release_ready')
+  if (ready.error || ready.data !== true) throw new AccountDeletionError(503, unavailable)
   // Persist the write barrier BEFORE any retention/Stripe snapshots. A failed or
   // missing migration is never permission to continue without serialization.
   const started = await service.rpc('begin_account_deletion', { p_user_id: userId })

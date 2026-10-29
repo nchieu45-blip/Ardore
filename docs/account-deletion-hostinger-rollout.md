@@ -1,181 +1,232 @@
-# PR #7: Hostinger-Auslieferung und sicherer Rückfall
+# PR #7: konkreter Auslieferungs- und Rückfallplan
 
-Stand: 29. Oktober 2026, nach Abgleich mit main `c3fed1e`.
-Dies ist der maßgebliche operative Ablauf; historische SHAs und Abläufe in
-älteren Prüfberichten sind keine aktuellen Auslieferungsziele.
+Stand: 29. Oktober 2026. Produktionsbasis: main
+`ceea6d43f5aa2a85e9a5fcfeb2f3a201184e26a1` (PR #13, nur Release-Regeln).
+Dieser Ablauf ersetzt die bisherigen nicht erfüllbaren Hostinger-Drain-Gates.
+Frühere Sperr-/Rückfall-SHAs sind historische Nachweise, keine aktuellen Ziele.
 
-## Entscheidung heute
+## Entscheidung und Mechanismus
 
-**NO-GO für die Produktionsauslieferung.** Der Eigentümer erlaubt ein Deployment
-unter der Bedingung, dass alle Prüfungen und Sicherheitsnachweise passen.
-Die unten beschriebenen Hostinger-Nachweise fehlen weiterhin. Die bedingte
-Freigabe erfüllt diese Nachweise nicht. Produktionsmigrationen brauchen eine
-separate Freigabe für die drei exakten Dateien; sie ist hier nicht enthalten.
+**Noch kein Produktions-GO.** Lokal wird die unten beschriebene Reihenfolge
+mit echten PostgreSQL-/PostgREST-/GoTrue-/Storage-Diensten und fiktiven Daten
+geprüft. Die tatsächliche Stilllegung alter Stripe-/Resend-Schlüssel und die
+Produktionsmigrationen sind ausdrücklich noch nicht freigegeben/ausgeführt.
+Erfolgreiche CI allein autorisiert sie nicht.
 
-Der lokale main-Abgleich ist konfliktfrei und enthält PRs #11 und #12:
-Storno-/Erstattungs-E-Mails, Gruppenverschiebungen und deren bereits angewendete
-SQL-Historie. Keine angewendete Migration wurde verändert. Die aktuelle Reparatur
-ist der Feature-Branch `codex/safe-account-deletion`; vor jeder Freigabe seinen
-exakten Head und dessen erfolgreiche Node-22-CI im PR festschreiben.
-Eine CI des früheren Heads `9e64b5e` beweist diese Integration nicht.
+Die Datenbank erhält zuerst einen geschlossenen Freigabeschalter. Ein
+Data-API-Hook sperrt alte serverseitige Lesezugriffe auf die vier Tabellen,
+aus denen historische Löschrouten ihre Stripe-/Kundendaten beziehen. Neue
+Serverclients tragen einen Versionsmarker; dieser ist KEIN Geheimnis oder
+Ersatz für Service-Role-Authentifizierung. Zusätzliche DELETE-Statement-Trigger
+verhindern sämtliche manuellen REST-Teillöschungen des alten Handlers. Ein
+Auth-Validierungstrigger lässt die abschließende GoTrue-Löschung ausschließlich
+mit offenem Schalter und gültiger kontobezogener Löschbarriere zu. Er schützt
+auch Accounts ohne Profil. Kein direktes Schreiben in `auth.users`.
 
-## Aktuelle Nachweise und Kandidaten
+Ein alter Prozess könnte Providerdaten schon vor der Sperre geladen haben.
+Deshalb gehören die nachweisliche Stilllegung ALLER alten produktionsfähigen
+Stripe-/Resend-Serverschlüssel und die Prüfung vorher angenommener Aufträge zum
+Cutover. Ein alter Build mit NEUEN Schlüsseln bleibt durch die Datenbanklesesperre
+blockiert. Kein behaupteter Hostinger-Drain und keine geschätzte Wartezeit nötig.
+Bereits vom Provider angenommene Wirkungen werden dadurch NICHT rückgängig.
+Unklare Vorgänge bleiben ein Stopppunkt; keine automatische Erstattung oder
+wiederholte Nachricht zur vermeintlichen Reparatur.
 
-| Bestandteil | Nachweis |
-| --- | --- |
-| main / Hostinger-Produktion | `c3fed1ebbd799f9aa3723004d071e8224c97cdf6`, Node 22; bei Prüfung abgeschlossener Build `01a1842d-6206-73e3-8112-59effea7b5e8` |
-| Unabhängige Sperrbasis | `codex/account-deletion-hostinger-baseline`, `dfeaa128ba0a7b06f0b556d1f8eb5c42afad3971`; enthält aktuelles main, keine PR-#7-Reparaturhistorie |
-| Rückfall nach Reparatur | `codex/account-deletion-recovery`, `bb6103fec0afcd1b6e58f3c094d1cb1f9c72f287`; gleiche gesperrte Laufzeit wie Sperrbasis, Reparatur-SQL/-Historie erhalten |
-| Sperrbasis-CI | Node 22.23.4; npm ci, Lint, TypeScript, 956 Regressionstests und Build erfolgreich: [Lauf](https://github.com/nchieu45-blip/Ardore/actions/runs/40763903236) |
-| Rückfall-CI | Node 22.23.4; dieselben Checks erfolgreich: [Lauf](https://github.com/nchieu45-blip/Ardore/actions/runs/40763913284) |
-| Lokale Sperrprüfung je Kandidat | 961 Offline-Tests, Lint, TypeScript, Build, 137 HTTP-Sperrprüfungen einschließlich 50 paralleler Anfragen und drei Redirect-Prüfungen |
-| Reparatur mit aktuellem main | 1.069 Offline-Tests und 68 reale lokale Supabase-Prüfungen bestanden; isolierte Reminder-SQL-Suite einschließlich zweier paralleler Verbindungen bestanden; Lint ohne Fehler/vier bestehende Warnungen, TypeScript und Webpack-Build bestanden (75 statische Seiten); neue Node-22-CI am endgültigen PR-Head prüfen |
-| Supabase-Backup | `20261028T195659Z`: 87 Tabellen/872 Zeilen und Kataloge isoliert geprüft, neun Storage-Dateien bytegenau wiederhergestellt; Schlüssel separat außerhalb Git |
-| Produktionsmigrationen | 50 angewendet; genau die drei unten genannten Reparaturdateien fehlen |
-| Automatische Migrationen | `SUPABASE_MIGRATIONS_ENABLED` fehlt in Repository und Environment `production`; nicht aktivieren oder dispatchen |
-| PR-Previews | Deaktiviert lassen; vor jedem Push im hPanel frisch prüfen |
+## Vor dem Wartungsfenster alles vorbereiten
 
-`70ddca2`, `878c315`, `44f12d4` und `38f6e03` sind überholte Kandidaten.
-Nicht über aktuelle main-Funktionen zurückrollen. Der Rückfallbranch ist
-**kein initialer Sperr-Merge**: seine Abstammung enthält bereits PR #7.
+1. Exakten PR-Head, komplette erfolgreiche Node-22-CI und dieses Runbook festhalten.
+   main und Hostinger müssen noch dem oben genannten SHA entsprechen; bei Drift
+   zunächst abgleichen und betroffene Prüfungen erneut durchführen.
+2. Previews im hPanel ausgeschaltet lassen. Kein produktionsverbundenes Preview
+   starten. `SUPABASE_MIGRATIONS_ENABLED` in Repository UND Environment absent/false
+   halten; Workflow weder einschalten noch manuell ausführen.
+3. Backup `20261028T195659Z` (87 Tabellen/872 Zeilen, neun Storage-Dateien,
+   isolierter Restore geprüft) ist der bisherige Nachweis. Vor dem Cutover
+   Aktualität bestätigen/bei Bedarf frisches Backup nach gesonderter Freigabe;
+   Schlüssel separat außerhalb Git. Kein Restore über spätere Kundentransaktionen.
+4. Sämtliche Verbraucher und Kopien der produktiven Stripe-/Resend-Schlüssel
+   inventarisieren: Hostinger, alte Vercel-Builds/Previews, lokale Prozesse,
+   andere Anwendungen und insbesondere Supabase-Auth-SMTP bei gemeinsamem Resend-
+   Schlüssel. Nur Namen/Metadaten protokollieren, nie Werte. Geteilte Verbraucher
+   müssen mit umgestellt werden. Gleiche Konten, Modi, Rechte/Scopes beibehalten.
+   Keine Änderung an Stripe-Webhooksignatur, Public Key, DNS, Supabase-JWT-Keys.
+5. Neue Provider-Schlüssel und ihren sicheren Transport in Hostinger konkret
+   vorbereiten; Erzeugung/Änderung/Widerruf braucht eigene ausdrückliche Freigabe.
+   Alte Schlüssel nicht kopieren/anzeigen und nicht voreilig widerrufen.
+6. Freigabe für ein kurzes Wartungsfenster und die exakt benannten Schritte unten
+   einholen. Nach erster Schutzmigration können ALTE servergestützte Funktionen
+   vorübergehend 503 liefern; Browser-RLS-Zugriffe bleiben bestehen. Dauerhafte
+   E-Mail-Claims werden pausiert, vorhandene Claims dürfen ihren Abschluss melden.
+   Kein Null-Ausfall-Versprechen. Sämtliche Zugänge/Schlüssel und Zuständigkeiten
+   VORHER klären, damit Produktion nicht auf eine spätere Freigabe warten muss.
 
-Die 68 lokalen Prüfungen verwenden echte lokale GoTrue-/PostgreSQL-/Storage-
-Operationen mit fiktiven Fixtures und die tatsächliche Löschorchestrierung.
-Sie prüfen beide Richtungen der Buchungs-/Upload-/Bestellrennen, bezahlte und
-kostenlose Gruppenverträge, Erinnerungs-Claims, Verschiebungen parallel zu
-Löschversuchen, den tatsächlichen E-Mail-Worker mit simuliertem Transport und
-Datenbank-Abschlussfehlern, Stripe-Lese-/Kündigungs-/Timeout-Fehler und vier
-parallele Wiederholungen mit genau einer Löschung ohne erneute Kündigung.
-Stripe und E-Mail sind simuliert; keine echten Zahlungen oder Nachrichten.
-Die ursprünglichen drei lokalen Auth-Fixtures bleiben erhalten.
+## Exakte SQL-Dateien und Reihenfolge
 
-## Offene harte Betriebsgrenze
+**Nicht chronologisch per `db push` anwenden.** Die neue Schutzmigration muss
+bewusst VOR den drei älteren Reparaturdateien installiert werden. Die letzte
+Datei öffnet Löschung UND Benachrichtigungs-Claims und braucht eine getrennte
+Freigabe nach dem Abgleich. Über den verbundenen Supabase-Plugin jeweils den
+exakten Dateiinhalt mit passendem Migrationsnamen anwenden und danach die
+Migrationshistorie lesen; keine SQL-Abschrift, kein pauschaler CLI-Push.
 
-Hostinger hat für dieses Managed-Webhosting weder eine dauerhafte Sperre vor
-allen Produktions-/Origin-Zugängen noch einen belastbaren Nachweis über
-beendete alte Löschanfragen und sichere automatische Rückfälle bestätigt.
-Ein neuer Build mit 503-Antwort stoppt neue Anfragen an diesen Build; er beweist
-nicht, dass alte Ausführungen beendet sind oder nie wieder aktiviert werden.
+| Reihenfolge | Datei | SHA-256 |
+| --- | --- | --- |
+| 1 | `20261029005756_account_deletion_release_gate.sql` | `f80c6314903bbed467ca2fba870597b937002307267a6e3415a5165b79f3e2a1` |
+| 2 | `20261018120029_guard_account_storage_deletion.sql` | `99597b69fc51e95270988fd60307bd3b8794e15419d05bcfdf1b60e41c3ebadb` |
+| 3 | `20261019131618_scope_public_view_projections.sql` | `73e3f95b5d68f6c3e0f89d996de8d6b4e759baeb3f1addef2a75b6e4ed06a5d9` |
+| 4 | `20261023090520_account_deletion_write_barrier.sql` | `925330bc16702cce8f5915ca023c9f5a2693e73219a6ee69e225083822596551` |
+| 5 | `20261029014533_enable_account_deletion_protocol.sql` | `302ad4bec2ebcb6b63fb35601ef093dea6cf67f67c916b903613d20fdc1b199c` |
 
-Die bisher gelesenen Buildlogs enthalten „Stopping processes from the previous
-version“. Das ist ein Plattformschritt, kein Nachweis über abgeschlossene
-Supabase-/Stripe-Anfragen. Leere Accesslogs, 120 Sekunden Wartezeit, Neustart,
-Backup oder zwei erfolgreiche Builds ersetzen diesen Nachweis nicht.
-Ein eigener manueller Rückfallbranch kontrolliert keinen automatischen
-Plattform-Rückfall. Ohne belastbaren Betriebsweg bleibt der Vollrollout gestoppt.
-Ein alternativer Mechanismus muss separat konkret vorbereitet und geprüft
-werden; fehlende Belege werden nicht durch eine allgemeine Freigabe ersetzt.
+Die drei bisherigen Reparaturdateien und alle 50 bereits angewendeten Dateien
+sind unverändert. Die erste und letzte Datei sind neue, separat zu genehmigende
+Migrationen. Keine Rückwärtsmigration und kein Replay alter Versionen.
 
-## Ausführungsfolge mit Stopppunkten
+## Ausführen, mit Halt nach jeder Stufe
 
-### 1. Kandidaten und Freigabefenster festhalten
+### A. Schutz zuerst, weiterhin geschlossen
 
-1. Weitere unabhängige main-Änderungen für das Auslieferungsfenster aussetzen.
-   Remote-main, PR-Head, Hostinger-SHA und die hier genannten Kandidaten vergleichen.
-   Bei Drift stoppen, betroffene Kandidaten abgleichen und erneut testen.
-2. Aktuellen Backup-Zeitpunkt, sichere Aufbewahrung und Wiederherstellungszuständigkeit
-   bestätigen. Datenbank und Storage haben getrennte Aufnahmefenster; spätere
-   Kundentransaktionen niemals durch einen blinden Restore verwerfen.
-3. Beide Migrationsschalter absent/false und keine automatische Migration prüfen.
-   Das Environment-Label allein erzwingt derzeit keine Genehmigung.
-4. Previews ausgeschaltet halten. Der alte PR-Preview
-   `lightseagreen-nightingale-626897.hostingersite.com` war produktionsverbunden.
-   Seine Entfernung wurde früher durch 403/404 belegt; spätere Verbindungsfehler
-   sind kein neuer HTTP-Status und kein Beleg über ausgelaufene Requests.
-   Keine Anmeldung oder Löschprobe mit echten Zugangsdaten durchführen.
-5. Alle produktionsverbundenen Zugänge inventarisieren: www, Stammdomain,
-   temporäre Hostinger-Domain, Vercel-/direkte Origin-Zugänge und alte Previews.
-   Eine andere Domain beweist keine getrennte Datenbank.
+Nach gesonderter Freigabe nur Datei 1 anwenden. Sie setzt `enabled=false` und
+`notification_dispatch_paused=true`. `lock_timeout=5s` und
+`statement_timeout=30s` begrenzen DDL; Fehler rollen die gesamte Migration zurück.
+Ein vorhandener fremder Data-API-Hook führt zum Abbruch statt Überschreiben.
+Bei Lock-/Berechtigungsfehler stoppen, keine automatische Endlosschleife.
 
-### 2. Erst die unabhängige Sperrbasis veröffentlichen
+Nur lesend prüfen (keine echte Kontolöschung als Probe):
 
-Diese Produktionsänderung ist getrennt vom späteren Reparatur-Merge zu beurteilen.
-Nur die geprüfte Sperrbasis `dfeaa12` über einen eigenen main-PR veröffentlichen.
-Sie pausiert ausschließlich Kontolöschung; andere aktuelle main-Funktionen bleiben.
+```sql
+SELECT enabled, notification_dispatch_paused
+FROM private.account_deletion_release WHERE singleton;
+-- false, true
+SELECT count(*) FROM pg_trigger
+WHERE tgname IN ('require_account_deletion_protocol','reject_legacy_account_row_deletes')
+  AND tgenabled='O'; -- 13; zusätzlich Tabellen/Funktionszuordnung wie Aktivierungs-SQL
+SELECT item FROM pg_db_role_setting s,
+LATERAL unnest(s.setconfig) item
+WHERE s.setrole='authenticator'::regrole
+  AND s.setdatabase=(SELECT oid FROM pg_database WHERE datname=current_database())
+  AND item LIKE 'pgrst.db_pre_request=%';
+```
 
-1. Erfolgreiche CI und den tatsächlich veröffentlichten SHA/Build prüfen.
-2. Auf jedem inventarisierten Zugang cookielos `GET /api/account/delete` prüfen:
-   503, `X-Ardore-Account-Deletion: paused-v1`,
-   `Cache-Control: private, no-store`. Redirects einzeln prüfen.
-   Niemals echte Benutzer-Cookies/Tokens für eine Löschprobe verwenden.
-3. Bei Build-/Routingfehler gilt die Sperre nicht als aktiv: stoppen, kein SQL.
-4. Wenn separat freigegeben, denselben gehaltenen Stand erneut veröffentlichen,
-   um die dokumentierte Zwei-Versionen-Aufbewahrung mit gesperrten Builds zu
-   belegen. Das allein garantiert keine automatische Fallback-Policy.
-5. **Stopppunkt vor jedem SQL:** alte Produktions-/Preview-Ausführungen nachweisbar
-   stilllegen, bereits gestartete oder abgebrochene Löschungen lesend abgleichen
-   und festlegen, dass kein automatischer Rückfall den alten Pfad wieder öffnet.
-   Hostingers bisherige Auskunft erfüllt diesen Punkt nicht. Ohne Nachweis stoppen.
+Mit sicherem Serviceclient GET/HEAD `profiles?select=id&limit=0` ohne Marker muss
+503 liefern, mit `X-Ardore-Service-Protocol: v2` 200. Service-only
+`account_deletion_release_ready` liefert false. Keine Zeilen/Schlüssel ausgeben.
+Der tatsächliche Hook muss aktiv sein: Katalogeintrag allein genügt nicht.
+Den PostgREST-Hook nie als Auth-/Storage-Schutz ausgeben; dafür sind Trigger da.
 
-### 3. Reparatur gegen den tatsächlich gehaltenen main-Stand prüfen
+### B. Markierte Anwendung geschlossen ausliefern
 
-Den aktuellen PR erneut mit der veröffentlichten Sperrbasis integrieren.
-Nur in der späteren reparierten Version die harte Proxy-/Route-Sperre bewusst
-entfernen; übrige Auth-/Proxy-Regeln erhalten. Lint, TypeScript, vollständige
-Regressionen, isolierte Gruppen-/E-Mail-/Stripe-/Paralleltests und Node-22-CI
-für den endgültigen SHA prüfen. Der jetzige Abgleich mit `c3fed1e` ersetzt
-diese spätere Integrationsprüfung nicht.
+Erst wenn A nachgewiesen ist: PR #7 nach exakter grüner CI über normalen PR-Weg
+mergen. Dies löst Hostinger aus; main-CI, Build-SHA und nicht mutierende
+Seiten-/Auth-/Servicegesundheit prüfen. Die neue Route stoppt beim false-Gate
+VOR Barriere, Stripe oder Löschung. Deshalb fehlen zu diesem Zeitpunkt noch
+keine zum normalen Betrieb nötigen Lösch-RPCs. Keine echte Löschung/Bezahlung testen.
+Die erfolgreich beobachtete neue, markierte Version ist der technische Rückfall-
+Ausgangspunkt. Alte Sperrbasis-/Recovery-Branches haben keinen v2-Service-Marker
+und dürfen nicht als störungsfreier Rückfall behauptet werden.
 
-Für den hier gewählten Ablauf bleibt die harte Sperrbasis während aller
-Migrationen aktiv. Anschließend öffnet der Reparatur-Release die Funktion.
-Die neue Implementierung verweigert ohne ihre RPCs zwar sicher die Löschung,
-aber das ersetzt weder die Sperrbasis noch den Nachweis stillgelegter Altprozesse.
-Es gibt im heutigen PR keinen separaten Schalter zum späteren Wiederöffnen.
+### C. Provider-Handover und Abgleich, weiterhin geschlossen
 
-### 4. Genau drei separat freigegebene Migrationen unter aktiver Sperre
+Nach eigener Freigabe die vorbereiteten neuen Stripe-/Resend-Schlüssel sicher
+in allen freigegebenen Verbrauchern einsetzen, aktuellen Build neu starten/
+bereitstellen und dessen Gesundheit prüfen. Danach ALLE alten produktionsfähigen
+Schlüssel beim jeweiligen Provider widerrufen; Widerruf und Kontenzuordnung nur
+an Metadaten bestätigen, keine absichtlichen Live-Kündigungs-/E-Mail-Tests.
+Ein alter Prozess mit altem SDK-Key verliert zukünftigen Providerzugriff;
+ein altes neu gestartetes Programm mit frischem Key scheitert vor neuen Reads.
 
-Erst nach bestandenem Stopppunkt exakt diese Inhalte in dieser Reihenfolge
-durch den verbundenen Supabase-Migrations-Plugin anwenden:
+Stripe-Request-/Event-Metadaten, Resend-Sendestatus, Auth-Audit und die vier
+Benachrichtigungsjournale lesend abgleichen. Für Mail insbesondere `processing`,
+`pending` und `held` mit `first_attempt_at IS NOT NULL` untersuchen. Completion/
+Failure-RPCs bleiben während Claim-Pause zulässig. Bereits angenommene Sends
+können erst später sichtbar werden; unklarer Status ist KEIN Zustellfehlerbeweis.
+Nicht voraussetzen, dass Resend-Idempotenz zwischen verschiedenen API-Schlüsseln
+erhalten bleibt (Dokumentation definiert diese Grenze nicht). Keine Rücksetzung,
+Neuschlüsselung oder blinde Wiederholung unsicherer Claims. Nötige Ledger- oder
+Kundendatenkorrekturen separat benennen und freigeben lassen. Erst bei geklärtem
+Abgleich und bestätigtem Schlüsselwiderruf weitergehen; bei Unklarheit geschlossen.
 
-| Datei unter supabase/migrations/ | SHA-256 |
-| --- | --- |
-| `20261018120029_guard_account_storage_deletion.sql` | `99597b69fc51e95270988fd60307bd3b8794e15419d05bcfdf1b60e41c3ebadb` |
-| `20261019131618_scope_public_view_projections.sql` | `73e3f95b5d68f6c3e0f89d996de8d6b4e759baeb3f1addef2a75b6e4ed06a5d9` |
-| `20261023090520_account_deletion_write_barrier.sql` | `925330bc16702cce8f5915ca023c9f5a2693e73219a6ee69e225083822596551` |
+### D. Drei Reparaturdateien geschlossen anwenden
 
-Vor jedem Aufruf Historie und Dateiinhalt prüfen. Keine der 50 angewendeten
-Migrationen erneut ausführen, ändern oder entfernen. Kein CLI/GitHub db push,
-Reset, Seed oder Datenbank-Rollback. Der Plugin vergibt seine Historienversion:
-tatsächliche Version je Datei notieren, nicht automatisch umschreiben.
+Nach gesonderter Freigabe Dateien 2–4 einzeln unverändert über Plugin anwenden,
+nach jeder Datei Historie/Katalog/Permissions lesen. Alle Trigger, Storage-
+Schranken und drei `security_invoker=true`-Views prüfen. Gate bleibt false,
+Claims bleiben pausiert. Fehler -> stoppen; bereits angewendete Migrationen und
+Barrieren behalten. Keine weiteren Dateien erraten/automatisch nachschieben.
+Neue Supabase-Sicherheitsbefunde prüfen; heutiger Produktions-Advisor meldet die
+bekannten drei Definer-Views, die Datei 3 korrigiert, außerdem bestehende RPC-
+Warnungen/Passwortschutz-Hinweis. Das ist kein schon heute sauberer Produktionsbefund.
 
-Nach jeder Datei Historie/Katalog prüfen und beim ersten Fehler stoppen.
-Jede Datei hat ihre eigene Transaktion; ein späterer Fehler nimmt frühere
-Dateien nicht zurück. Nach Timeout den tatsächlichen Zustand lesen.
-Anschließend View-Verträge/Rechte, private RLS, service-only RPCs, Storage-/
-Record-Trigger, Schema-Cache und Advisors prüfen. Keine Kundenschreibtests.
+### E. Bewusst freigeben
 
-### 5. Reparierte Kontolöschung freigeben
+Nur nach A–D, finaler CI/Deployment-/Providerprüfung und neuer ausdrücklicher
+Freigabe Datei 5 anwenden. Sie prüft RPC-ACLs, Hooks, 13 Löschschutztrigger,
+12 Schreibschutztrigger, Storage-Schutz, Views und Schalterrechte, bevor genau
+eine private Steuerzeile auf true/Claims-frei gesetzt wird. Sie kann externe
+Providerfreigaben nicht selbst beweisen; diese vorher dokumentieren.
 
-Erst wenn alle vorigen Punkte passen, darf die bedingte Deployment-Freigabe
-genutzt werden. Sie muss Merge in main, Hostinger-Deployment und die damit
-verbundene Wiederöffnung umfassen. Bei geändertem Umfang erneut abstimmen.
-Den endgültigen Reparatur-SHA mergen, CI/Hostinger-Erfolg und alle Origins
-prüfen. Produktionschecks bleiben nicht mutierend. Keine echte Kontolöschung,
-Buchung, Zahlung oder E-Mail als Smoke-Test.
+Danach readiness=true, Claims-Pause=false, alte unmarkierte limit=0-Abfrage
+weiterhin503, neue markierte200 prüfen. Keine Testkonten in Produktion anlegen/
+löschen und keine echten Payments/Mails auslösen ohne eigene Freigabe. Normale
+Fehlerraten/Provider- und Auditmetadaten beobachten. Die Anwendung ist nun frei,
+die alten Pfade bleiben gesperrt, auch nach Neustart/automatischem altem Fallback.
 
-## Rückfall
+## Sicherer Rückfall
 
-| Zeitpunkt | Sichere Reaktion |
-| --- | --- |
-| Sperrbasis nicht erfolgreich veröffentlicht | Alte Produktion kann weiterlaufen; keine behauptete Sperre, keine Migration |
-| Basis aktiv, Prüfung/CI/SQL scheitert | Basis gesperrt lassen; erfolgreiche SQL-Dateien erhalten |
-| Einzelne SQL-Datei scheitert | Historie lesen; nur fehlende Datei oder geprüfte Vorwärtskorrektur separat freigeben |
-| Reparatur läuft fehlerhaft | Aktuellen gesperrten Rückfall über normalen main-PR-/CI-Weg veröffentlichen; nie alten Hostinger-Stand restaurieren |
-| Rückfall baut nicht oder Plattformreaktion unklar | Betreiber einschalten; keine alte Löschung, Triggerabschaltung oder Barrierenbereinigung freigeben |
+- Vor A: keine Produktionsänderung; alles bleibt auf dem Featurebranch.
+- A fehlgeschlagen: gesamte A-Transaktion zurückgerollt; nicht B/C/D/E fortsetzen.
+- Ab A: Datenbank-Hook und Trigger bleiben IMMER erhalten. Nie ursprüngliche
+  Providerkeys reaktivieren, SQL zurückrollen, Trigger/RLS abschalten oder main
+  force-resetten. Ein Hostinger-Rückfall auf alte Software kann Funktionen 503
+  liefern lassen, aber die geschützten Kontodaten nicht manuell löschen.
+- B/C/D fehlgeschlagen: Löschung geschlossen halten; auf die beobachtete markierte
+  Version zurück/als Forward-Fix veröffentlichen. Schlüsselproblem vor Öffnung
+  beheben. Alte unvermerkte Sperrbranches nicht blind ausliefern.
+- Nach E: vor Code-Rückfall eine separat freigegebene Forward-Pause ausführen:
+  `BEGIN; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
+  UPDATE private.account_deletion_release SET enabled=false WHERE singleton;
+  COMMIT;` Danach false nachweisen. Keine Auth-Löschung/Barriere bereinigen.
+  Diese Pause macht bereits akzeptierte Stripe-/Mail-Aufträge nicht rückgängig.
+- Mail-Pause nicht unbegrenzt lassen: falls Auslieferung abbricht, braucht eine
+  notification-only-Wiederaufnahme eine eigene geprüfte/freigegebene Forward-
+  Migration NACH Provider-/Claim-Abgleich; `enabled` bleibt dabei false.
+  Datei 5 niemals als Abkürzung zum reinen Mail-Resume verwenden.
 
-`bb6103f` ist die geprüfte Rückfallquelle auf heutigem main. Nach Änderung der
-Releasebasis vorab erneut integrieren und testen; kein späterer Blind-Revert.
-Der Rückfall dauert CI/Build-Zeit und ist kein nachgewiesener Sofort-Rollback.
-Nach jedem Rückfall 503-/no-store-Marker auf allen Origins bestätigen.
-Angewendete SQL-Historie bleibt erhalten. Unklare Auth-/Stripe-Ausgänge behalten
-Barrieren und Wiederherstellungsdaten; kein automatischer Refund oder manuelles
-Löschen ungeklärter Sperren.
+## Lokale Ausführung und belastbare Grenzen
 
-## Quellen und Ausführungsgrenze
+```bash
+node scripts/test-isolated-account-deletion-release.mjs --run-isolated
+npm run lint
+./node_modules/.bin/tsc --noEmit --incremental false
+node --test scripts/test-app-url.mjs scripts/verify-*.mjs
+npm run build
+```
 
-[Hostinger: Node.js Deployments](https://www.hostinger.com/support/how-to-deploy-a-nodejs-website-in-hostinger/),
-[Hostinger: PR-Previews](https://www.hostinger.com/support/how-to-use-pull-request-previews-for-node-js-websites-in-hostinger/).
+Der opt-in-Runner verwendet nur Docker-Kontext `colima-ardore-test`, eigene
+zufällige Datenbank/Loopback-Dienste und fiktive GoTrue-Accounts. Er klont nur
+Schema plus technische Service-Migrationsversionen, keine Kundendaten. Er entfernt
+in dieser leeren Kopie die drei bisher lokal vorhandenen Reparaturen und spielt
+die exakte neue Reihenfolge nach. Die drei Review-Views fehlen vor ihrem Aufbau;
+das ist kein vollständiger Produktionsklon. Er testet DDL-Locktimeout/Atomizität,
+fremden Hook, verfrühte Freigabe, beide Provider-Fehler, schon angenommene Arbeit,
+alle vier historischen Löschrouten (auch mit frischen simulierten Schlüsseln),
+Rückfall, fehlendes Profil/Barriere, pausierte/abgelaufene Freigabe, normale
+RLS-Zugriffe sowie alle 68 Gruppen-/Upload-/Bestell-/Stripe-/Mail-/Paralleltests.
+Providerannahme/Widerruf sind simuliert; realer Produktionswiderruf bleibt offen.
+Das Original mit drei lokalen Auth-Fixtures bleibt unberührt. Testdienste und
+exakt eigene Datenbank werden entfernt; keine Produktionsmigration ausgeführt.
 
-Die Vorbereitung ändert nur den Feature-Branch und lokale Test-Fixtures.
-Kein main-Merge, Hostinger-Deployment, Produktions-SQL oder Produktions-Schreibtest
-wurde ausgeführt. Eine grüne CI hebt den offenen Betriebs-Stopppunkt nicht auf.
+Build-/Typechecks in einer Kopie ohne `.env*`, mit expliziten CI-Platzhaltern.
+Lokaler Node 24.15.0 ersetzt nicht Node-22-CI am endgültigen Commit. Vollständige
+Prüfzähler/Head/CI-Link im PR festhalten; keine früheren Ergebnisse übernehmen.
+
+Abschließende lokale Probe dieses Standes: **33 Auslieferungsprüfungen und alle
+68 Supabase-Integrationsprüfungen bestanden**, 1.073 Offline-Tests bestanden.
+TypeScript und Webpack-Build erfolgreich (75 statische Seiten); ESLint null Fehler,
+vier bestehende React-Hook-Form-Warnungen. Eigene Testdienste/Datenbank und
+temporäre lokale Zugangsdaten entfernt. Node-22-CI nach Feature-Push prüfen.
+
+Offizielle Grundlagen: [Data-API-Hook](https://supabase.com/docs/guides/api/securing-your-api),
+[unterstützte Auth-/Storage-Validierungstrigger](https://supabase.com/changelog/34270-restricting-access-on-auth-storage-and-realtime-schemas-on-april-21-2025),
+[Stripe-Key-Widerruf](https://docs.stripe.com/keys),
+[Resend-Key-Entfernung](https://resend.com/docs/api-reference/api-keys/delete-api-key),
+[Resend-Idempotenzgrenzen](https://resend.com/docs/dashboard/emails/idempotency-keys).
