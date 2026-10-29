@@ -34,6 +34,40 @@ and production approval requirements in effect throughout the project.
   Report unrelated existing failures; do not expand scope to fix them without
   authorization. For instruction-only setup tasks, change no application behavior.
 
+### Standing approval for staged releases — 2026-10-29
+
+The owner has authorized Codex to publish completed, validated changes in the
+requested scope without asking for release approval again on every change.
+Apply this during an active authorized task; this file does not create an
+unattended deployment service or authorize unrelated work.
+
+- Release independently complete application or documentation changes in small
+  steps. Keep unfinished work and changes with unresolved safety or operational
+  blockers on their feature branches; passing tests do not override blockers.
+- Before release, review the complete PR diff and run every relevant check below,
+  including required isolated integration tests. One successful test is not
+  sufficient. Confirm the exact revision has successful Node-22 CI, main has not
+  invalidated the results, and dependencies, rollout and fallback are ready.
+- Then commit/push the feature branch, create/update its PR, wait for CI, merge
+  through the normal protected PR path, and verify main CI and the automatic
+  Hostinger deployment. Confirm the deployed SHA and non-mutating production
+  health. No further application-release confirmation is needed when these
+  conditions hold. Never bypass branch protection or reviewer requirements.
+- This standing approval does not authorize production migrations, production
+  data mutations/tests, secrets or infrastructure changes, real payments,
+  refunds, payouts, email delivery tests or destructive recovery. Those actions
+  still need the separate specific approvals described below. If required for a
+  release and not approved, keep that release blocked and explain the one
+  concrete missing action.
+- Keep production-connected PR previews disabled and the GitHub Supabase
+  migration switch absent/false. Never enable blind auto-merge or migration
+  automation to implement this policy. In particular, PR #7 remains blocked
+  until its documented old-handler retirement/fallback gates and separately
+  approved migration prerequisites are met.
+- If a deployment fails, report the failure and use only a previously reviewed
+  safe fallback within existing approval. Never restore unsafe legacy code or
+  roll back production data automatically.
+
 ### Branches, commits, and pull requests
 
 - Always work on a separate feature branch, never directly on `main`. Check the
@@ -46,9 +80,10 @@ and production approval requirements in effect throughout the project.
   request targeting `main` with the changes, verification results, limitations,
   and release risks. Check remote CI results when accessible and fix failures
   caused by the change. Report pending or inaccessible CI honestly.
-- Stop with a reviewable pull request and final report. Never merge into `main`,
-  enable auto-merge, approve a release on the owner's behalf, or bypass branch
-  protection without the owner's explicit approval for the specific action.
+- Keep a reviewable pull request and report the result. Merge only under the
+  standing staged-release approval above or a separate explicit release approval.
+  Do not enable auto-merge, approve reviews on the owner's behalf, or bypass
+  branch protection.
 
 ### Verification and self-review
 
@@ -80,7 +115,7 @@ npm run build
 - Run database SQL behavior/permission tests under `supabase/tests` only against
   a confirmed isolated local/test database with the required fixtures. Never
   substitute production for an unavailable test environment.
-- A production build is a local artifact, not permission to deploy. It may need
+- A production build is a local artifact, not sufficient release validation. It may need
   external Google fonts and service configuration. Use only explicitly designated
   local/CI/test configuration; never obtain production secrets or fabricate
   successful service checks to unblock it. If blocked, record the exact reason.
@@ -98,14 +133,14 @@ npm run build
 
 ### Production and high-risk safeguards
 
-- Never deploy or publish to production without the owner's explicit approval
-  for the final release. Task implementation, a passing build, a PR, or merge
-  approval alone does not authorize production deployment.
+- Production deployment requires the standing staged-release conditions above
+  to be met, or separate explicit approval. Task implementation, a passing build
+  or an incomplete PR alone does not satisfy those conditions.
 - Hostinger currently auto-deploys the connected `main` branch, as documented in
   `README.md` and `SETUP.md`. Treat any merge/push to `main` as a production
-  deployment trigger. Before merging, obtain explicit approval covering both
-  the merge and the resulting production release, or have an approved manual
-  deployment gate in place. Never push to `main` directly.
+  deployment trigger. Before merging, verify that the standing approval covers
+  the complete change and its resulting release, or obtain separate approval.
+  Never push to `main` directly.
 - Never modify production secrets, production databases, or run production
   migrations without separate explicit approval for the particular operation.
   Release approval does not implicitly authorize these actions. Preparing
@@ -138,5 +173,6 @@ When auditing protection, report what can actually be verified. Recommend a rule
 for `main` requiring pull requests and passing `quality-checks` CI, restricting
 direct pushes and bypasses, and blocking force-pushes/deletion. Use an independent
 reviewer approval when available; a sole owner cannot approve their own PR.
-Production deployment and migration gates must also enforce the owner's explicit
-approval. Propose these settings for review rather than changing them silently.
+Production deployment must respect the staged-release conditions above;
+production migrations retain their separate approval requirement. Propose any
+settings changes for review rather than changing them silently.
