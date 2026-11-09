@@ -1,10 +1,32 @@
 # PR #7: Schlüsselverbraucher und vorbereiteter Wechsel
 
-Stand: 29. Oktober 2026. Nur lesende Bestandsaufnahme und lokale Dokumentation.
-Keine Schlüssel erzeugt, geändert, kopiert/exportiert oder widerrufen; keine
-Nachrichten/Zahlungen, Produktionsmigrationen, Merges oder Deployments ausgelöst.
-Schlüsselwerte und Identifikationsfragmente gehören nicht in dieses Dokument.
+Stand der Ergänzung: 9. November 2026. Die nachstehenden Inventartabellen
+beschreiben die Prüfung vom 29. Oktober, keine aktuelle Runtime-Garantie.
+Keine Schlüsselwerte oder Identifikationsfragmente in dieses Dokument übernehmen.
 Der [Auslieferungsplan](account-deletion-hostinger-rollout.md) bleibt maßgeblich.
+
+## Aktueller Stand ersetzt frühere Planung
+
+Alle drei benannten v2-Schlüssel wurden inzwischen erstellt und sicher außerhalb
+Git abgelegt. Hostinger-Konfiguration für Stripe/App-Mail wurde vom Eigentümer
+per lokalem exaktem Vergleich bestätigt; neuer Supabase-Auth-SMTP-Versand wurde
+bestätigt. App-Mail benutzte am 7. November trotz gespeichertem Ersatzwert noch
+`Ardore-Production-2`. Stripe-Runtime-Zuordnung ist offen. Kein Altkey ist widerrufen.
+
+Die v2-App-Keys waren bereits vor der Schutzmigration für Altcode erreichbar.
+Sie sind deshalb ohne Gegenbeleg ebenfalls altprozessfähig und dürfen nicht als
+isoliert eingeführte finale Credentials gelten. Nach Gate und markiertem Code
+benötigt Stufe C entweder einen belastbaren Nachweis ihrer Nicht-Exposition an
+vorher gestartete Löschversuche oder gesondert freigegebene neue finale App-Keys
+mit anschließender Stilllegung auch der vorher exponierten v2-App-Keys.
+Keine automatische weitere Rotation; der getrennte SMTP-Key ist gesondert zu bewerten.
+
+Vercel-Anmeldung ist kein eigenständiger Blocker. Historische Deployments gehören
+in die Verbraucherprüfung; fehlender Dashboard-Zugang kann durch nachgewiesene
+Stilllegung ihrer Providerzugänge abgesichert werden. Ungeklärte legitime
+Mitverbraucher vor Widerruf klären. Ein 404/410 oder „No activity“ allein genügt nicht.
+Die folgenden Tabellen sind historische Belege und müssen beim Cutover aktualisiert
+werden; sie ersetzen keine Prüfung der tatsächlichen Runtime und Widerrufsbestände.
 
 ## 1. Ergebnis und Beleggrenze
 
@@ -25,8 +47,10 @@ Masken-Platzhalter bedeutet nicht, dass das gespeicherte Passwort fehlt.
 **Noch nicht vollständig geprüft:** Vercel-Anmeldung/Projektbestand. Der geöffnete
 Dashboard-Tab zeigt weiterhin die Login-Seite. GitHub und öffentliche HEAD-Proben
 belegen nur historische Deployments, keine vollständige Stilllegung aller alten
-Instanzen oder den Inhalt ihrer Environment-Snapshots. Solange das offen ist,
-keine vollständige Verbraucherfreigabe behaupten und kein Wartungsfenster starten.
+Instanzen oder den Inhalt ihrer Environment-Snapshots. Dies ist kein alleiniger
+Login-Zwang; vor Wartungsfenster muss stattdessen ein
+belastbarer Plan zur Stilllegung aller betroffenen Altzugänge und Versorgung
+legitimer Mitverbraucher vorliegen.
 Unbekannte Kopien außerhalb der verfügbaren Konten und des lokalen Business-
 Arbeitsbereichs lassen sich technisch nicht ausschließen; dafür Provider-
 Schlüsselbestand, Zuordnung und letzte Nutzung gemeinsam abgleichen.
@@ -126,7 +150,7 @@ produktionsfähig bestätigten Keys explizit benennen und deren Widerruf freigeb
 Keinen allein nach Name/Alter ungeprüft löschen. Full-access-Key nicht als neuen
 App-/SMTP-Key weiterverwenden.
 
-## 5. Genau vorbereitete Zielbelegung — noch NICHT angelegt
+## 5. Ursprüngliche Zielbelegung — inzwischen angelegt (siehe aktuellen Stand)
 
 | Neuer geplanter Keyname | Konto / Rechte | Einziger neuer Einsatzort |
 | --- | --- | --- |
@@ -153,8 +177,9 @@ prüfen. Öffentliche Next-Variablen bleiben unverändert.
 
 ## 6. Ausführbare Reihenfolge nach separater Freigabe
 
-0. Vercel-Projekt/Deployment-/Environment-Bestand lesend abschließen und
-   zusätzliche Schlüsselverbraucher bestätigen. Hier ausdrücklich nicht anmelden
+0. Zusätzliche Schlüsselverbraucher bestätigen oder ihren Providerzugang
+   nachweislich in den gesondert freizugebenden Stilllegungsbestand aufnehmen.
+   Hier ausdrücklich nicht anmelden
    mit neuen App-Keys, keine Previews aktivieren. Offene Fälle schriftlich klären.
 1. Vor Wartungsfenster: aktuelles Backup, exakter grüner PR-Head, drei benannte
    Zielkeys samt identischen Rechten und deren sichere Übergabe vorbereiten.

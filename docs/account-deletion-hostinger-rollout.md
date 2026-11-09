@@ -1,6 +1,6 @@
 # PR #7: konkreter Auslieferungs- und Rückfallplan
 
-Stand: 29. Oktober 2026. Produktionsbasis: main
+Stand: 9. November 2026. Produktionsbasis: main
 `ceea6d43f5aa2a85e9a5fcfeb2f3a201184e26a1` (PR #13, nur Release-Regeln).
 Dieser Ablauf ersetzt die bisherigen nicht erfüllbaren Hostinger-Drain-Gates.
 Frühere Sperr-/Rückfall-SHAs sind historische Nachweise, keine aktuellen Ziele.
@@ -26,15 +26,54 @@ auch Accounts ohne Profil. Kein direktes Schreiben in `auth.users`.
 Ein alter Prozess könnte Providerdaten schon vor der Sperre geladen haben.
 Deshalb gehören die nachweisliche Stilllegung ALLER alten produktionsfähigen
 Stripe-/Resend-Serverschlüssel und die Prüfung vorher angenommener Aufträge zum
-Cutover. Ein alter Build mit NEUEN Schlüsseln bleibt durch die Datenbanklesesperre
-blockiert. Kein behaupteter Hostinger-Drain und keine geschätzte Wartezeit nötig.
+Cutover. Ein erst NACH Aktivierung der Sperre gestarteter alter Löschversuch kann keine
+neuen Providerdaten über die geschützten Reads laden. Das beweist NICHT, dass
+ein bereits vorher gestarteter Versuch mit bereits geladenen Daten blockiert ist.
+Kein behaupteter Hostinger-Drain und keine geschätzte Wartezeit als Ersatznachweis.
 Bereits vom Provider angenommene Wirkungen werden dadurch NICHT rückgängig.
 Unklare Vorgänge bleiben ein Stopppunkt; keine automatische Erstattung oder
 wiederholte Nachricht zur vermeintlichen Reparatur.
 
 Der konkrete [Schlüsselverbraucher- und Wechselplan](account-deletion-key-rotation.md)
 benennt die bestätigten Hostinger-/SMTP-Verbraucher, getrennte Zielschlüssel,
-Berechtigungen, sichere hPanel-Einzeländerungen und die noch offene Vercel-Prüfung.
+Berechtigungen und sichere hPanel-Einzeländerungen. Eine Anmeldung bei Vercel
+ist kein eigenständiges Freigabekriterium; entscheidend sind die tatsächlichen
+Schlüsselverbraucher und die Stilllegung aller Altzugänge.
+
+## Verbindlicher Iststand und Freigabepaket
+
+- PR #7: `ef44e0487461be37640e9c9b54dc482e40ba7609`, offen/Entwurf;
+  [Node-22-CI 40859882652](https://github.com/nchieu45-blip/Ardore/actions/runs/40859882652)
+  erfolgreich. Neue Dokumentationsänderungen sind davon nicht umfasst.
+- Lesender DB-Check vom 9. November: Rolle `postgres`, alle 13 Zieltabellen
+  vorhanden, kein Gate/Schutztrigger und kein nichtleerer bestehender Hook.
+  Dies ist eine Momentaufnahme, kein Nachweis fehlender laufender Transaktionen.
+- Drei Ersatzschlüssel sind bereits verschlüsselt außerhalb Git abgelegt und in
+  die Zielkonfiguration übernommen: Hostinger Stripe und App-Mail per lokalem
+  exaktem Vergleich bestätigt; Supabase SMTP durch zugestellte Auth-Mail bestätigt.
+  Der jüngste App-Mail-Nachweis vom 7. November verwendet weiterhin
+  `Ardore-Production-2`; der tatsächlich laufende Stripe-Key ist nicht bestätigt.
+- **Die Hostinger-v2-Schlüssel wurden dem Altcode schon VOR dem Gate zugänglich.**
+  Sie zählen für die Stilllegung ebenfalls als potenziell altprozessfähig.
+  Ohne belastbaren Gegenbeleg dürfen sie nicht allein wegen des Namens als sichere
+  finale Schlüssel übernommen werden. In Stufe C gegebenenfalls erst NACH A neue
+  finale App-Schlüssel bereitstellen und auch diese vor A exponierten v2-Keys
+  gesondert freigegeben stilllegen. Noch keine weiteren Schlüssel erzeugen.
+  Der getrennte Auth-SMTP-Key muss nur dann erneut wechseln, wenn er ebenfalls
+  einem alten App-Prozess zugänglich war; nicht pauschal alle Keys rotieren.
+- Aktuelles Backup `20261109T200121Z`, abgeschlossen am 9. November um
+  21:01:56 MEZ: 89 Tabellen/941 Zeilen, neun Storage-Dateien; isolierter Restore
+  ohne Netzwerk/Ports, keine Daten-/Katalogabweichung. Verschlüsselte Kernarchive
+  erneut per Prüfsumme geprüft; separater Schlüssel vorhanden. Quellzugriff nur lesend.
+  Der Bericht liegt außerhalb Git; er ersetzt keine Freigabe für Produktions-SQL.
+- hPanel-Zugang direkt bestätigt; „Weitere Aktionen“ bietet
+  „Pull-Request-Vorschauen aktivieren“: automatische Previews deaktiviert.
+  Keine Einstellung geändert und keine frühere Preview-URL erneut getestet.
+- **Jetzt vorbereitet, nicht freigegeben:**
+  [Freigabepaket nur für Stufe A](account-deletion-gate-approval.md) und
+  [gemeinsame Freigabe A + B mit Backup-/Zugangsprüfung](account-deletion-joint-release-approval.md).
+  Keine Produktionsmigration, Schlüsseländerung, E-Mail-Probe, Merge oder
+  Bereitstellung wird durch diese Dokumentation ausgeführt oder genehmigt.
 
 ## Vor dem Wartungsfenster alles vorbereiten
 
@@ -44,19 +83,20 @@ Berechtigungen, sichere hPanel-Einzeländerungen und die noch offene Vercel-Prü
 2. Previews im hPanel ausgeschaltet lassen. Kein produktionsverbundenes Preview
    starten. `SUPABASE_MIGRATIONS_ENABLED` in Repository UND Environment absent/false
    halten; Workflow weder einschalten noch manuell ausführen.
-3. Backup `20261028T195659Z` (87 Tabellen/872 Zeilen, neun Storage-Dateien,
-   isolierter Restore geprüft) ist der bisherige Nachweis. Vor dem Cutover
-   Aktualität bestätigen/bei Bedarf frisches Backup nach gesonderter Freigabe;
-   Schlüssel separat außerhalb Git. Kein Restore über spätere Kundentransaktionen.
+3. Geprüftes Backup `20261109T200121Z` (89 Tabellen/941 Zeilen, neun
+   Storage-Dateien) als aktuellen Nachweis verwenden. Bei späterer Ausführung
+   Aktualität gegenüber zwischenzeitlichen Transaktionen erneut bewerten. Schlüssel
+   separat außerhalb Git behalten. Kein Restore über spätere Kundentransaktionen.
 4. Sämtliche Verbraucher und Kopien der produktiven Stripe-/Resend-Schlüssel
    inventarisieren: Hostinger, alte Vercel-Builds/Previews, lokale Prozesse,
    andere Anwendungen und insbesondere Supabase-Auth-SMTP bei gemeinsamem Resend-
    Schlüssel. Nur Namen/Metadaten protokollieren, nie Werte. Geteilte Verbraucher
    müssen mit umgestellt werden. Gleiche Konten, Modi, Rechte/Scopes beibehalten.
    Keine Änderung an Stripe-Webhooksignatur, Public Key, DNS, Supabase-JWT-Keys.
-5. Neue Provider-Schlüssel und ihren sicheren Transport in Hostinger konkret
-   vorbereiten; Erzeugung/Änderung/Widerruf braucht eigene ausdrückliche Freigabe.
-   Alte Schlüssel nicht kopieren/anzeigen und nicht voreilig widerrufen.
+5. Vorhandene sichere Ablage und Zugriff auf die drei Ersatzschlüssel prüfen,
+   ohne Werte anzuzeigen. Vor A exponierte App-Schlüssel wie oben berücksichtigen.
+   Weitere Erzeugung/Änderung/Widerruf braucht eigene ausdrückliche Freigabe.
+   Keine alten Schlüssel kopieren/anzeigen oder voreilig widerrufen.
 6. Freigabe für ein kurzes Wartungsfenster und die exakt benannten Schritte unten
    einholen. Nach erster Schutzmigration können ALTE servergestützte Funktionen
    vorübergehend 503 liefern; Browser-RLS-Zugriffe bleiben bestehen. Dauerhafte
@@ -130,13 +170,16 @@ und dürfen nicht als störungsfreier Rückfall behauptet werden.
 
 ### C. Provider-Handover und Abgleich, weiterhin geschlossen
 
-Nach eigener Freigabe die vorbereiteten neuen Stripe-/Resend-Schlüssel sicher
+Nach eigener Freigabe ausschließlich nach A sicher eingeführte finale
+Stripe-/Resend-App-Schlüssel (oder nachweislich nie vor A exponierte Keys) sicher
 in allen freigegebenen Verbrauchern einsetzen, aktuellen Build neu starten/
 bereitstellen und dessen Gesundheit prüfen. Danach ALLE alten produktionsfähigen
 Schlüssel beim jeweiligen Provider widerrufen; Widerruf und Kontenzuordnung nur
 an Metadaten bestätigen, keine absichtlichen Live-Kündigungs-/E-Mail-Tests.
 Ein alter Prozess mit altem SDK-Key verliert zukünftigen Providerzugriff;
-ein altes neu gestartetes Programm mit frischem Key scheitert vor neuen Reads.
+ein erst nach A gestarteter alter Löschversuch scheitert vor neuen Reads.
+Auch vor A exponierte Ersatz-App-Keys gehören ohne Gegenbeleg zum Widerrufsbestand.
+Ein erfolgreicher Neustart allein beweist weder neue Runtime-Werte noch Drain.
 
 Stripe-Request-/Event-Metadaten, Resend-Sendestatus, Auth-Audit und die drei
 Benachrichtigungsjournale lesend abgleichen (vier Claim-RPCs, drei Tabellen). Für Mail insbesondere `processing`,
@@ -182,6 +225,10 @@ die alten Pfade bleiben gesperrt, auch nach Neustart/automatischem altem Fallbac
   Providerkeys reaktivieren, SQL zurückrollen, Trigger/RLS abschalten oder main
   force-resetten. Ein Hostinger-Rückfall auf alte Software kann Funktionen 503
   liefern lassen, aber die geschützten Kontodaten nicht manuell löschen.
+- B fehlgeschlagen, noch kein gesunder markierter Build: geschlossen bleiben;
+  Reparatur als Forward-Fix derselben markierten Anwendung ausliefern. Keine
+  bereits funktionierende Rückfallversion erfinden. Vor A müssen dafür Zugriff,
+  Zuständigkeit und Freigabe verfügbar sein; sonst A nicht starten.
 - B/C/D fehlgeschlagen: Löschung geschlossen halten; auf die beobachtete markierte
   Version zurück/als Forward-Fix veröffentlichen. Schlüsselproblem vor Öffnung
   beheben. Alte unvermerkte Sperrbranches nicht blind ausliefern.
@@ -223,7 +270,7 @@ Build-/Typechecks in einer Kopie ohne `.env*`, mit expliziten CI-Platzhaltern.
 Lokaler Node 24.15.0 ersetzt nicht Node-22-CI am endgültigen Commit. Vollständige
 Prüfzähler/Head/CI-Link im PR festhalten; keine früheren Ergebnisse übernehmen.
 
-Abschließende lokale Probe dieses Standes: **33 Auslieferungsprüfungen und alle
+Historische lokale Probe des unveränderten Anwendungscodes (29. Oktober): **33 Auslieferungsprüfungen und alle
 68 Supabase-Integrationsprüfungen bestanden**, 1.073 Offline-Tests bestanden.
 TypeScript und Webpack-Build erfolgreich (75 statische Seiten); ESLint null Fehler,
 vier bestehende React-Hook-Form-Warnungen. Eigene Testdienste/Datenbank und
