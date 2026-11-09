@@ -44,7 +44,8 @@ Schlüsselverbraucher und die Stilllegung aller Altzugänge.
 
 - PR #7: `ef44e0487461be37640e9c9b54dc482e40ba7609`, offen/Entwurf;
   [Node-22-CI 40859882652](https://github.com/nchieu45-blip/Ardore/actions/runs/40859882652)
-  erfolgreich. Neue Dokumentationsänderungen sind davon nicht umfasst.
+  erfolgreich (historische Codebasis). Erste aktualisierte Plandokumente als
+  `2e338ba` auf den Featurebranch gepusht; vor Freigabe aktuelle Head-CI auslesen.
 - Lesender DB-Check vom 9. November: Rolle `postgres`, alle 13 Zieltabellen
   vorhanden, kein Gate/Schutztrigger und kein nichtleerer bestehender Hook.
   Dies ist eine Momentaufnahme, kein Nachweis fehlender laufender Transaktionen.
@@ -69,6 +70,10 @@ Schlüsselverbraucher und die Stilllegung aller Altzugänge.
 - hPanel-Zugang direkt bestätigt; „Weitere Aktionen“ bietet
   „Pull-Request-Vorschauen aktivieren“: automatische Previews deaktiviert.
   Keine Einstellung geändert und keine frühere Preview-URL erneut getestet.
+- Anbieterwechsel und Wiederaufnahme sind im
+  [konkreten Anschlussplan](account-deletion-provider-handover.md) vorbereitet.
+  Drei Mailjournale zuletzt nur lesend geprüft und leer; Momentaufnahme, keine
+  Freigabe für späteren ungeprüften Replay.
 - **Jetzt vorbereitet, nicht freigegeben:**
   [Freigabepaket nur für Stufe A](account-deletion-gate-approval.md) und
   [gemeinsame Freigabe A + B mit Backup-/Zugangsprüfung](account-deletion-joint-release-approval.md).

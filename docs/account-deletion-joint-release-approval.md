@@ -53,9 +53,10 @@ Die Freigabe schließt diese nicht-mutierenden Verifikationen ein, keine Löschp
 in `main` mergen und das dadurch ausgelöste Hostinger-Autodeployment überwachen.
 Referenz des geprüften Anwendungscodes:
 `ef44e0487461be37640e9c9b54dc482e40ba7609`.
-Die lokalen Planänderungen müssen vorher auf demselben Featurebranch fertiggestellt,
-committed/gepusht und die endgültige SHA samt erfolgreicher Node-22-CI dokumentiert
-werden. Bei Code-/Basisänderungen Prüfung erneuern; keine Blankofreigabe für
+Die Plandokumente wurden zunächst als Commit
+`2e338bab4d9b7055a8db01b248ba9ef7eecd6344` auf den Featurebranch gepusht.
+Für Freigabe und Ausführung gilt stets der endgültige PR-Head samt eigener
+erfolgreicher Node-22-CI; nachfolgende Dokumentation nicht mit alter CI gleichsetzen. Bei Code-/Basisänderungen Prüfung erneuern; keine Blankofreigabe für
 beliebige spätere Änderungen oder Umgehung von Branchschutz/Reviews.
 
 Nach Merge: main-CI erfolgreich, Hostinger-Build erfolgreich und exakt der neue
@@ -82,9 +83,11 @@ Null-Ausfall und keine angenommene maximale Wartungsdauer.
    abgelaufener Sitzung oder geänderten Einstellungen erneut prüfen.
 3. Endgültigen PR-Head und aktuellen main abgleichen; Node-22-CI, Vorschauen aus
    und GitHub-Migrationsschalter absent/false unmittelbar vor Ausführung prüfen.
-4. Weiteren Anbieterwechsel und Claims-Abgleich personell/zeitlich vorbereiten;
-   vor A exponierte Ersatz-App-Keys berücksichtigen. Diese gemeinsame Freigabe
-   erlaubt weder neue Schlüssel noch deren Änderung/Widerruf.
+4. [Anbieterwechsel und Wiederaufnahme](account-deletion-provider-handover.md)
+   sind konkret vorbereitet: zwei finale App-Keys erst nach A/B, getrennten SMTP-Key
+   behalten, Runtime-Belege vor Widerruf, erneuter Journalabgleich vor Wiederaufnahme.
+   Termin, Zugang und nachfolgende Freigaben noch festlegen. Diese gemeinsame
+   Freigabe erlaubt weder neue Schlüssel noch deren Änderung/Widerruf.
 5. Nach Abschluss dieser Punkte die ausgefüllte Freigabe vorlegen. Bis dahin
    **kein Ausführungs-GO**. Nicht A allein starten und erst danach B genehmigen lassen.
 
@@ -98,16 +101,16 @@ Null-Ausfall und keine angenommene maximale Wartungsdauer.
 | Schutzmigration | Unverändert, noch nicht angewendet; Gate fehlt, 0 Guard-Trigger, kein konkurrierender Hook |
 | GitHub-Migrationsschalter | In Repository und `Production` weiterhin absent; keine automatische Anwendung |
 | hPanel / Previews | Erfüllt: angemeldet; Menü bietet „Pull-Request-Vorschauen aktivieren“, automatische Previews aus |
-| Endgültiges Freigabeartefakt | Vier lokale Plandokumente noch nicht committed/gepusht; danach endgültige SHA und Node-22-CI festhalten |
+| Endgültiges Freigabeartefakt | Erste vier Plandokumente als `2e338ba` auf PR-Branch; ergänzter Anbieterplan wird auf demselben Branch geprüft. Vor Ausführung aktuellen PR-Head und zugehörige CI auslesen |
 | Releaseweg | PR weiterhin Entwurf; vor B erforderliche Reviews/Branchregeln prüfen, nichts umgehen |
-| Zeitnaher Fortgang / Benachrichtigungen | Konkrete Durchführung von C–E oder separat geprüfte notification-only-Wiederaufnahme fehlt; keine unbefristete Claim-Pause starten |
+| Zeitnaher Fortgang / Benachrichtigungen | Standard C–D–E und Abgleich vorbereitet; alle drei Journale derzeit leer. Termin und Freigaben fehlen; notification-only-Alternative noch nicht als ausführbare Migration geprüft |
 | Eigentümerfreigabe | A + B einschließlich Wartungswirkung noch ausdrücklich ausstehend |
 
-Nächste Vorbereitung: Dokumentationsstand auf dem Featurebranch zur Prüfung
-festschreiben und CI am endgültigen Commit bestätigen. hPanel-Zugang und
-automatische Preview-Deaktivierung sind bereits nachgewiesen. Das allein startet noch kein Wartungsfenster. Providerplan und
-Mail-Wiederaufnahme vor A konkret terminieren/prüfen; dann ausgefüllte gemeinsame
-Freigabe vorlegen. Keine erneute Vollprüfung ohne relevante Änderungen verlangen.
+Nächster Freigabepunkt: erfolgreiche CI am endgültigen Featurebranch-Head
+festhalten, Termin und erforderliche Freigaben für Standardweg C–D–E klären und
+dann ausgefüllte gemeinsame Freigabe A + B vorlegen. Backup, hPanel-Zugang und
+Preview-Deaktivierung sind bereits nachgewiesen. Kein Wartungsfenster allein
+aufgrund grüner CI starten. Keine erneute Vollprüfung ohne relevante Änderungen verlangen.
 
 ## Abbruch und Rückfall
 

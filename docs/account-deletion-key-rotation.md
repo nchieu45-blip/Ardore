@@ -4,6 +4,8 @@ Stand der Ergänzung: 9. November 2026. Die nachstehenden Inventartabellen
 beschreiben die Prüfung vom 29. Oktober, keine aktuelle Runtime-Garantie.
 Keine Schlüsselwerte oder Identifikationsfragmente in dieses Dokument übernehmen.
 Der [Auslieferungsplan](account-deletion-hostinger-rollout.md) bleibt maßgeblich.
+Für konkrete nächste Schritte gilt der ergänzende
+[Anbieterwechsel-/Wiederaufnahmeplan](account-deletion-provider-handover.md).
 
 ## Aktueller Stand ersetzt frühere Planung
 

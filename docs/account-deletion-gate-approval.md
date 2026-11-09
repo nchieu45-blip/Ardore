@@ -47,7 +47,8 @@ Bereits vorher wirksame Provideraktionen oder Transaktionen macht sie nicht rüc
    ohne Abweichungen. Vor späterer Ausführung Aktualität erneut bewerten.
 2. Aktuelle main-/Hostinger-SHA, endgültigen PR-Head und erfolgreiche Node-22-CI
    bestätigen. Die derzeitige grüne CI gilt für `ef44e0487461be37640e9c9b54dc482e40ba7609`;
-   diese neuen lokalen Dokumente sind noch nicht committed/geprüft durch CI.
+   erster Dokumentations-Push: `2e338ba`. Vor Ausführung den aktuellen
+   Featurebranch-Head und seine eigene erfolgreiche CI bestätigen.
 3. Bestätigt am 9. November: automatische Previews aus (hPanel-Menü bietet
    „Pull-Request-Vorschauen aktivieren“); GitHub-Migrationsschalter im Repository
    und Environment absent/false. Keine automatische Migration/Preview starten.
