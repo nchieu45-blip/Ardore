@@ -4,14 +4,20 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import test from 'node:test'
 import ts from 'typescript'
+import { isolatedCoachingEnv } from './fixtures/isolated-coaching-env.mjs'
 const require = createRequire(import.meta.url)
-function load(file, overrides) {
+function load(file, overrides = {}, env = process.env) {
   overrides = { '@/lib/group-effective-schedule': { effectiveGroupStart: async (_client, _class, start) => start }, ...overrides }
   const compiled=ts.transpileModule(readFileSync(new URL(file,import.meta.url),'utf8'),{
     compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020},
   }).outputText
   const fixtureModule={exports:{}}
-  new Function('require','exports','module',compiled)(name=>name in overrides?overrides[name]:require(name),fixtureModule.exports,fixtureModule)
+  new Function('require','exports','module','process',compiled)(name => {
+    if (name === 'server-only') return {}
+    if (name in overrides) return overrides[name]
+    if (name === '@/lib/coaching-payment') return load('../src/lib/coaching-payment.ts', {}, env)
+    return require(name)
+  },fixtureModule.exports,fixtureModule,{ env })
   return fixtureModule.exports
 }
 function fixture(changes={}) {
@@ -31,7 +37,7 @@ function fixture(changes={}) {
       async createNotification(args){calls.inapp.push(args);if(changes.deliveryError)throw new Error('synthetic failure')}},
     '@/lib/email/send':{async sendVideoClassConfirmation(to,data){calls.emails.push({to,data,type:'buyer'});if(changes.deliveryError)throw new Error('synthetic failure')},
       async sendVideoClassNewParticipant(to,data){calls.emails.push({to,data,type:'coach'});if(changes.deliveryError)throw new Error('synthetic failure')}},
-  })
+  }, changes.env ?? process.env)
   return {calls,run:()=>lib.notifyGroupBookingConfirmed(service,'reservation')}
 }
 test('confirmed group sends frozen occurrence details and private dashboard entry only',async()=>{
@@ -53,6 +59,19 @@ test('confirmed free group retains buyer confirmation and respects coach prefere
   const f=fixture({reservation:{price_cents:0,stripe_livemode:null},preferences:{inapp:false,email:false}})
   await f.run();assert.equal(f.calls.emails.length,1);assert.equal(f.calls.emails[0].type,'buyer');assert.equal(f.calls.inapp.length,0)
   assert.deepEqual(f.calls.auth,['buyer']);assert.deepEqual(f.calls.preferences.map(p=>p.channel),['inapp','email'])
+})
+test('isolated TEST-paid confirmation sends both roles only with all isolation requirements', async () => {
+  const enabled = fixture({ env: isolatedCoachingEnv, reservation: { stripe_livemode: false } })
+  await enabled.run(); assert.equal(enabled.calls.emails.length, 2)
+  for (const patch of [{ NODE_ENV: 'production' }, { NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co' },
+    { ARDORE_ISOLATED_COACHING_TESTS: undefined }, { STRIPE_SECRET_KEY: 'rk_live_synthetic' }]) {
+    const denied = fixture({ env: { ...isolatedCoachingEnv, ...patch }, reservation: { stripe_livemode: false } })
+    await denied.run(); assert.equal(denied.calls.emails.length, 0)
+  }
+  for (const reservation of [{ status: 'creating' }, { refund_status: 'pending' }, { booking_id: null }]) {
+    const denied = fixture({ env: isolatedCoachingEnv, reservation: { stripe_livemode: false, ...reservation } })
+    await denied.run(); assert.equal(denied.calls.emails.length, 0)
+  }
 })
 test('confirmation delivery failures cannot roll back or reject an already confirmed group booking',async()=>{
   const f=fixture({deliveryError:true});await assert.doesNotReject(f.run());assert.equal(f.calls.emails.length,2);assert.equal(f.calls.inapp.length,1)

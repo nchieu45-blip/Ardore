@@ -55,9 +55,13 @@ function form(path,auth,query='') {
  const wrapper=load(path,mocks).default();const content=wrapper.props.children.type();
  function find(element,predicate){if(!element||typeof element!=='object')return; if(predicate(element))return element; for(const child of [element.props?.children].flat(Infinity)){const found=find(child,predicate);if(found)return found}}
  handler??=find(content,e=>e.type==='form')?.props.onSubmit
- return {handler,states,pushes,inFlight}
+ return {handler,states,pushes,inFlight,method:find(content,e=>e.type==='form')?.props.method}
 }
 const input={email:'delivered+auth-fixture@resend.dev',password:'Synthetic-only',full_name:'Synthetic Auth'}
+test('login cannot serialize credentials into the URL when submitted before hydration',()=>{
+ const f=form('src/app/(auth)/login/page.tsx',{signInWithPassword:async()=>({error:null})})
+ assert.equal(f.method,'post')
+})
 for(const user of [{id:'fixture'},null])test(`signup without a session (${user?'user returned':'no user returned'}) goes to confirmation once`,async()=>{
  let calls=0;const f=form('src/app/(auth)/register/page.tsx',{signUp:async()=>{calls++;return {data:{user,session:null},error:null}}})
  await f.handler(input);assert.equal(calls,1);assert.deepEqual(f.pushes,[`/verify-email?email=${encodeURIComponent(input.email)}&sent=1`])

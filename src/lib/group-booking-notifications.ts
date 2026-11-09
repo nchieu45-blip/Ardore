@@ -1,4 +1,5 @@
 import { effectiveGroupStart } from '@/lib/group-effective-schedule'
+import { coachingPaymentModeAllowed } from '@/lib/coaching-payment'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { appOrigin } from '@/lib/app-url'
 import { checkNotificationPreference, createNotification } from '@/lib/notifications'
@@ -10,7 +11,7 @@ export async function notifyGroupBookingConfirmed(service: SupabaseClient, reser
       .select('video_class_id,id,buyer_id,creator_id,class_title,occurrence_start,duration_minutes,price_cents,stripe_livemode,status,booking_id,refund_status')
       .eq('id', reservationId).maybeSingle()
     if (error || !r || r.status !== 'confirmed' || !r.booking_id || r.refund_status !== 'not_requested'
-      || (r.price_cents > 0 && r.stripe_livemode !== true)) return
+      || (r.price_cents > 0 && !coachingPaymentModeAllowed(r.stripe_livemode))) return
     const [{ data: coach }, buyerRes] = await Promise.all([
       service.from('creator_profiles').select('user_id,display_name').eq('id', r.creator_id).maybeSingle(),
       service.auth.admin.getUserById(r.buyer_id),

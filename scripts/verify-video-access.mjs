@@ -5,15 +5,21 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import ts from 'typescript'
+import { isolatedCoachingEnv } from './fixtures/isolated-coaching-env.mjs'
 
 const require = createRequire(import.meta.url)
-function load(path, mocks = {}) {
+function load(path, mocks = {}, env = process.env) {
   mocks = { '@/lib/group-effective-schedule': { effectiveGroupStart: async (_client, _class, start) => start }, ...mocks }
   const loadedModule = { exports: {} }
   const source = ts.transpileModule(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
-  new Function('require', 'exports', 'module', source)(name => mocks[name] ?? require(name), loadedModule.exports, loadedModule)
+  new Function('require', 'exports', 'module', 'process', source)(name => {
+    if (name === 'server-only') return {}
+    if (name in mocks) return mocks[name]
+    if (name === '@/lib/coaching-payment') return load('src/lib/coaching-payment.ts', {}, env)
+    return require(name)
+  }, loadedModule.exports, loadedModule, { env })
   return loadedModule.exports
 }
 
@@ -189,7 +195,7 @@ function coachingRoute(options = {}) {
     '@/lib/supabase/server': { createClient: async () => client },
     '@/lib/app-url': { appOrigin: () => 'https://ardore.synthetic' },
     '@/lib/features': { VIDEO_CALLS_ENABLED: options.enabled ?? true },
-    '@/lib/coaching-payment': payment,
+    '@/lib/coaching-payment': options.payment ?? payment,
     '@/lib/video-provider': { ...video, createVideoAccess: async input => { calls.push(input); return video.createVideoAccess(input, fixture.fetch) } },
   })
   return { calls, fixture, async post(input = {}, headers = {}) {
@@ -229,6 +235,23 @@ test('1:1 buyer and coach receive different privilege levels; valid LIVE payment
     assert.equal(result.body.token, token)
     assert.equal(local.calls[0].isOwner, user === actor)
     assert.equal(result.response.headers.get('Referrer-Policy'), 'no-referrer')
+  }
+})
+
+test('isolated TEST-paid 1:1 grants both roles but retains ownership, refund and time checks', async () => {
+  const isolatedPayment = load('src/lib/coaching-payment.ts', {}, isolatedCoachingEnv)
+  for (const user of [buyer, actor]) {
+    const f = coachingRoute({ payment: isolatedPayment, user, booking: { price_cents: 500, payment_status: 'paid', stripe_livemode: false } })
+    assert.equal((await f.post()).response.status, 200)
+    assert.equal(f.calls[0].isOwner, user === actor)
+  }
+  for (const change of [{ user: stranger }, { booking: { refund_status: 'pending' } },
+    { booking: { status: 'cancelled' } }, { booking: { payment_status: 'pending' } },
+    { booking: { scheduled_at: new Date(Date.now() - 7200_000).toISOString() } }]) {
+    const f = coachingRoute({ payment: isolatedPayment, ...change,
+      booking: { price_cents: 500, payment_status: 'paid', stripe_livemode: false, ...change.booking } })
+    assert.ok((await f.post()).response.status >= 400)
+    assert.equal(f.calls.length, 0)
   }
 })
 
@@ -318,6 +341,7 @@ function groupRoute(options = {}) {
     },
   }
   const route = load('src/app/api/video-classes/[id]/meeting/route.ts', {
+    '@/lib/coaching-payment': options.payment ?? payment,
     '@/lib/supabase/server': { createClient: async () => client, createServiceClient: async () => service },
     '@/lib/app-url': { appOrigin: () => 'https://ardore.synthetic' },
     '@/lib/features': { VIDEO_CALLS_ENABLED: options.enabled ?? true },
@@ -330,6 +354,24 @@ function groupRoute(options = {}) {
     return { response, body: await response.json() }
   } }
 }
+
+test('isolated TEST-paid group requires the same fulfilled, owned and consistently TEST ledgers', async () => {
+  const policy = load('src/lib/coaching-payment.ts', {}, isolatedCoachingEnv)
+  const base = { paid: true, payment: policy, booking: { stripe_livemode: false },
+    order: { stripe_livemode: false }, reservation: { stripe_livemode: false } }
+  const valid = groupRoute(base)
+  assert.equal((await valid.post()).response.status, 200)
+  assert.equal(valid.calls[0].isOwner, false)
+  for (const changes of [{ order: { stripe_livemode: true } }, { reservation: { stripe_livemode: true } },
+    { order: { state: 'pending' } }, { order: { buyer_id: stranger } },
+    { reservation: { refund_status: 'pending' } }, { booking: { amount_refunded_cents: 1 } },
+    { booking: { status: 'cancelled' } }, { changed: true }]) {
+    const f = groupRoute({ ...base, ...changes, booking: { ...base.booking, ...changes.booking },
+      order: { ...base.order, ...changes.order }, reservation: { ...base.reservation, ...changes.reservation } })
+    assert.ok((await f.post()).response.status >= 400)
+    assert.equal(f.fixture.calls.length, 0)
+  }
+})
 
 test('group joining authenticates and matches the exact participant and occurrence before private reads', async () => {
   for (const options of [

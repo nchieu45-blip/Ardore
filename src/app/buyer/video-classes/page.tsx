@@ -6,6 +6,7 @@ import { formatGroupOccurrence } from '@/lib/group-schedule'
 import { formatCurrency } from '@/lib/utils'
 import GroupBookingActions from '@/components/GroupBookingActions'
 import { buttonStyles } from '@/components/ui/Button'
+import { coachingPaymentModeAllowed, isolatedCoachingTestsEnabled } from '@/lib/coaching-payment'
 
 export const metadata: Metadata = { title: 'Meine Gruppenbuchungen', robots: { index: false, follow: false } }
 export const dynamic = 'force-dynamic'
@@ -44,14 +45,16 @@ export default async function BuyerVideoClassesPage({ searchParams }: { searchPa
     <div className="mt-6 space-y-4">
       {rows.map(row => {
         const paidTest = row.price_cents > 0 && row.stripe_livemode === false
-        const confirmed = row.status === 'confirmed' && (row.price_cents === 0 || row.stripe_livemode === true) && row.refund_status === 'not_requested' && row.amount_refunded_cents === 0
+        const confirmed = row.status === 'confirmed' && (row.price_cents === 0 || coachingPaymentModeAllowed(row.stripe_livemode)) && row.refund_status === 'not_requested' && row.amount_refunded_cents === 0
         const canCancel = row.status === 'confirmed' && Date.parse(row.scheduled_at ?? row.occurrence_start) > now
         return <article key={row.id} id={`reservation-${row.id}`} className="scroll-mt-24 rounded-xl border border-border bg-white p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3"><h2 className="min-w-0 break-words text-lg font-semibold">{row.class_title}</h2><span className="text-sm font-medium">{labels[row.status] ?? 'Status wird geprüft'}</span></div>
           <p className="mt-2 text-sm text-muted">{formatGroupOccurrence(row.scheduled_at ?? row.occurrence_start)} · {row.duration_minutes} Min.</p>
           <p className="mt-2 text-sm font-medium">{row.price_cents === 0 ? 'Kostenlos oder im Abo enthalten' : `${formatCurrency(row.price_cents / 100)} für diesen Termin`}</p>
           {row.creator_slug && <Link href={`/creators/${row.creator_slug}`} className="mr-4 mt-2 inline-flex min-h-11 items-center text-sm font-medium text-brand underline underline-offset-4">Zum Coach-Profil</Link>}
-          {paidTest && <p role="status" className="mt-3 text-sm leading-relaxed text-muted">Testzahlung: Diese Zahlung schaltet keine reale kostenpflichtige Teilnahme frei.</p>}
+          {paidTest && <p role="status" className="mt-3 text-sm leading-relaxed text-muted">{isolatedCoachingTestsEnabled()
+            ? 'Testzahlung in der isolierten Testumgebung. Der Videozugang gilt nur für diesen Testtermin.'
+            : 'Testzahlung: Diese Zahlung schaltet keine reale kostenpflichtige Teilnahme frei.'}</p>}
           {row.refund_status === 'failed' && <p role="alert" className="mt-3 text-sm text-red-700">Die Erstattung konnte noch nicht abgeschlossen werden. Bitte kontaktiere den Support mit deiner Buchungsnummer {row.id}.</p>}
           {row.refund_status === 'pending' && <p role="status" className="mt-3 text-sm text-muted">Deine Erstattung wird bearbeitet. Sie ist noch nicht als abgeschlossen bestätigt.</p>}
           {row.refund_status === 'succeeded' && <p className="mt-3 text-sm text-muted">Erstattet: {formatCurrency(row.amount_refunded_cents / 100)}.</p>}

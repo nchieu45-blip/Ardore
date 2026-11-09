@@ -14,6 +14,7 @@ function load(path, overrides = {}, globals = {}) {
   } }).outputText
   const mod = { exports: {} }
   const resolve = name => {
+    if (name === 'server-only') return {}
     if (name in overrides) return overrides[name]
     if (name.startsWith('@/lib/')) return load(`src/lib/${name.slice(6)}.ts`, overrides, globals)
     return require(name)

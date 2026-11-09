@@ -15,6 +15,7 @@ export function loadUiComponent(path, overrides = {}, cache = new Map()) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText
   function dependency(name) {
+    if (name === 'server-only') return {}
     if (name in overrides) return overrides[name]
     if (name === 'next/link') return { __esModule: true, default: ({ children, ...props }) => { delete props.scroll; return React.createElement('a', props, children) } }
     if (name === 'next/image') return { __esModule: true, default: ({ fill, sizes, ...props }) => React.createElement('img', { ...props, sizes, 'data-fill': fill || undefined }) }
