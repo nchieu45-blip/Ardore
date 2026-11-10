@@ -99,7 +99,7 @@ const SECTIONS: FAQSection[] = [
       },
       {
         q: 'Wie lösche ich mein Konto?',
-        a: 'Dein Konto kannst du in den Einstellungen unter „Konto löschen" dauerhaft entfernen. Bitte beachte: Alle deine Daten, Produkte und Buchungen werden unwiderruflich gelöscht. Aktive Abonnements werden automatisch beendet und deine Kunden erhalten eine Benachrichtigung.',
+        a: 'Die Kontolöschung findest du in den Einstellungen unter „Konto löschen". Bei Buchungs-, Kauf- oder Zahlungsaufzeichnungen hilft dir der Ardore-Support, damit Aufbewahrung und offene Vorgänge sicher geklärt werden. Die automatische Löschung erfolgt nur nach bestätigter Beendigung aller betroffenen Stripe-Abos. Kann das nicht bestätigt werden, bleibt dein Konto erhalten; einzelne Abos können bereits beendet sein.',
       },
       {
         q: 'Wie werden meine Daten geschützt?',
