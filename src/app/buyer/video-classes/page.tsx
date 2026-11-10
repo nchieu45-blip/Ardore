@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { formatGroupOccurrence } from '@/lib/group-schedule'
 import { formatCurrency } from '@/lib/utils'
 import GroupBookingActions from '@/components/GroupBookingActions'
-import { buttonStyles } from '@/components/ui/Button'
+import { buttonStyles } from '@/components/ui/button-styles'
 import { coachingPaymentModeAllowed, isolatedCoachingTestsEnabled } from '@/lib/coaching-payment'
 
 export const metadata: Metadata = { title: 'Meine Gruppenbuchungen', robots: { index: false, follow: false } }

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import ts from 'typescript'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { loadUiComponent } from './fixtures/load-ui-component.mjs'
 import { isolatedCoachingEnv } from './fixtures/isolated-coaching-env.mjs'
 
 function payment(env) {
@@ -64,4 +67,33 @@ test('explicit test environment supports restricted TEST keys and IPv6 loopback'
     NEXT_PUBLIC_APP_URL: 'http://localhost:3032/', NEXT_PUBLIC_SUPABASE_URL: 'http://[::1]:55131' })
   assert.equal(p.isolatedCoachingTestsEnabled(), true)
   assert.equal(p.hasValidCoachingPayment(paid(false)), true)
+})
+
+test('actual group overview renders paid TEST access only in isolation, with server-safe link styles', async () => {
+  const row = { id: 'reservation', video_class_id: 'class', occurrence_start: '2099-01-01T10:00:00Z',
+    duration_minutes: 60, class_title: 'Synthetic paid group', creator_slug: 'coach', price_cents: 700,
+    status: 'confirmed', booking_id: 'booking', refund_status: 'not_requested', amount_refunded_cents: 0, stripe_livemode: false }
+  async function html(env, rows) {
+    const client = { auth: { getUser: async () => ({ data: { user: { id: 'buyer' } } }) }, from(table) {
+      const q = { select() { return q }, eq() { return q }, is() { return q }, order: async () => ({ data: table === 'group_booking_status' ? rows : [], error: null }) }
+      return q
+    } }
+    const page = loadUiComponent('src/app/buyer/video-classes/page.tsx', {
+      '@/lib/supabase/server': { createClient: async () => client }, '@/lib/coaching-payment': payment(env),
+      'next/navigation': { redirect: () => assert.fail('Authenticated fixture redirected') },
+      '@/components/GroupBookingActions': { __esModule: true, default: () => null },
+      // Model the real RSC boundary: server code cannot invoke a client export.
+      '@/components/ui/Button': { buttonStyles: () => assert.fail('Server invoked a client-only function') },
+    }).default
+    return renderToStaticMarkup(await page({ searchParams: Promise.resolve({}) }))
+  }
+  const local = await html(isolatedCoachingEnv, [row])
+  assert.match(local, /Termin und Videozugang öffnen/)
+  assert.match(local, /isolierten Testumgebung/)
+  assert.match(local, /group-session\/class\?occurrenceStart=/)
+  const production = { ...isolatedCoachingEnv, NODE_ENV: 'production' }
+  assert.doesNotMatch(await html(production, [row]), /Termin und Videozugang öffnen/)
+  assert.match(await html(production, [{ ...row, stripe_livemode: true }]), /Termin und Videozugang öffnen/)
+  assert.match(await html(production, []), /Gruppencoaching entdecken/)
+  assert.doesNotMatch(await html(isolatedCoachingEnv, [{ ...row, refund_status: 'pending' }]), /Termin und Videozugang öffnen/)
 })
