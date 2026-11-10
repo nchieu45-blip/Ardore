@@ -253,6 +253,68 @@ try {
   assert.equal(sql('SELECT NOT enabled AND notification_dispatch_paused FROM private.account_deletion_release;'),'t')
   record('activation_refuses_missing_repairs_without_resuming_deletion_or_notification_claims')
 
+  if (process.argv.includes('--notification-resume')) {
+    stage='notification_only_resume'
+    const resume=source('supabase/migrations/20261110115655_resume_notification_dispatch_only.sql')
+    const course=result(await currentApp.from('video_classes').insert({creator_id:profile.id,title:'LOCAL resume',schedule_type:'once',starts_at:new Date(Date.now()+80*3600000).toISOString(),duration_minutes:30,max_participants:9,price_cents:0,active:true}).select('*').single())
+    result(await currentApp.rpc('ensure_group_class_occurrence',{p_class_id:course.id,p_occurrence_start:course.starts_at}))
+    const fixtures=[
+      ['coaching_email_deliveries',`booking_kind,booking_id,event_kind,event_version,recipient_id,recipient_role,details`, `'individual','${legacyBooking.id}','cancellation',0,'${stale.id}','customer','{}'`],
+      ['group_reminder_deliveries',`video_class_id,occurrence_start,recipient_id,recipient_role,payload`,`'${course.id}','${course.starts_at}','${stale.id}','participant','{}'`],
+      ['session_notification_deliveries',`booking_id,recipient_id,type,channel,occurrence,payload`,`'${legacyBooking.id}','${stale.id}','session_reminder','email',now(),'{}'`],
+    ]
+    for(const [table,columns,values] of fixtures) for(const state of ['held','pending','processing']) {
+      const id=randomUUID()
+      sql(`INSERT INTO public.${table}(id,${columns},state,first_attempt_at,lease_token,lease_until) VALUES('${id}',${values},'${state}',now(),gen_random_uuid(),now()+interval '5 minutes');`)
+      const denied=spawnSync('docker',sqlArgs(database),{input:'SET ROLE postgres;\n'+resume,encoding:'utf8',timeout:35000})
+      assert.notEqual(denied.status,0)
+      assert.equal(sql('SELECT NOT enabled AND notification_dispatch_paused FROM private.account_deletion_release;'),'t')
+      sql(`DELETE FROM public.${table} WHERE id='${id}';`)
+    }
+    record('notification_resume_atomically_rejects_held_processing_and_attempted_pending_in_each_journal')
+    sql('SET ROLE postgres;\n'+resume)
+    assert.equal(sql('SELECT NOT enabled AND NOT notification_dispatch_paused FROM private.account_deletion_release;'),'t')
+    assert.equal(result(await modern.rpc('account_deletion_release_ready')),false)
+    for(const [name,args] of [
+      ['claim_coaching_email',{p_id:randomUUID(),p_payload:{},p_token:randomUUID()}],
+      ['claim_group_reminder',groupClaim],
+      ['claim_current_group_reminder',{...groupClaim,p_expected_start:groupClaim.p_occurrence}],
+      ['claim_session_notification',{p_booking_id:randomUUID(),p_recipient_id:randomUUID(),p_type:'session_reminder',p_channel:'email',p_occurrence:groupClaim.p_occurrence,p_payload:{},p_token:randomUUID()}],
+    ]) {assert.notEqual((await currentApp.rpc(name,args)).error?.code,'PT503');assert.equal((await anonymous.rpc(name,args)).error?.code,'42501')}
+    assert.equal((await legacy.from('profiles').select('id').limit(0)).status,503)
+    await assert.rejects(deleteAccountSafely({service:modern,userId:clean.id,getProvider:providerForbidden}),e=>e.status===503)
+    record('notification_only_resume_reopens_four_service_claims_while_browser_and_legacy_and_account_deletion_remain_blocked')
+    sql('SET ROLE postgres;\n'+resume)
+    assert.equal(sql('SELECT NOT enabled AND NOT notification_dispatch_paused FROM private.account_deletion_release;'),'t')
+    record('notification_resume_repeat_is_idempotent_without_journal_rewrites')
+    const notice=result(await currentApp.from('bookings').insert({creator_id:profile.id,buyer_id:clean.id,
+      scheduled_at:new Date(Date.now()+96*3600000).toISOString(),duration_minutes:30,status:'confirmed',
+      price_cents:0,payment_status:'not_required'}).select('id').single())
+    result(await currentApp.from('bookings').update({status:'cancelled'}).eq('id',notice.id))
+    const accepted=new Map();let attempts=0,lostResponse=true
+    const worker=load(source('src/lib/coaching-emails.ts'),{
+      'node:crypto':{randomUUID},'@/lib/supabase/server':{createServiceClient:async()=>currentApp},
+      '@/lib/app-url':{appOrigin:()=> 'http://127.0.0.1:3011'},
+      '@/lib/email/templates':{coachingUpdateHtml:()=>'<p>LOCAL notice</p>',coachingUpdateText:()=> 'LOCAL notice'},
+      '@/lib/email':{FROM:'local@example.invalid',sendEmail:async(payload,options)=>{
+        attempts++;const frozen=JSON.stringify(payload);const key=options.idempotencyKey
+        if(accepted.has(key))assert.equal(accepted.get(key),frozen);else accepted.set(key,frozen)
+        if(lostResponse){lostResponse=false;throw new Error('Simulated accepted response lost')}
+        return {id:key}
+      }},
+    })
+    await Promise.all([worker.runCoachingEmails(notice.id),worker.runCoachingEmails(notice.id)])
+    assert.equal((await worker.runCoachingEmails(notice.id)).failed,0)
+    const before=attempts
+    await worker.runCoachingEmails(notice.id);await worker.runCoachingEmails(notice.id)
+    assert.equal(attempts,before);assert.equal(accepted.size,2);assert.ok(attempts>=3)
+    const deliveries=result(await currentApp.from('coaching_email_deliveries').select('state').eq('booking_id',notice.id))
+    assert.equal(deliveries.length,2);assert.ok(deliveries.every(row=>row.state==='sent'))
+    assert.equal(result(await modern.rpc('account_deletion_release_ready')),false)
+    record('resumed_real_db_worker_retries_lost_provider_response_and_parallel_calls_without_duplicate_customer_or_coach_notice')
+    sql('UPDATE private.account_deletion_release SET notification_dispatch_paused=true WHERE singleton;')
+  }
+
   stage='apply_exact_pending_repairs_under_closed_gate'
   for(const file of repairFiles)sql('SET ROLE postgres;\n'+source('supabase/migrations/'+file))
   sql("NOTIFY pgrst,'reload schema';")
@@ -266,6 +328,11 @@ try {
   stage='enable_only_local_gate';sql('SET ROLE postgres;\n'+activation)
   assert.equal(sql('SELECT enabled AND NOT notification_dispatch_paused FROM private.account_deletion_release;'),'t')
   record('exact_separate_activation_migration_checks_prerequisites_and_resumes_the_new_protocol')
+  if (process.argv.includes('--notification-resume')) {
+    sql('SET ROLE postgres;\n'+source('supabase/migrations/20261110115655_resume_notification_dispatch_only.sql'))
+    assert.equal(sql('SELECT enabled AND NOT notification_dispatch_paused FROM private.account_deletion_release;'),'t')
+    record('notification_resume_is_a_noop_after_an_already_fully_activated_install')
+  }
   await assert.rejects(deleteAccountSafely({service:legacy,userId:clean.id,getProvider:providerForbidden}),e=>e.status===503)
   assert.equal(providerCalls,0)
   record('unmarked_service_client_cannot_start_the_new_deletion_protocol')
