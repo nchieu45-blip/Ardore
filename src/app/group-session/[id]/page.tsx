@@ -1,4 +1,5 @@
 import { effectiveGroupStart } from '@/lib/group-effective-schedule'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import GroupRescheduleDialog from '@/components/GroupRescheduleDialog'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -66,7 +67,7 @@ export default async function GroupSessionPage({ params, searchParams }: {
   const eligible = isCoach || Boolean(attendee && attendee.status === 'confirmed' && attendee.reservation_id
     && attendee.refund_status === 'not_requested' && attendee.amount_refunded_cents === 0 && (
       attendee.payment_status === 'not_required' && attendee.price_paid_cents === 0
-      || attendee.payment_status === 'paid' && attendee.stripe_livemode === true
+      || attendee.payment_status === 'paid' && hasValidCoachingPayment(attendee)
     ))
   let roster: Attendee[] = []
   let rosterError = false

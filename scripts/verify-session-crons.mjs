@@ -28,6 +28,7 @@ function load(relative, modules = {}, env = { CRON_SECRET: 'synthetic-cron-only'
   }).outputText
   const fixtureModule = { exports: {} }
   const resolver = name => {
+    if (name === 'server-only') return {}
     if (name in modules) return modules[name]
     if (name.startsWith('@/lib/')) return load(`src/lib/${name.slice(6)}.ts`, modules, env)
     return require(name)

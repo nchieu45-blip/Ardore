@@ -1,4 +1,5 @@
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
+import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import type { ComponentType } from 'react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -230,7 +231,7 @@ export default async function CreatorProfilePage({
     : { data: [], error: null }
   const vcRegistrations = (vcUserBookingRows.data ?? []).filter(row => row.occurrence_start && (
     row.payment_status === 'not_required' && row.price_paid_cents === 0
-    || row.payment_status === 'paid' && row.stripe_livemode === true
+    || row.payment_status === 'paid' && hasValidCoachingPayment(row)
   ))
   const groupNow = new Date().getTime()
 

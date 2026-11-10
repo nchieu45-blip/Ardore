@@ -28,7 +28,7 @@ assert.match(migration, /WHERE \(status IN \('pending_payment', 'confirmed'\)\)/
 assert.match(migration, /stripe_livemode boolean/)
 assert.match(feeHelper, /ARDORE_PLATFORM_FEE_BASIS_POINTS = 1_000/)
 assert.match(paymentHelper, /payment_status === 'not_required'/)
-assert.match(paymentHelper, /payment_status === 'paid' && booking\.stripe_livemode === true/)
+assert.match(paymentHelper, /payment_status === 'paid' && coachingPaymentModeAllowed\(booking\.stripe_livemode\)/)
 assert.match(paymentHelper, /payment_status\.eq\.not_required,and\(payment_status\.eq\.paid,stripe_livemode\.eq\.true\)/)
 assert.match(reminderRoute, /runSessionNotifications\('session_reminder'\)/)
 assert.match(reviewPromptRoute, /runSessionNotifications\('session_review_prompt'\)/)

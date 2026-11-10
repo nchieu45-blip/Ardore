@@ -33,4 +33,6 @@ Scheduled reminders, review prompts, and verification-document cleanup run throu
 [GitHub Actions](.github/workflows/ardore-cron.yml). `ARDORE_BASE_URL` is
 `https://www.ardore-health.com`; GitHub and Hostinger use the same `CRON_SECRET`.
 
-Stripe remains in test mode. Daily video is disabled in `src/lib/features.ts`.
+Production service credentials are managed in hPanel. For the complete local
+Stripe TEST booking, confirmation-email and Daily-video workflow, see
+[isolated coaching tests](docs/isolated-coaching-tests.md).

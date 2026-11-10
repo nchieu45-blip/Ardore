@@ -1,4 +1,5 @@
 import { effectiveGroupStart } from '@/lib/group-effective-schedule'
+import { coachingPaymentModeAllowed } from '@/lib/coaching-payment'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { appOrigin } from '@/lib/app-url'
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest, context: Context) {
           || booking.refund_status !== 'not_requested' || booking.amount_refunded_cents !== 0
           || !((booking.price_paid_cents === 0 && booking.payment_status === 'not_required' && booking.payment_order_id === null)
             || (Number.isSafeInteger(booking.price_paid_cents) && booking.price_paid_cents > 0 && booking.payment_status === 'paid'
-              && booking.stripe_livemode === true && validVideoId(booking.payment_order_id)))) {
+              && coachingPaymentModeAllowed(booking.stripe_livemode) && validVideoId(booking.payment_order_id)))) {
           throw new VideoAccessError(404, 'Für diesen Termin liegt keine gültige Anmeldung vor.')
         }
       }
@@ -98,12 +99,14 @@ export async function POST(request: NextRequest, context: Context) {
         const reference = order?.reference as Record<string, unknown> | undefined
         if (!order || order.id !== booking.payment_order_id || order.kind !== 'group' || order.buyer_id !== user.id
           || order.creator_id !== course.creator_id || order.state !== 'fulfilled' || order.gross_cents !== booking.price_paid_cents
-          || order.stripe_livemode !== true || reference?.reservationId !== booking.reservation_id
+          || !coachingPaymentModeAllowed(order.stripe_livemode) || order.stripe_livemode !== booking.stripe_livemode
+          || reference?.reservationId !== booking.reservation_id
           || reference.videoClassId !== id || canonicalOccurrenceStart(reference.occurrenceStart) !== occurrenceStart
           || reference.durationMinutes !== booking.duration_minutes || !reservation || reservation.id !== booking.reservation_id
           || reservation.buyer_id !== user.id || reservation.creator_id !== course.creator_id || reservation.video_class_id !== id
           || canonicalOccurrenceStart(reservation.occurrence_start) !== occurrenceStart || reservation.duration_minutes !== booking.duration_minutes
-          || reservation.price_cents !== booking.price_paid_cents || reservation.stripe_livemode !== true
+          || reservation.price_cents !== booking.price_paid_cents || !coachingPaymentModeAllowed(reservation.stripe_livemode)
+          || reservation.stripe_livemode !== booking.stripe_livemode
           || reservation.status !== 'confirmed' || reservation.booking_id !== booking.id || reservation.payment_order_id !== order.id
           || reservation.refund_status !== 'not_requested' || reservation.amount_refunded_cents !== 0) {
           throw new VideoAccessError(409, 'Die bestätigte Zahlung gehört nicht zu dieser Anmeldung.')
