@@ -289,7 +289,7 @@ try {
     record('notification_resume_repeat_is_idempotent_without_journal_rewrites')
     const notice=result(await currentApp.from('bookings').insert({creator_id:profile.id,buyer_id:clean.id,
       scheduled_at:new Date(Date.now()+96*3600000).toISOString(),duration_minutes:30,status:'confirmed',
-      price_cents:0,payment_status:'not_required'}).select('id').single())
+      price_cents:0,payment_status:'not_required',buyer_email:clean.email,buyer_name:'LOCAL resume recipient'}).select('id').single())
     result(await currentApp.from('bookings').update({status:'cancelled'}).eq('id',notice.id))
     const accepted=new Map();let attempts=0,lostResponse=true
     const worker=load(source('src/lib/coaching-emails.ts'),{
@@ -391,7 +391,7 @@ try {
   record('original_local_database_and_its_three_auth_fixtures_are_unchanged')
   writeFileSync(join(root,'report.json'),JSON.stringify({checks,fullIntegrationChecks:integration.results.length,productionAccess:false,realStripeCalls:false,realEmails:false,limitation:'Accepted historical Stripe/Resend effects require reconciliation and retirement of old provider credentials before production reopening.'},null,2)+'\n',{mode:0o600})
   console.log(JSON.stringify({releaseChecks:checks.length,integrationChecks:integration.results.length,report:join(root,'report.json'),productionAccess:false}))
-}catch(error){failure=true;console.log(JSON.stringify({failed:true,stage,reason:error instanceof assert.AssertionError?'assertion_failed':'local_setup_or_test_failed',rawOutputSuppressed:true}));process.exitCode=1}
+}catch(error){failure=true;console.log(JSON.stringify({failed:true,stage,reason:error instanceof assert.AssertionError?'assertion_failed':'local_setup_or_test_failed',assertionLine:error?.stack?.split('\n').find(line=>line.includes('test-isolated-account-deletion-release.mjs:'))?.trim(),rawOutputSuppressed:true}));process.exitCode=1}
 finally{
   releaseLegacy?.();releaseLegacyMail?.()
   await Promise.race([Promise.allSettled(pendingLegacyRequests),wait(5000)])
