@@ -287,9 +287,10 @@ try {
     sql('SET ROLE postgres;\n'+resume)
     assert.equal(sql('SELECT NOT enabled AND NOT notification_dispatch_paused FROM private.account_deletion_release;'),'t')
     record('notification_resume_repeat_is_idempotent_without_journal_rewrites')
-    const notice=result(await currentApp.from('bookings').insert({creator_id:profile.id,buyer_id:clean.id,
+    const noticeBuyer=await user('notification-only')
+    const notice=result(await currentApp.from('bookings').insert({creator_id:profile.id,buyer_id:noticeBuyer.id,
       scheduled_at:new Date(Date.now()+96*3600000).toISOString(),duration_minutes:30,status:'confirmed',
-      price_cents:0,payment_status:'not_required',buyer_email:clean.email,buyer_name:'LOCAL resume recipient'}).select('id').single())
+      price_cents:0,payment_status:'not_required',buyer_email:noticeBuyer.email,buyer_name:'LOCAL resume recipient'}).select('id').single())
     result(await currentApp.from('bookings').update({status:'cancelled'}).eq('id',notice.id))
     const accepted=new Map();let attempts=0,lostResponse=true
     const worker=load(source('src/lib/coaching-emails.ts'),{
