@@ -85,7 +85,7 @@ function VerifyEmailContent() {
             Wenn für diese Adresse eine Bestätigung aussteht, erhältst du eine neue E-Mail.
           </div>
         )}
-        <form onSubmit={resend} className="space-y-4">
+        <form method="post" onSubmit={resend} className="space-y-4">
           <Input label="E-Mail-Adresse" type="email" autoComplete="email" required value={email}
             onChange={event => setEmail(event.target.value)} disabled={resending} />
           {resendError && (

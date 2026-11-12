@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
       )}
 
       {status === 'ready' && (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
             label="Neues Passwort"
             type="password"

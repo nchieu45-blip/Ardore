@@ -111,7 +111,7 @@ function RegisterContent() {
       <p className="mb-4 text-sm text-gray-600">
         Nach der Registrierung bestätigst du zuerst deine E-Mail-Adresse. Danach kannst du dich anmelden und Ardore nutzen.
       </p>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           label="Vollständiger Name"
           type="text"

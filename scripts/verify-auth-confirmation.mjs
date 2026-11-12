@@ -49,10 +49,10 @@ test('provider exceptions become clear signup error, not an uncaught server fail
 // Run the actual form handlers with mocked hooks/provider; no network or users.
 function form(path,auth,query='') {
  let handler,states=[],pushes=[],inFlight={current:false};const parameters=new URLSearchParams(query)
- const react={...React,useState:initial=>{const slot=states.length;states.push(initial);return [initial,value=>{states[slot]=typeof value==='function'?value(states[slot]):value}]},useRef:()=>inFlight,useEffect:()=>{},Suspense:({children})=>children}
+ const react={...React,useState:initial=>{if(path.includes('/reset-password/') && initial==='checking')initial='ready';const slot=states.length;states.push(initial);return [initial,value=>{states[slot]=typeof value==='function'?value(states[slot]):value}]},useRef:()=>inFlight,useEffect:()=>{},Suspense:({children})=>children}
  const mocks={react,'@/lib/app-url':appUrl,'@/lib/utils':{cn:(...parts)=>parts.filter(Boolean).join(' ')},'@/lib/supabase/client':{createClient:()=>({auth})},'next/navigation':{useRouter:()=>({push:url=>pushes.push(url),refresh:()=>{}}),useSearchParams:()=>parameters},'next/link':{__esModule:true,default:()=>null},'react-hook-form':{useForm:()=>({register:()=>({}),handleSubmit:fn=>{handler=fn;return fn},formState:{errors:{},isSubmitting:false}})}}
  for(const [name,exports] of [['@/components/ui/Button',{Button:()=>null}],['@/components/ui/Input',{Input:()=>null}],['@/components/layout/AuthShell',{AuthShell:()=>null}]])mocks[name]=exports
- const wrapper=load(path,mocks).default();const content=wrapper.props.children.type();
+ const wrapper=load(path,mocks).default();const content=path.includes('/reset-password/') ? wrapper : wrapper.props.children.type();
  function find(element,predicate){if(!element||typeof element!=='object')return; if(predicate(element))return element; for(const child of [element.props?.children].flat(Infinity)){const found=find(child,predicate);if(found)return found}}
  handler??=find(content,e=>e.type==='form')?.props.onSubmit
  return {handler,states,pushes,inFlight,method:find(content,e=>e.type==='form')?.props.method}
@@ -62,6 +62,11 @@ test('login cannot serialize credentials into the URL when submitted before hydr
  const f=form('src/app/(auth)/login/page.tsx',{signInWithPassword:async()=>({error:null})})
  assert.equal(f.method,'post')
 })
+for (const name of ['register', 'reset-password', 'forgot-password', 'verify-email']) {
+ test(name + ' uses POST even before the submit handler is attached', () => {
+  assert.equal(form('src/app/(auth)/' + name + '/page.tsx', {}).method, 'post')
+ })
+}
 for(const user of [{id:'fixture'},null])test(`signup without a session (${user?'user returned':'no user returned'}) goes to confirmation once`,async()=>{
  let calls=0;const f=form('src/app/(auth)/register/page.tsx',{signUp:async()=>{calls++;return {data:{user,session:null},error:null}}})
  await f.handler(input);assert.equal(calls,1);assert.deepEqual(f.pushes,[`/verify-email?email=${encodeURIComponent(input.email)}&sent=1`])
