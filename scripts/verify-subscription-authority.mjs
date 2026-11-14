@@ -29,7 +29,7 @@ function load(path, overrides = {}, environment = {}) {
 
 const entitlement = load('../src/lib/subscription-entitlement.ts')
 
-function subscriptionFixture({ price = 25, active = true, discountCreatorId = creatorId, existing = null, readinessFailure = null } = {}) {
+function subscriptionFixture({ price = 25, active = true, discountCreatorId = creatorId, existing = null, readinessFailure = null, failFirstBinding = false } = {}) {
   const writes = []
   const checkouts = []
   const checkoutOptions = []
@@ -63,27 +63,54 @@ function subscriptionFixture({ price = 25, active = true, discountCreatorId = cr
       }
     },
   }
+  let order = null
+  let session = null
+  const discountService = discountReservationFixture(discount)
   const service = {
     from(table) {
+      assert.equal(table, 'payment_orders')
       return {
-        async insert(row) { assert.equal(table, 'subscriptions'); writes.push(row); return { error: null } },
-        update(row) { assert.equal(table, 'discounts'); writes.push(row); return this },
+        update() { return this },
         eq() { return this },
-        then(resolve, reject) { return Promise.resolve({ error: null }).then(resolve, reject) },
+        async is() { order = null; session = null; return { error: null } },
       }
+    },
+    async rpc(name, input) {
+      assert.equal(name, 'prepare_subscription_checkout')
+      if (existing) return { data: { state: 'already_subscribed', active: true } }
+      if (order) return { data: { state: 'checkout', order: { ...order } } }
+      if (price === 0) {
+        existing = true
+        writes.push({ buyer_id: buyerId, creator_id: creatorId, tier_id: tierId,
+          stripe_subscription_id: 'free_synthetic', stripe_livemode: null, status: 'active',
+          current_period_end: new Date(Date.now() + 86400000).toISOString() })
+        return { data: { state: 'free', newly_created: true } }
+      }
+      if (input.p_discount_id && discountCreatorId !== creatorId) return { data: { state: 'invalid_discount' } }
+      if (!input.p_account_id) return { error: { code: 'PT424' } }
+      const id = orders.length ? 'synthetic-order-' + orders.length : 'synthetic-order'
+      const reference = { tierId, tierName: tier.name, appUrl: input.p_app_url,
+        checkoutExpiresAt: Math.floor(Date.now() / 1000) + 2700,
+        ...(input.p_discount_id ? { discountId: input.p_discount_id, discountRedemptionId: id } : {}) }
+      order = { id, kind: 'subscription', buyer_id: buyerId, creator_id: creatorId,
+        account_id: input.p_account_id, gross_cents: Math.round(price * (input.p_discount_id ? 80 : 100)),
+        stripe_livemode: false, reference, stripe_checkout_session_id: null }
+      orders.push(order)
+      return { data: { state: 'checkout', order: { ...order } } }
     },
   }
   const route = load('../src/app/api/stripe/subscription/route.ts', {
-    '@/lib/discounts': discountReservationFixture(discount),
+    '@/lib/discounts': discountService,
     '@/lib/supabase/server': { createClient: async () => client, createServiceClient: async () => service },
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (input, options) => {
       checkouts.push(input); checkoutOptions.push(options)
-      return { id: 'cs_synthetic', url: 'https://checkout.stripe.com/synthetic', subscription: null }
-    } } } } },
+      session ??= { id: 'cs_synthetic', url: 'https://checkout.stripe.com/synthetic', subscription: null,
+        status: 'open', payment_status: 'unpaid', livemode: false, mode: input.mode, metadata: input.metadata, expires_at: input.expires_at }
+      return session
+    }, retrieve: async () => session } } } },
     '@/lib/stripe/settlement': {
       isRetiredStripeTestEvent: async () => false,
-      async createSettlementOrder(input) { assert.equal(input.service, service); orders.push(input); return { id: 'synthetic-order' } },
-      async registerSettlementCheckout(input) { assert.equal(input.service, service); registrations.push(input) },
+      async registerSettlementCheckout(input) { assert.equal(input.service, service); registrations.push(input); if (failFirstBinding) { failFirstBinding = false; throw Error('mock timeout') }; order.stripe_checkout_session_id = input.sessionId },
     },
     '@/lib/stripe/platformFee': { ARDORE_PLATFORM_FEE_PERCENT: 10 },
     '@/lib/subscription-notifications': { notifyNewSubscriber: async (database, buyer, creator, selectedTier) => {
@@ -97,6 +124,7 @@ function subscriptionFixture({ price = 25, active = true, discountCreatorId = cr
   })
   return {
     writes, checkouts, checkoutOptions, orders, registrations, notified, readinessChecks,
+    setSessionStatus(status) { session.status = status },
     run: input => route.POST(new Request('https://www.ardore-health.com/api/stripe/subscription', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tierId, creatorId, ...input }),
@@ -126,12 +154,9 @@ test('paid subscription freezes the coach price and settlement owner without aut
   assert.deepEqual(state.checkouts[0].subscription_data, {
     metadata: { ardore_order_id: 'synthetic-order', tier_id: tierId, buyer_id: buyerId, creator_id: creatorId },
   })
-  assert.deepEqual(state.orders.map(input => ({ ...input, service: 'service' })), [{
-    service: 'service',
-    id: state.orders[0].id,
-    kind: 'subscription', buyerId, creatorId, accountId: 'acct_syntheticReady',
-    grossCents: 2500, livemode: false, reference: { tierId },
-  }])
+  assert.equal(state.orders.length, 1)
+  assert.equal(state.orders[0].gross_cents, 2500)
+  assert.equal(state.orders[0].account_id, 'acct_syntheticReady')
   assert.deepEqual(state.checkoutOptions, [{ idempotencyKey: 'ardore-order-checkout-synthetic-order-v1' }])
   assert.deepEqual(state.registrations.map(input => ({ orderId: input.orderId, sessionId: input.sessionId, subscriptionId: input.subscriptionId })), [{ orderId: 'synthetic-order', sessionId: 'cs_synthetic', subscriptionId: undefined }])
 })
@@ -185,6 +210,45 @@ test('only this coach’s eligible discount can reduce its checkout charge', asy
   assert.equal((await foreign.run({ discountId: otherId })).status, 409)
   assert.deepEqual(foreign.checkouts, [])
   assert.deepEqual(foreign.writes, [])
+})
+
+test('parallel requests reserve one order and reuse the same Stripe idempotency key', async () => {
+  const state = subscriptionFixture()
+  const responses = await Promise.all(Array.from({ length: 12 }, () => state.run({})))
+  assert.ok(responses.every(response => response.status === 200))
+  assert.equal(state.orders.length, 1)
+  assert.deepEqual(new Set(state.checkoutOptions.map(option => option.idempotencyKey)), new Set(['ardore-order-checkout-synthetic-order-v1']))
+  const bodies = await Promise.all(responses.map(response => response.json()))
+  assert.deepEqual(new Set(bodies.map(({ url }) => url)), new Set(['https://checkout.stripe.com/synthetic']))
+  assert.equal((await state.run({ discountId: otherId })).status, 409)
+  assert.equal(state.orders.length, 1)
+})
+
+test('ambiguous binding failure retries the same immutable Stripe request', async () => {
+  const state = subscriptionFixture({ failFirstBinding: true })
+  assert.equal((await state.run({})).status, 503)
+  assert.equal((await state.run({})).status, 200)
+  assert.equal(state.orders.length, 1)
+  assert.deepEqual(state.checkoutOptions[0], state.checkoutOptions[1])
+  assert.deepEqual(state.checkouts[0], state.checkouts[1])
+})
+
+test('an existing paid or pending subscription cannot start a new checkout', async () => {
+  const state = subscriptionFixture({ existing: true })
+  assert.equal((await state.run({})).status, 409)
+  assert.equal(state.checkouts.length, 0)
+})
+
+test('an expired unpaid session can be replaced, but a completed session awaiting reconciliation cannot', async () => {
+  const state = subscriptionFixture()
+  assert.equal((await state.run({})).status, 200)
+  state.setSessionStatus('complete')
+  assert.equal((await state.run({})).status, 409)
+  assert.equal(state.orders.length, 1)
+  state.setSessionStatus('expired')
+  assert.equal((await state.run({})).status, 200)
+  assert.equal(state.orders.length, 2)
+  assert.notEqual(state.checkoutOptions[0].idempotencyKey, state.checkoutOptions[1].idempotencyKey)
 })
 
 test('malformed subscription input cannot reach checkout or entitlement writes', async () => {
