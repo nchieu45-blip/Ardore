@@ -21,7 +21,6 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { CoachCard } from '@/components/ui/CoachCard'
 import { StatePanel } from '@/components/ui/StatePanel'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
-import CoachFinderWidget from '@/components/CoachFinderWidget'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
 import DiscoveryRail from '@/components/DiscoveryRail'
@@ -66,7 +65,6 @@ export default function MarketplaceClient({
   coaches,
 }: Props) {
   const [intent, setIntent] = useState('/coaches')
-  const [helpOpen, setHelpOpen] = useState(false)
   const categories = [
     ...new Set([
       ...coaches.flatMap((c) =>
@@ -335,7 +333,6 @@ export default function MarketplaceClient({
         <section className="pb-10 sm:pb-16">
           <details
             className="border-y border-border py-2"
-            onToggle={(e) => setHelpOpen(e.currentTarget.open)}
           >
             <summary className="min-h-11 cursor-pointer py-3 text-base font-semibold text-foreground">
               <span className="inline-flex items-center gap-2">
@@ -344,13 +341,12 @@ export default function MarketplaceClient({
               </span>
             </summary>
             <p className="mb-4 mt-3 text-sm leading-relaxed text-muted">
-              Noch unsicher? Der KI-Finder kann dir bei der Orientierung helfen.
+              Vergleiche Coaches nach Themen und schau dir ihre Profile und Angebote an.
             </p>
-            {helpOpen && (
-              <div className="max-w-2xl">
-                <CoachFinderWidget />
-              </div>
-            )}
+            <ButtonLink href="/coaches" variant="outline" className="mb-3">
+              Coaches entdecken
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </ButtonLink>
           </details>
         </section>
       </div>
