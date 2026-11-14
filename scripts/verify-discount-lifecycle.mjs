@@ -36,12 +36,18 @@ test('the real server adapter passes immutable buyer/coach/scope/amount identity
   }
 })
 test('checkout creation cannot mutate counters, and free/paid claim functions are not client callable', () => {
-  for(const path of ['stripe/checkout','stripe/subscription','coaching/book']) {
+  for(const path of ['stripe/checkout','coaching/book']) {
     const source=readFileSync(new URL(`../src/app/api/${path}/route.ts`,import.meta.url),'utf8')
     assert.doesNotMatch(source,/update\(\{\s*redemption_count/)
     assert.match(source,/reserveDiscount/)
     assert.match(source,/requireStripeMinimum/)
   }
+  const subscription = readFileSync(new URL('../src/app/api/stripe/subscription/route.ts', import.meta.url), 'utf8')
+  assert.doesNotMatch(subscription, /update\(\{\s*redemption_count/)
+  assert.match(subscription, /prepare_subscription_checkout/)
+  const guard = readFileSync(new URL('../supabase/migrations/20261114124823_guard_subscription_checkouts.sql', import.meta.url), 'utf8')
+  assert.match(guard, /public\.reserve_discount_redemption/)
+  assert.match(guard, /IF cents < 50/)
   const migration=readFileSync(new URL('../supabase/migrations/20261004170236_discount_redemption_lifecycle.sql',import.meta.url),'utf8')
   assert.match(migration,/FOR UPDATE/)
   assert.match(migration,/FROM PUBLIC,anon,authenticated/)
