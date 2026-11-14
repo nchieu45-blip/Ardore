@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Shared hosting exposes more CPUs than its process limit can support.
+  experimental: { cpus: 2 },
   allowedDevOrigins: ['127.0.0.1'],
   async redirects() {
     return [{
