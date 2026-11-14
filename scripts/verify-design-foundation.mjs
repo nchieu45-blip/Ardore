@@ -58,7 +58,7 @@ test('foundation action/body/status colors meet WCAG AA text contrast on their a
   assert.ok(contrast(color('border-control'),color('surface')) >= 3)
 })
 test('public discovery read failures throw to the retry UI instead of showing empty inventory', async () => {
-  const query = { select(){return this}, eq(){return this}, order(){return this}, limit(){return this}, then(resolve){resolve({data:null,error:{message:'private provider detail'}})} }
+  const query = { select(){return this}, eq(){return this}, neq(){return this}, order(){return this}, limit(){return this}, then(resolve){resolve({data:null,error:{message:'private provider detail'}})} }
   const mocks = {
     '@/lib/supabase/server': { createClient: async () => ({ from: () => query }) },
     '@/app/MarketplaceClient': { __esModule: true, default: () => null },

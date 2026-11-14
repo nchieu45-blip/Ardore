@@ -181,6 +181,7 @@ test('default and malformed areas retain the existing product inventory without 
     const query = {
       select() { return this },
       eq() { return this },
+      neq() { return this },
       order: async () => ({ data: [], error: null }),
     }
     const ServerPage = loadUiComponent('src/app/marketplace/page.tsx', {
