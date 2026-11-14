@@ -32,7 +32,8 @@ const makeDiscount = creatorId => ({
   target_product_id: null, target_tier_id: null,
 })
 
-function productFixture(products, discount = null, readinessFailure = null, owned = [], ownershipError = null) {
+function productFixture(products, discount = null, readinessFailure = null, owned = [], ownershipError = null, failure = null) {
+  const releases = []
   const sessions = []
   const sessionOptions = []
   const orders = []
@@ -59,16 +60,18 @@ function productFixture(products, discount = null, readinessFailure = null, owne
     },
   }
   const route = loadRoute('../src/app/api/stripe/checkout/route.ts', {
-    '@/lib/discounts': discountReservationFixture(discount),
+    '@/lib/discounts': { ...discountReservationFixture(discount), async releaseDiscount(_service, id) { releases.push(id) } },
+    '@/lib/cart': loadRoute('../src/lib/cart.ts', {}),
     '@/lib/supabase/server': { createClient: async () => database, createServiceClient: async () => database },
     '@/lib/purchases': loadRoute('../src/lib/purchases.ts', {}),
     '@/lib/stripe/server': { stripe: { checkout: { sessions: { create: async (data, options) => {
       sessions.push(data); sessionOptions.push(options)
+      if (failure === 'stripe') throw new Error('synthetic provider timeout')
       return { id: 'cs_synthetic', url: 'https://checkout.stripe.com/synthetic' }
     } } } } },
     '@/lib/stripe/settlement': {
       isRetiredStripeTestEvent: async () => false,
-      async createSettlementOrder(input) { assert.equal(input.service, database); orders.push(input); return { id: 'synthetic-order' } },
+      async createSettlementOrder(input) { assert.equal(input.service, database); orders.push(input); if (failure === 'order') throw new Error('synthetic database failure'); return { id: 'synthetic-order' } },
       async registerSettlementCheckout(input) { assert.equal(input.service, database); registrations.push(input) },
     },
     '@/lib/stripe/platformFee': { calculateArdorePlatformFee: cents => Math.round(cents / 10) },
@@ -77,7 +80,7 @@ function productFixture(products, discount = null, readinessFailure = null, owne
     } }),
   })
   return {
-    sessions, sessionOptions, orders, registrations, readinessChecks,
+    sessions, sessionOptions, orders, registrations, readinessChecks, releases,
     run: body => route.POST({ json: async () => ({ withdrawalConsent: true, ...body }) }),
   }
 }
@@ -118,10 +121,10 @@ test('unpublished owner products cannot be smuggled into checkout metadata', asy
   assert.deepEqual(state.sessions, [])
 })
 
-test('valid checkout bills each metadata product using its current coach-controlled price', async () => {
+test('valid checkout bills each ordered product using its current coach-controlled price', async () => {
   const state = productFixture([makeProduct('first', 'coach-a', 27.49), makeProduct('second', 'coach-a', 69.95)])
   assert.equal((await state.run({ items: [{ productId: 'second' }, { productId: 'first' }, { productId: 'second' }] })).status, 200)
-  assert.equal(state.sessions[0].metadata.product_ids, 'second,first')
+  assert.deepEqual(state.orders[0].reference.items.map(item => item.productId), ['second', 'first'])
   assert.deepEqual(state.sessions[0].line_items.map(item => item.price_data.unit_amount), [6995, 2749])
 })
 
@@ -317,5 +320,29 @@ test('trusted active live-paid and server-issued free subscriptions retain inclu
     assert.equal(state.bookings[0].price_cents, 0)
     assert.deepEqual(state.sessions, [])
     assert.deepEqual(state.confirmations, ['synthetic-booking'])
+  }
+})
+
+test('50 product UUIDs stay in the order and Stripe metadata remains bounded', async () => {
+  const ids = Array.from({ length: 50 }, (_, index) =>
+    'aaaaaaaa-aaaa-4aaa-8aaa-' + String(index).padStart(12, '0'))
+  const state = productFixture(ids.map(id => makeProduct(id, 'coach-a', 1)))
+  const items = ids.map(productId => ({ productId }))
+  assert.equal((await state.run({ items })).status, 200)
+  assert.equal(state.sessions[0].line_items.length, 50)
+  assert.deepEqual(state.orders[0].reference.items.map(item => item.productId), ids)
+  assert.equal(state.orders[0].reference.withdrawalConsentVersion, 'widerruf-v1')
+  assert.deepEqual(Object.keys(state.sessions[0].metadata).sort(), ['ardore_order_id', 'buyer_id', 'creator_id'])
+  assert.equal((await state.run({ items: [...items, items[0]] })).status, 400)
+  assert.equal(state.sessions.length, 1)
+})
+
+test('checkout failures release discounts only before contacting Stripe', async () => {
+  const discount = { ...makeDiscount('coach-a'), value: 20 }
+  for (const failure of ['order', 'stripe']) {
+    const state = productFixture([makeProduct('item', 'coach-a', 5)], discount, null, [], null, failure)
+    assert.equal((await state.run({ productId: 'item', discountId: discount.id })).status, 503)
+    assert.deepEqual(state.releases, failure === 'order' ? [state.orders[0].id] : [])
+    assert.equal(state.sessions.length, failure === 'stripe' ? 1 : 0)
   }
 })

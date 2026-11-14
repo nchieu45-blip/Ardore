@@ -9,6 +9,9 @@ export interface CartItem {
   creatorSlug: string
 }
 
+export const MAX_CART_ITEMS = 50
+export const MIXED_CART_MESSAGE = 'Kaufe Produkte von verschiedenen Coaches getrennt.'
+
 const CART_KEY = 'ardore_cart'
 const OPEN_EVENT = 'ardore:cart:open'
 
@@ -30,11 +33,13 @@ function _save(items: CartItem[]) {
   _listeners.forEach(fn => fn([...items]))
 }
 
-export function addToCart(item: CartItem): boolean {
+export function addToCart(item: CartItem): 'added' | 'duplicate' | 'different_coach' | 'full' {
   const items = _load()
-  if (items.some(i => i.id === item.id)) return false
+  if (items.some(i => i.id === item.id)) return 'duplicate'
+  if (!item.creatorId || items.some(i => i.creatorId !== item.creatorId)) return 'different_coach'
+  if (items.length >= MAX_CART_ITEMS) return 'full'
   _save([...items, item])
-  return true
+  return 'added'
 }
 
 export function removeFromCart(id: string) {
