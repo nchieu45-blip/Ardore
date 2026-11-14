@@ -212,6 +212,10 @@ test('public coach model respects publish scope, public prices and safe read err
           calls.push([table, 'eq', k, v])
           return this
         },
+        neq(k, v) {
+          calls.push([table, 'neq', k, v])
+          return this
+        },
         in() {
           return this
         },
@@ -228,6 +232,10 @@ test('public coach model respects publish scope, public prices and safe read err
     '@/lib/supabase/server': { createClient: async () => client },
   })
   const result = await loader.loadPublicCoaches()
+  assert.ok(calls.some(([table, op, field, value]) =>
+    table === 'creator_profiles' && op === 'eq' && field === 'is_demo' && value === false))
+  assert.ok(calls.some(([table, op, field, value]) =>
+    table === 'creator_profiles' && op === 'neq' && field === 'slug' && value === 'admin-test-c529babe'))
   assert.deepEqual(result[0].coachingPrice, {
     creator_id: coach.id,
     price_cents: 6900,

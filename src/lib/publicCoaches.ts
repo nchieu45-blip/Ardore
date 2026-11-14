@@ -1,3 +1,4 @@
+import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
 
 export interface CoachData {
@@ -29,6 +30,8 @@ export async function loadPublicCoaches() {
       'id, slug, display_name, bio, category, categories, qualifications, languages, is_verified, avatar_url, created_at'
     )
     .eq('is_published', true)
+    .eq('is_demo', false)
+    .neq('slug', LAUNCH_TEST_COACH_SLUG)
     .order('created_at', { ascending: false })
 
   if (creatorsError) throw new Error('Coaches konnten nicht geladen werden')

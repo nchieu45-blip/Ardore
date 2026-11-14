@@ -1,3 +1,4 @@
+import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
@@ -19,6 +20,8 @@ export default async function MarketplacePage() {
       .select('id, title, description, type, price, created_at, creator_id, thumbnail_url, categories, equipment, level, duration, show_sales_count, creator_profiles!inner(display_name, avatar_url, slug, category, categories)')
       .eq('is_published', true)
       .eq('creator_profiles.is_published', true)
+      .eq('creator_profiles.is_demo', false)
+      .neq('creator_profiles.slug', LAUNCH_TEST_COACH_SLUG)
       .order('created_at', { ascending: false }),
     loadPublicCoaches(),
   ])

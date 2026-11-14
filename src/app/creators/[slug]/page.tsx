@@ -1,3 +1,4 @@
+import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { hasActiveSubscriptionEntitlement } from '@/lib/subscription-entitlement'
 import { hasValidCoachingPayment } from '@/lib/coaching-payment'
 import type { ComponentType } from 'react'
@@ -133,6 +134,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     .from('creator_profiles')
     .select('display_name, bio, avatar_url')
     .eq('is_published', true)
+    .eq('is_demo', false)
+    .neq('slug', LAUNCH_TEST_COACH_SLUG)
     .eq('slug', slug)
     .single()
 
@@ -162,6 +165,8 @@ export default async function CreatorProfilePage({
     .from('creator_profiles')
     .select('*')
     .eq('is_published', true)
+    .eq('is_demo', false)
+    .neq('slug', LAUNCH_TEST_COACH_SLUG)
     .eq('slug', slug)
     .single()
 

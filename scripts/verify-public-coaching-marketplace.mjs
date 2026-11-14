@@ -14,6 +14,7 @@ function fixture(responses, clientError = false) {
       const builder = {
         select(fields) { query.selected = fields; return builder },
         eq(field, value) { query.filters.push(['eq', field, value]); return builder },
+        neq(field, value) { query.filters.push(['neq', field, value]); return builder },
         in(field, value) { query.filters.push(['in', field, value]); return builder },
         order(field, options) { query.order = [field, options]; return builder },
         then(resolve, reject) {
@@ -33,7 +34,7 @@ function fixture(responses, clientError = false) {
 function profile(overrides = {}) {
   return {
     id: 'coach-a', slug: 'coach-a', display_name: 'Anna', avatar_url: '/anna.webp',
-    category: 'yoga', categories: ['yoga', 'mental'], is_verified: true, is_published: true,
+    category: 'yoga', categories: ['yoga', 'mental'], is_verified: true, is_published: true, is_demo: false,
     ...overrides,
   }
 }
@@ -67,7 +68,7 @@ test('1:1 inventory queries only enabled public offers and narrow public session
   assert.equal(result.ratingsUnavailable, false)
   assert.equal(result.offers.length, 1)
   assert.deepEqual(queries.map((query) => query.table), ['coaching_offers', 'public_session_reviews'])
-  assert.deepEqual(queries[0].filters, [['eq', 'is_enabled', true], ['eq', 'creator_profiles.is_published', true]])
+  assert.deepEqual(queries[0].filters, [['eq', 'is_enabled', true], ['eq', 'creator_profiles.is_published', true], ['eq', 'creator_profiles.is_demo', false], ['neq', 'creator_profiles.slug', 'admin-test-c529babe']])
   assert.deepEqual(queries[0].order, ['created_at', { ascending: false }])
   assert.match(queries[0].selected, /creator_profiles!inner\(/)
   assert.deepEqual(queries[1].filters, [['in', 'creator_id', ['coach-a']]])
@@ -90,7 +91,7 @@ test('group inventory reads its own active offers and never borrows 1:1 or produ
   const result = await load('group')
   assert.equal(result.error, false)
   assert.deepEqual(queries.map((query) => query.table), ['video_classes'])
-  assert.deepEqual(queries[0].filters, [['eq', 'active', true], ['eq', 'creator_profiles.is_published', true]])
+  assert.deepEqual(queries[0].filters, [['eq', 'active', true], ['eq', 'creator_profiles.is_published', true], ['eq', 'creator_profiles.is_demo', false], ['neq', 'creator_profiles.slug', 'admin-test-c529babe']])
   const offer = result.offers[0]
   assert.equal(offer.kind, 'group')
   assert.equal(offer.title, 'Yoga am Morgen')
@@ -226,4 +227,14 @@ test('duplicate offer IDs collapse and private source fields never enter the ret
   assert.doesNotMatch(JSON.stringify(result.offers), /private-fixture|fixture@example|private\.invalid|buyer_email|daily_room_url|stripe/)
   const source = readFileSync(new URL('../src/lib/publicCoachingMarketplace.ts', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /createServiceClient|SERVICE_ROLE|\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/)
+})
+
+test('demo offers are excluded even if a row reaches the public catalog mapper', async () => {
+  const demoCoach = profile({ is_demo: true })
+  const { load } = fixture({
+    coaching_offers: data([coaching({ creator_profiles: demoCoach })]),
+    video_classes: data([group({ creator_profiles: demoCoach }), group({ creator_profiles: profile({ slug: 'admin-test-c529babe' }) })]),
+  })
+  assert.deepEqual((await load('coaching')).offers, [])
+  assert.deepEqual((await load('group')).offers, [])
 })

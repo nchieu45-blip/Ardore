@@ -1,3 +1,4 @@
+import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import FavoritesPageClient from './FavoritesPageClient'
@@ -35,12 +36,18 @@ export default async function FavoritesPage() {
           .select('id, title, type, price, thumbnail_url, creator_id, creator_profiles!inner(id, display_name, avatar_url, slug, category, categories)')
           .in('id', productIds)
           .eq('is_published', true)
+          .eq('creator_profiles.is_published', true)
+          .eq('creator_profiles.is_demo', false)
+          .neq('creator_profiles.slug', LAUNCH_TEST_COACH_SLUG)
       : Promise.resolve({ data: [] }),
     coachIds.length > 0
       ? supabase
           .from('creator_profiles')
           .select('id, display_name, avatar_url, slug, category, categories, bio')
           .in('id', coachIds)
+          .eq('is_published', true)
+          .eq('is_demo', false)
+          .neq('slug', LAUNCH_TEST_COACH_SLUG)
       : Promise.resolve({ data: [] }),
   ])
 
