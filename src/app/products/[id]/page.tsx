@@ -1,3 +1,4 @@
+import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProductThumbnail } from '@/components/ui/Media'
@@ -52,8 +53,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const supabase = await createClient()
   const { data: p } = await supabase
     .from('products')
-    .select('title, description, thumbnail_url, creator_profiles(display_name)')
+    .select('title, description, thumbnail_url, creator_profiles!inner(display_name)')
     .eq('id', id)
+    .eq('is_published', true)
+    .eq('creator_profiles.is_published', true)
+    .eq('creator_profiles.is_demo', false)
+    .neq('creator_profiles.slug', LAUNCH_TEST_COACH_SLUG)
     .single()
 
   if (!p) return { title: 'Produkt – Ardore' }
@@ -79,9 +84,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const { data: product } = await supabase
     .from('products')
-    .select('*, creator_profiles(id, slug, display_name, avatar_url, bio, categories, category, is_demo)')
+    .select('*, creator_profiles!inner(id, slug, display_name, avatar_url, bio, categories, category, is_demo)')
     .eq('id', id)
     .eq('is_published', true)
+    .eq('creator_profiles.is_published', true)
+    .eq('creator_profiles.is_demo', false)
+    .neq('creator_profiles.slug', LAUNCH_TEST_COACH_SLUG)
     .single()
 
   if (!product) notFound()

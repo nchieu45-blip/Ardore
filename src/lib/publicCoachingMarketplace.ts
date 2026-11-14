@@ -1,3 +1,4 @@
+import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
 import { MAX_GROUP_PARTICIPANTS } from '@/lib/group-schedule'
 
@@ -35,7 +36,7 @@ interface MarketplaceServiceInventory {
 
 type PublicRow = Record<string, unknown>
 
-const CREATOR_FIELDS = 'id, slug, display_name, avatar_url, category, categories, is_verified, is_published'
+const CREATOR_FIELDS = 'id, slug, display_name, avatar_url, category, categories, is_verified, is_published, is_demo'
 const OFFER_FIELDS = 'id, creator_id, description, price_cents, duration_minutes, created_at'
 
 function record(value: unknown): PublicRow | null {
@@ -67,8 +68,8 @@ function publicOffer(value: unknown, kind: MarketplaceServiceOffer['kind'], now:
   const slug = text(profile?.slug)
   const createdAt = date(row.created_at)
   if (
-    !id || !creatorId || !profile || profile.id !== creatorId || profile.is_published !== true ||
-    !name || !slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !createdAt ||
+    !id || !creatorId || !profile || profile.id !== creatorId || profile.is_published !== true || profile.is_demo !== false ||
+    !name || !slug || slug === LAUNCH_TEST_COACH_SLUG || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !createdAt ||
     !integer(row.price_cents, 0) || !integer(row.duration_minutes, 1)
   ) return null
 
@@ -147,6 +148,8 @@ export async function loadPublicCoachingMarketplace(kind: MarketplaceServiceOffe
       .select(`${fields}, creator_profiles!inner(${CREATOR_FIELDS})`)
       .eq(isCoaching ? 'is_enabled' : 'active', true)
       .eq('creator_profiles.is_published', true)
+      .eq('creator_profiles.is_demo', false)
+      .neq('creator_profiles.slug', LAUNCH_TEST_COACH_SLUG)
       .order('created_at', { ascending: false })
 
     if (error || !Array.isArray(data)) return { offers: [], error: true, ratingsUnavailable: false }
