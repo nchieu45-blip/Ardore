@@ -121,7 +121,7 @@ export default function LandingPage() {
                 {[
                   'Kunden vertrauen einem strukturierten Marktplatz mehr als privaten Nachrichten',
                   'Echte Bewertungen stärken deine Glaubwürdigkeit',
-                  'Neue Kunden finden dich über Suche & KI-Finder',
+                  'Neue Kunden finden dich über die Coach-Suche',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-gray-700">
                     <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
@@ -138,7 +138,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-semibold tracking-tight text-foreground mb-3">Du startest gerade erst?</h3>
               <p className="text-gray-600 leading-relaxed mb-6">
-                Spar dir tausende Euro für eine eigene Website, Stripe-Integration und Marketing. Auf Ardore bist du in 10 Minuten live und Kunden finden dich automatisch über Suche, Kategorien und unseren KI-Coach-Finder.
+                Spar dir tausende Euro für eine eigene Website, Stripe-Integration und Marketing. Auf Ardore bist du in 10 Minuten live und Kunden finden dich automatisch über die Coach-Suche und Kategorien.
               </p>
               <ul className="space-y-2.5">
                 {[
@@ -191,7 +191,7 @@ export default function LandingPage() {
                   step: 4,
                   icon: <TrendingUp className="h-5 w-5 text-green-600" />,
                   title: 'Verkaufen & wachsen',
-                  desc: 'Kunden finden dich über Suche, Filter und KI-Coach-Finder.',
+                  desc: 'Kunden finden dich über die Coach-Suche und ihre Filter.',
                 },
               ].map(s => (
                 <div key={s.step} className="border-t border-border pt-6">
@@ -299,7 +299,7 @@ export default function LandingPage() {
               {
                 icon: <Target className="h-6 w-6 text-green-600" />,
                 title: 'Sichtbarkeit im Marktplatz',
-                desc: 'Kunden finden dich über Suche, Kategoriefilter und den KI-Coach-Finder.',
+                desc: 'Kunden finden dich über die Coach-Suche und Kategoriefilter.',
               },
             ].map(feature => (
               <div key={feature.title} className="flex flex-col border-t border-border pt-6">

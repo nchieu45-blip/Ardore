@@ -164,14 +164,8 @@ test('product search, price filter and legacy coach filters keep explicit scoped
   assert.ok(!html.includes('Beliebteste'))
   assert.ok(html.includes('Hier findest du Produkte'))
 })
-test('home uses shared person/product cards and inventory precedes collapsed optional AI assistance', () => {
-  const Home = loadUiComponent('src/app/MarketplaceClient.tsx', {
-    ...mocks,
-    '@/components/CoachFinderWidget': {
-      __esModule: true,
-      default: () => h('p', null, 'AI content'),
-    },
-  }).default
+test('home uses shared cards and offers the regular coach search after the inventory', () => {
+  const Home = loadUiComponent('src/app/MarketplaceClient.tsx', mocks).default
   const html = render(
     h(Home, {
       coaches: [coach],
@@ -186,7 +180,9 @@ test('home uses shared person/product cards and inventory precedes collapsed opt
   assert.ok(
     html.indexOf('home-products-title') < html.indexOf('Hilfe bei der Auswahl')
   )
-  assert.ok(!html.includes('AI content'))
+  const help = html.slice(html.indexOf('Hilfe bei der Auswahl'))
+  assert.match(help, /href="\/coaches"[^>]*>Coaches entdecken/)
+  assert.doesNotMatch(html, /KI-Finder|KI-Coach-Finder/)
   assert.ok(!html.includes('Gruppen'))
   assert.ok(!html.includes('qualifizierten'))
   assert.ok(html.includes('action="/coaches"'))
