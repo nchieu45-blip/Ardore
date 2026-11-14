@@ -65,7 +65,7 @@ function RegisterContent() {
       }
       // Successful pending signup responses need not include a user object.
       // Do not enumerate accounts or send another email to compensate for this.
-      router.push(`/verify-email?email=${encodeURIComponent(data.email)}&sent=1`)
+      router.push('/verify-email?sent=1')
     } catch {
       setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
     }

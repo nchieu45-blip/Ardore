@@ -12,7 +12,7 @@ import { Mail, CheckCircle } from 'lucide-react'
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
-  const [email, setEmail] = useState(searchParams.get('email') ?? '')
+  const [email, setEmail] = useState('')
   const supabase = createClient()
   const [resent, setResent] = useState(false)
   const [resending, setResending] = useState(false)
