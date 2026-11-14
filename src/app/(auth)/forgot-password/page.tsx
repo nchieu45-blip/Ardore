@@ -69,7 +69,7 @@ function ForgotPasswordContent() {
           </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
             label="E-Mail-Adresse"
             type="email"

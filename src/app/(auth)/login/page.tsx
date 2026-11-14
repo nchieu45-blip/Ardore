@@ -30,7 +30,7 @@ function LoginContent() {
   const redirect = safeRedirect(searchParams.get('redirect'))
   const supabase = createClient()
   const [error, setError] = useState('')
-  const [confirmationEmail, setConfirmationEmail] = useState('')
+  const [confirmationRequired, setConfirmationRequired] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -38,12 +38,12 @@ function LoginContent() {
 
   async function onSubmit(data: FormData) {
     setError('')
-    setConfirmationEmail('')
+    setConfirmationRequired(false)
     const { error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
     if (error) {
       if (error.code === 'email_not_confirmed') {
         setError('Bitte bestätige zuerst deine E-Mail-Adresse. Danach kannst du dich anmelden.')
-        setConfirmationEmail(data.email)
+        setConfirmationRequired(true)
       } else {
         setError('E-Mail oder Passwort falsch. Bitte versuche es erneut.')
       }
@@ -93,8 +93,8 @@ function LoginContent() {
         {error && (
           <div role="alert" className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
             {error}
-            {confirmationEmail && (
-              <Link href={`/verify-email?email=${encodeURIComponent(confirmationEmail)}`} className="block mt-2 font-medium underline">
+            {confirmationRequired && (
+              <Link href="/verify-email" className="block mt-2 font-medium underline">
                 Bestätigungs-E-Mail erneut anfordern
               </Link>
             )}

@@ -65,7 +65,7 @@ function RegisterContent() {
       }
       // Successful pending signup responses need not include a user object.
       // Do not enumerate accounts or send another email to compensate for this.
-      router.push(`/verify-email?email=${encodeURIComponent(data.email)}&sent=1`)
+      router.push('/verify-email?sent=1')
     } catch {
       setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
     }
@@ -111,7 +111,7 @@ function RegisterContent() {
       <p className="mb-4 text-sm text-gray-600">
         Nach der Registrierung bestätigst du zuerst deine E-Mail-Adresse. Danach kannst du dich anmelden und Ardore nutzen.
       </p>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           label="Vollständiger Name"
           type="text"
