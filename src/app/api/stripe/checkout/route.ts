@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 import { ConnectReadinessError, requirePublishedCoach, configuredStripeLivemode, requirePayoutReadyCoach } from '@/lib/stripe/connect-readiness'
 import { createSettlementOrder, registerSettlementCheckout } from '@/lib/stripe/settlement'
+import { MAX_CART_ITEMS, MIXED_CART_MESSAGE } from '@/lib/cart'
 import { PERMANENT_DIGITAL_TYPES, VALID_PURCHASE_STATUS } from '@/lib/purchases'
 
 export async function POST(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   const discountId: string | null = body.discountId ?? null
   const withdrawalConsent: boolean = body.withdrawalConsent === true
 
-  if (!Array.isArray(rawItems) || rawItems.length === 0 || rawItems.length > 50
+  if (!Array.isArray(rawItems) || rawItems.length === 0 || rawItems.length > MAX_CART_ITEMS
     || rawItems.some(item => !item || typeof item.productId !== 'string')) {
     return NextResponse.json({ error: 'Keine Produkte' }, { status: 400 })
   }
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     .in('id', productIds)
     .eq('is_published', true)
 
-  // Every entitlement in checkout metadata must correspond to a billed,
+  // Every entitlement in the order must correspond to a billed,
   // published product. RLS can otherwise silently omit inaccessible IDs.
   if (!products || products.length !== productIds.length || productIds.some(id => !products.some(p => p.id === id))) {
     return NextResponse.json({ error: 'Produkte nicht gefunden' }, { status: 404 })
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
 
   const creatorIds = [...new Set((products as ProductRow[]).map(p => p.creator_id))]
   if (creatorIds.length !== 1) {
-    return NextResponse.json({ error: 'Bitte kaufe Angebote verschiedener Coaches einzeln.' }, { status: 409 })
+    return NextResponse.json({ error: MIXED_CART_MESSAGE }, { status: 409 })
   }
 
   const totalCents = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount, 0)
@@ -148,51 +149,60 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Der Auszahlungsstatus konnte nicht geprüft werden.' }, { status: 503 })
     }
   }
-  const order = await createSettlementOrder({
-    service,
-    id: orderId,
-    kind: 'products',
-    buyerId: user.id,
-    creatorId: creatorIds[0],
-    accountId,
-    grossCents: finalTotalCents,
-    livemode,
-    reference: {
-      ...(reservation ? { discountRedemptionId: reservation.id } : {}),
-      items: productIds.map((productId, index) => ({
-        productId, amountCents: finalLineItems[index].price_data.unit_amount,
-      })),
-      withdrawalConsentAt: consentTimestamp,
-      withdrawalConsentVersion: consentTimestamp ? 'widerruf-v1' : null,
-    },
-  })
+  let order
+  try {
+    order = await createSettlementOrder({
+      service,
+      id: orderId,
+      kind: 'products',
+      buyerId: user.id,
+      creatorId: creatorIds[0],
+      accountId,
+      grossCents: finalTotalCents,
+      livemode,
+      reference: {
+        ...(reservation ? { discountRedemptionId: reservation.id } : {}),
+        items: productIds.map((productId, index) => ({
+          productId, amountCents: finalLineItems[index].price_data.unit_amount,
+        })),
+        withdrawalConsentAt: consentTimestamp,
+        withdrawalConsentVersion: consentTimestamp ? 'widerruf-v1' : null,
+      },
+    })
+  } catch {
+    if (reservation) await releaseDiscount(service, reservation.id).catch(() => {})
+    return NextResponse.json({ error: 'Die Bestellung konnte nicht vorbereitet werden. Bitte versuche es erneut.' }, { status: 503 })
+  }
+
+  // Product IDs and withdrawal consent live in the immutable order snapshot.
   const metadata = {
     ardore_order_id: order.id,
     buyer_id: user.id,
     creator_id: creatorIds[0],
-    product_ids: productIds.join(','),
-    ...(productIds.length === 1 ? { product_id: productIds[0] } : {}),
-    ...(consentTimestamp ? {
-      withdrawal_consent_at: consentTimestamp,
-      withdrawal_consent_version: 'widerruf-v1',
-    } : {}),
   }
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    payment_method_types: ['card'],
-    locale: 'de',
-    customer_email: user.email,
-    line_items: finalLineItems,
-    metadata,
-    ...(reservation ? { expires_at: Math.floor(new Date(reservation.expires_at).getTime() / 1000) } : {}),
-    success_url: `${appUrl}/buyer/library?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/buyer/library?checkout=cancel`,
-    ...(finalTotalCents > 0 ? { payment_intent_data: {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      locale: 'de',
+      customer_email: user.email,
+      line_items: finalLineItems,
       metadata,
-      transfer_group: `ardore-order-${order.id}`,
-    } } : {}),
-  }, { idempotencyKey: `ardore-order-checkout-${order.id}-v1` })
-  await registerSettlementCheckout({ service, orderId: order.id, sessionId: session.id })
+      ...(reservation ? { expires_at: Math.floor(new Date(reservation.expires_at).getTime() / 1000) } : {}),
+      success_url: `${appUrl}/buyer/library?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/buyer/library?checkout=cancel`,
+      ...(finalTotalCents > 0 ? { payment_intent_data: {
+        metadata,
+        transfer_group: `ardore-order-${order.id}`,
+      } } : {}),
+    }, { idempotencyKey: `ardore-order-checkout-${order.id}-v1` })
+    await registerSettlementCheckout({ service, orderId: order.id, sessionId: session.id })
 
-  return NextResponse.json({ url: session.url })
+    if (!session.url) throw new Error('checkout_url_missing')
+    return NextResponse.json({ url: session.url })
+  } catch {
+    // Stripe may have created the session. Keep its order and discount available
+    // for reconciliation and let an unused discount reservation expire normally.
+    return NextResponse.json({ error: 'Der Checkout konnte nicht bestätigt werden. Bitte versuche es erneut.' }, { status: 503 })
+  }
 }

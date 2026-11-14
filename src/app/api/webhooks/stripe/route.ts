@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (session.mode === 'payment' && session.payment_status === 'paid' && meta.buyer_id) {
-        // Support both legacy single product_id and new comma-separated product_ids
+        // Older sessions without an order can carry either product metadata format.
         const productIds: string[] = meta.product_ids
           ? meta.product_ids.split(',').filter(Boolean)
           : meta.product_id ? [meta.product_id] : []

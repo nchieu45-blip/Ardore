@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { X, Trash2, ShoppingCart, ArrowRight, Package, Tag, Loader2, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
 import {
   subscribeCart, subscribeCartOpen, removeFromCart, clearCart, type CartItem,
-  removePurchasedFromCart,
+  removePurchasedFromCart, MAX_CART_ITEMS, MIXED_CART_MESSAGE,
 } from '@/lib/cart'
 import { formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -185,16 +185,18 @@ export default function CartDrawer() {
   const subtotalCents     = items.reduce((sum, i) => sum + Math.round(i.price * 100), 0)
   const savingsCents      = effectiveDiscount?.savingsCents ?? 0
   const totalCents        = Math.max(0, subtotalCents - savingsCents)
-  const singleCreator     = [...new Set(items.map(i => i.creatorId))].length === 1
+  const singleCreator = Boolean(items[0]?.creatorId) && items.every(item => item.creatorId === items[0]?.creatorId)
+  const cartTooLarge = items.length > MAX_CART_ITEMS
 
   // All cart items are digital content (pdf/video/course/image).
   // The withdrawal-right checkbox is required whenever the cart is non-empty.
   const DIGITAL_TYPES     = new Set(['pdf', 'video', 'course', 'image'])
   const hasDigital        = items.some(i => DIGITAL_TYPES.has(i.type))
   const belowMinimum = totalCents > 0 && totalCents < 50
-  const checkoutDisabled  = loading || (hasDigital && !withdrawalConsent) || belowMinimum
+  const checkoutDisabled  = loading || !singleCreator || cartTooLarge || (hasDigital && !withdrawalConsent) || belowMinimum
 
   async function handleCheckout() {
+    if (checkoutDisabled) return
     setLoading(true)
     setCheckoutError('')
     try {
@@ -429,6 +431,8 @@ export default function CartDrawer() {
               </label>
             )}
 
+            {!singleCreator && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{MIXED_CART_MESSAGE} Entferne die Produkte der anderen Coaches, um fortzufahren.</p>}
+            {cartTooLarge && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">Entferne Artikel, bis höchstens {MAX_CART_ITEMS} Produkte im Warenkorb liegen.</p>}
             {belowMinimum && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">Der Betrag nach Rabatt muss 0 € oder mindestens 0,50 € betragen. Bitte ändere deinen Warenkorb oder wähle einen anderen Rabatt.</p>}
             {checkoutError && (
               <div role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">

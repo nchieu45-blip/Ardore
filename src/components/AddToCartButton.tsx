@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ShoppingCart, Check } from 'lucide-react'
-import { addToCart, openCart, subscribeCart, type CartItem } from '@/lib/cart'
+import { addToCart, MAX_CART_ITEMS, MIXED_CART_MESSAGE, openCart, subscribeCart, type CartItem } from '@/lib/cart'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -25,12 +25,18 @@ export default function AddToCartButton({ item, size = 'md', className, isDemo =
       openCart()
       return
     }
-    const added = addToCart(item)
-    if (added) {
-      setInCart(true)
-      toast.success(`„${item.title}" zum Warenkorb hinzugefügt`)
-      openCart()
+    const result = addToCart(item)
+    if (result === 'different_coach') {
+      toast.warning(`${MIXED_CART_MESSAGE} Schließe zuerst deinen Warenkorb ab oder entferne die vorhandenen Produkte.`)
+      return
     }
+    if (result === 'full') {
+      toast.warning(`Pro Bestellung sind bis zu ${MAX_CART_ITEMS} Produkte möglich.`)
+      return
+    }
+    setInCart(true)
+    if (result === 'added') toast.success(`„${item.title}“ zum Warenkorb hinzugefügt`)
+    openCart()
   }
 
   const sizeClasses = {

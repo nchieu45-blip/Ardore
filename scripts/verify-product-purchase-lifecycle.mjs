@@ -121,11 +121,32 @@ test('confirmed cart removal preserves unrelated items and persists across refre
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) } })
   const received = []
   const unsubscribe = cart.subscribeCart(items => received.push(items))
-  cart.addToCart({ id: 'bought' }); cart.addToCart({ id: 'other' }); cart.removePurchasedFromCart(['bought', 'bought'])
-  assert.deepEqual(cart.getCart(), [{ id: 'other' }]); assert.deepEqual(received.at(-1), [{ id: 'other' }])
+  cart.addToCart({ id: 'bought', creatorId: 'coach-a' }); cart.addToCart({ id: 'other', creatorId: 'coach-a' }); cart.removePurchasedFromCart(['bought', 'bought'])
+  assert.deepEqual(cart.getCart(), [{ id: 'other', creatorId: 'coach-a' }]); assert.deepEqual(received.at(-1), [{ id: 'other', creatorId: 'coach-a' }])
   const reloaded = load('../src/lib/cart.ts', {}, { window: {}, localStorage: { getItem: key => storage.get(key) } })
-  assert.deepEqual(reloaded.getCart(), [{ id: 'other' }])
-  cart.removePurchasedFromCart([]); assert.deepEqual(cart.getCart(), [{ id: 'other' }])
+  assert.deepEqual(reloaded.getCart(), [{ id: 'other', creatorId: 'coach-a' }])
+  cart.removePurchasedFromCart([]); assert.deepEqual(cart.getCart(), [{ id: 'other', creatorId: 'coach-a' }])
   storage.set('ardore_cart', '[{"id":"another-tab"}]'); events.get('storage')({ key: 'ardore_cart' })
   assert.deepEqual(received.at(-1), [{ id: 'another-tab' }]); unsubscribe()
+})
+
+test('cart refuses a second coach and preserves legacy mixed carts until the user removes items', () => {
+  const storage = new Map()
+  const cart = load('../src/lib/cart.ts', {}, { window: {},
+    localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) } })
+  const first = { id: 'one', creatorId: 'coach-a' }
+  const second = { id: 'two', creatorId: 'coach-b' }
+  assert.equal(cart.addToCart(first), 'added')
+  assert.equal(cart.addToCart(first), 'duplicate')
+  assert.equal(cart.addToCart(second), 'different_coach')
+  assert.deepEqual(cart.getCart(), [first])
+  storage.set('ardore_cart', JSON.stringify([first, second]))
+  assert.equal(cart.addToCart({ id: 'three', creatorId: 'coach-a' }), 'different_coach')
+  assert.deepEqual(cart.getCart(), [first, second])
+  cart.removeFromCart(first.id)
+  for (let i = 1; i < cart.MAX_CART_ITEMS; i++) {
+    assert.equal(cart.addToCart({ id: 'product-' + i, creatorId: second.creatorId }), 'added')
+  }
+  assert.equal(cart.addToCart({ id: 'overflow', creatorId: second.creatorId }), 'full')
+  assert.equal(cart.getCart().length, 50)
 })
