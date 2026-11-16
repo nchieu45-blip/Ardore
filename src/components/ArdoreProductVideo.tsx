@@ -27,7 +27,7 @@ export default function ArdoreProductVideo() {
             controls
             playsInline
             preload="none"
-            poster="/media/ardore-brand-motion-concept-poster.png"
+            poster="/media/ardore-brand-motion-concept-poster.webp"
             aria-label="Ardore-Produktvideo: Coaches, Angebote und Coach-Arbeitsbereich"
             aria-describedby="home-product-tour-caption"
           >
