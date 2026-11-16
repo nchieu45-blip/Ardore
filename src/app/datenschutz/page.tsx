@@ -17,7 +17,7 @@ export default function DatenschutzPage() {
         </p>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Datenschutzerklärung</h1>
+      <h1 className="mb-2 text-2xl font-bold hyphens-auto wrap-anywhere text-gray-900 sm:text-3xl">Datenschutzerklärung</h1>
       <p className="text-sm text-gray-400 mb-10">Zuletzt aktualisiert: [Datum einfügen]</p>
 
       <div className="prose-ardore">
