@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/Button'
+import { Button, ButtonLink } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AuthShell } from '@/components/layout/AuthShell'
-import { LockKeyhole, AlertCircle, Loader2 } from 'lucide-react'
+import { LockKeyhole, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 const schema = z.object({
   password: z.string().min(8, 'Mindestens 8 Zeichen'),
@@ -21,10 +20,9 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-type Status = 'checking' | 'ready' | 'invalid'
+type Status = 'checking' | 'ready' | 'invalid' | 'complete'
 
 export default function ResetPasswordPage() {
-  const router = useRouter()
   const supabase = createClient()
   const [status, setStatus] = useState<Status>('checking')
   const [submitError, setSubmitError] = useState('')
@@ -69,7 +67,7 @@ export default function ResetPasswordPage() {
     setSubmitError('')
     const { error } = await supabase.auth.updateUser({ password: data.password })
     if (error) { setSubmitError('Fehler beim Zurücksetzen. Bitte versuche es erneut.'); return }
-    router.push('/login')
+    setStatus('complete')
   }
 
   return (
@@ -77,11 +75,11 @@ export default function ResetPasswordPage() {
       heading="Neues Passwort setzen"
       subheading="Wähle ein sicheres Passwort für dein Konto"
       icon={<LockKeyhole className="h-6 w-6 text-green-600" />}
-      footer={
+      footer={status !== 'complete' && (
         <Link href="/login" className="text-green-600 font-medium hover:underline">
           ← Zurück zur Anmeldung
         </Link>
-      }
+      )}
     >
       {status === 'checking' && (
         <div className="flex flex-col items-center gap-3 py-6 text-gray-400">
@@ -97,9 +95,17 @@ export default function ResetPasswordPage() {
           </div>
           <p className="font-semibold text-gray-900">Link ungültig oder abgelaufen</p>
           <p className="text-sm text-gray-500">Bitte fordere einen neuen Reset-Link an.</p>
-          <Link href="/forgot-password">
-            <Button variant="outline" className="mt-2">Neuen Link anfordern</Button>
-          </Link>
+          <ButtonLink href="/forgot-password" variant="outline" className="mt-2">Neuen Link anfordern</ButtonLink>
+        </div>
+      )}
+
+      {status === 'complete' && (
+        <div className="space-y-3 py-4 text-center">
+          <div role="status">
+            <CheckCircle className="mx-auto mb-3 h-10 w-10 text-brand" aria-hidden="true" />
+            <p className="font-semibold text-foreground">Passwort geändert</p>
+          </div>
+          <ButtonLink href="/">Weiter zu Ardore</ButtonLink>
         </div>
       )}
 
