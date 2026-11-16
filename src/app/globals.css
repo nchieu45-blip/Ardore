@@ -265,6 +265,10 @@ html[data-input-method=keyboard] :is(.button-base, .popover-enter, .toast-enter,
 
 /* ── Legal page prose ─────────────────────────────────────────── */
 
+.prose-ardore {
+  overflow-wrap: anywhere;
+}
+
 .prose-ardore section {
   margin-bottom: 2rem;
 }
