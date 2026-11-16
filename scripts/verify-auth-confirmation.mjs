@@ -51,7 +51,7 @@ function form(path,auth,query='') {
  let handler,stateIndex=0,states=[],pushes=[],inFlight={current:false};const parameters=new URLSearchParams(query)
  const react={...React,useState:initial=>{const slot=stateIndex++;if(!(slot in states))states[slot]=initial;return [states[slot],value=>{states[slot]=typeof value==='function'?value(states[slot]):value}]},useRef:()=>inFlight,useEffect:()=>{},Suspense:({children})=>children}
  const mocks={react,'@/lib/app-url':appUrl,'@/lib/utils':{cn:(...parts)=>parts.filter(Boolean).join(' ')},'@/lib/supabase/client':{createClient:()=>({auth})},'next/navigation':{useRouter:()=>({push:url=>pushes.push(url),refresh:()=>{}}),useSearchParams:()=>parameters},'next/link':{__esModule:true,default:()=>null},'react-hook-form':{useForm:()=>({register:()=>({}),handleSubmit:fn=>{handler=fn;return fn},formState:{errors:{},isSubmitting:false}})}}
- for(const [name,exports] of [['@/components/ui/Button',{Button:()=>null}],['@/components/ui/Input',{Input:()=>null}],['@/components/layout/AuthShell',{AuthShell:()=>null}]])mocks[name]=exports
+ for(const [name,exports] of [['@/components/ui/Button',{Button:()=>null,ButtonLink:()=>null}],['@/components/ui/Input',{Input:()=>null}],['@/components/layout/AuthShell',{AuthShell:()=>null}]])mocks[name]=exports
  const page=load(path,mocks).default
  const render=()=>{stateIndex=0;const wrapper=page();return wrapper.type===mocks['@/components/layout/AuthShell'].AuthShell?wrapper:wrapper.props.children.type()}
  const content=render()
@@ -99,6 +99,23 @@ function enterAddress(f) {
  field.props.onChange({target:{value:input.email}})
  return f.find(f.render(),e=>e.type==='form').props.onSubmit
 }
+test('password reset confirms success before offering navigation', async () => {
+ const f=form('src/app/(auth)/reset-password/page.tsx',{updateUser:async()=>({error:null})})
+ f.states[0]='ready'
+ await f.find(f.render(),e=>e.type==='form').props.onSubmit({password:'Synthetic-new-password'})
+ const confirmation=f.render()
+ assert.ok(f.find(confirmation,e=>e.props?.role==='status'))
+ assert.ok(f.find(confirmation,e=>e.props?.href==='/'&&e.props?.children==='Weiter zu Ardore'))
+ assert.ok(!f.find(confirmation,e=>e.type==='form'))
+ assert.deepEqual(f.pushes,[])
+})
+test('a rejected password reset keeps the form and shows the error', async () => {
+ const f=form('src/app/(auth)/reset-password/page.tsx',{updateUser:async()=>({error:{code:'same_password'}})})
+ f.states[0]='ready'
+ await f.find(f.render(),e=>e.type==='form').props.onSubmit({password:'Synthetic-new-password'})
+ assert.ok(f.find(f.render(),e=>e.type==='form'))
+ assert.match(f.states[1],/Fehler beim Zurücksetzen/)
+})
 for (const route of ['register', 'forgot-password', 'verify-email', 'reset-password']) {
  test(route + ' uses POST before hydration', () => {
   const f=form('src/app/(auth)/'+route+'/page.tsx',{})
