@@ -1,0 +1,10 @@
+User-Agent: *
+Disallow: /api/
+Disallow: /admin$
+Disallow: /admin/
+Disallow: /buyer$
+Disallow: /buyer/
+Disallow: /creator$
+Disallow: /creator/
+
+Sitemap: https://www.ardore-health.com/sitemap.xml
