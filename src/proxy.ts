@@ -3,6 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
 
 export async function proxy(request: NextRequest) {
+  // Config-level redirects in Next.js discard the configured response headers.
+  if (request.headers.get('host')?.split(':')[0].toLowerCase() === 'ardore-health.com') {
+    const canonical = new URL('https://www.ardore-health.com')
+    canonical.pathname = request.nextUrl.pathname
+    canonical.search = request.nextUrl.search
+    return NextResponse.redirect(canonical, 308)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -63,6 +71,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    { source: '/:path*', has: [{ type: 'host', value: 'ardore-health\\.com' }] },
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
