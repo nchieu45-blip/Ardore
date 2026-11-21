@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
@@ -9,6 +10,24 @@ export async function proxy(request: NextRequest) {
     canonical.pathname = request.nextUrl.pathname
     canonical.search = request.nextUrl.search
     return NextResponse.redirect(canonical, 308)
+  }
+
+  // Only the isolated local backend with a sandbox key can accept test bookings.
+  const isolated = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
+    && /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY ?? '')
+  const path = request.nextUrl.pathname
+  if (!isolated && path !== '/api/webhooks/stripe' && !path.startsWith('/api/cron/')) {
+    const headers = { 'Cache-Control': 'private, no-store' }
+    if (path.startsWith('/api/') || path === '/register' || !['GET', 'HEAD'].includes(request.method)) {
+      return new NextResponse('Der öffentliche Betrieb pausiert.', { status: 503, headers })
+    }
+    const expected = Buffer.from('4b969562339956930f86ecd9d30a0f0ea9df343e5af7957e4613a49108696e9e', 'hex')
+    const actual = createHash('sha256').update(request.headers.get('authorization') ?? '').digest()
+    if (!timingSafeEqual(expected, actual)) {
+      return new NextResponse('Privater Zugang', {
+        status: 401, headers: { ...headers, 'WWW-Authenticate': 'Basic realm="Ardore"' },
+      })
+    }
   }
 
   let supabaseResponse = NextResponse.next({ request })
