@@ -1,7 +1,7 @@
 import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import type { Metadata } from 'next'
+import { publicPageMetadata } from '@/lib/public-page-metadata'
 import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import MarketplacePageClient from './MarketplacePageClient'
 import { aggregateProductRatings } from '@/lib/productRatings'
@@ -10,14 +10,11 @@ import { loadPublicCoachingMarketplace } from '@/lib/publicCoachingMarketplace'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Marktplatz',
-  description: 'Entdecke digitale Produkte, 1:1 Coaching und Gruppencoaching für Fitness, Ernährung und Wohlbefinden.',
-  openGraph: {
-    title: 'Marktplatz – Ardore',
-    description: 'Digitale Produkte, 1:1 Coaching und Gruppencoaching auf Ardore.',
-  },
-}
+export const metadata = publicPageMetadata(
+  '/marketplace',
+  'Marktplatz',
+  'Entdecke digitale Produkte, 1:1 Coaching und Gruppencoaching für Fitness, Ernährung und Wohlbefinden.',
+)
 
 export default async function MarketplacePage(props: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await props?.searchParams

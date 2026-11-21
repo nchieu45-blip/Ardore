@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import { publicPageMetadata } from '@/lib/public-page-metadata'
 import Image from 'next/image'
 import { ButtonLink } from '@/components/ui/Button'
 import {
@@ -8,14 +8,11 @@ import {
 } from 'lucide-react'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 
-export const metadata: Metadata = {
-  title: 'Für Coaches – Werde Creator',
-  description: 'Verkaufe Trainingspläne, Kurse und Ernährungspläne auf Ardore. Starte kostenlos und baue deine Fitness-Community auf.',
-  openGraph: {
-    title: 'Für Coaches – Ardore',
-    description: 'Monetarisiere dein Wissen. Starte kostenlos.',
-  },
-}
+export const metadata = publicPageMetadata(
+  '/landing',
+  'Für Coaches – Werde Creator',
+  'Verkaufe Trainingspläne, Kurse und Ernährungspläne auf Ardore. Starte kostenlos und baue deine Fitness-Community auf.',
+)
 
 
 // The existing booking example stays illustrative and has no checkout action.

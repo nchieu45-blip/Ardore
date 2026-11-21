@@ -1,16 +1,17 @@
 import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
-import type { Metadata } from 'next'
+import { publicPageMetadata } from '@/lib/public-page-metadata'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Ardore – Fitness & Gesundheitscoaches',
-  description: 'Finde Coaches, persönliches Coaching und digitale Produkte für Fitness, Ernährung und Wohlbefinden auf Ardore.',
-}
+export const metadata = publicPageMetadata(
+  '/',
+  'Ardore – Fitness & Gesundheitscoaches',
+  'Finde Coaches, persönliches Coaching und digitale Produkte für Fitness, Ernährung und Wohlbefinden auf Ardore.',
+)
 
 export default async function MarketplacePage() {
   const supabase = await createClient()
