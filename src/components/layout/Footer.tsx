@@ -19,7 +19,7 @@ export function Footer() {
             </p>
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-semibold text-sm mb-2">Entdecken</h3>
+            <h2 className="text-white font-semibold text-sm mb-2">Entdecken</h2>
             <ul className="text-sm">
               <li><Link href="/marketplace" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Marktplatz</Link></li>
               <li><Link href="/coaches" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Coaches entdecken</Link></li>
@@ -29,7 +29,7 @@ export function Footer() {
             </ul>
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-semibold text-sm mb-2">Rechtliches</h3>
+            <h2 className="text-white font-semibold text-sm mb-2">Rechtliches</h2>
             <ul className="text-sm">
               <li><Link href="/datenschutz" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Datenschutz</Link></li>
               <li><Link href="/agb" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">AGB</Link></li>

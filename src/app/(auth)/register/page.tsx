@@ -93,6 +93,7 @@ function RegisterContent() {
           <button
             key={opt.value}
             type="button"
+            aria-pressed={role === opt.value}
             onClick={() => setRole(opt.value)}
             className={cn(
               'flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all text-center',
@@ -103,7 +104,7 @@ function RegisterContent() {
           >
             {opt.icon}
             <span className="text-sm font-semibold">{opt.label}</span>
-            <span className="text-xs opacity-70 leading-tight">{opt.sub}</span>
+            <span className="text-xs leading-tight">{opt.sub}</span>
           </button>
         ))}
       </div>
@@ -146,9 +147,9 @@ function RegisterContent() {
         </Button>
         <p className="text-xs text-gray-400 text-center">
           Mit der Registrierung stimmst du unseren{' '}
-          <Link href="/agb" className="text-green-600 hover:underline">AGB</Link>
+          <Link href="/agb" className="text-green-600 underline underline-offset-2">AGB</Link>
           {' '}und der{' '}
-          <Link href="/datenschutz" className="text-green-600 hover:underline">Datenschutzerklärung</Link>
+          <Link href="/datenschutz" className="text-green-600 underline underline-offset-2">Datenschutzerklärung</Link>
           {' '}zu.
         </p>
       </form>

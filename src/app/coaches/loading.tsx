@@ -1,7 +1,8 @@
 import { CoachCardSkeleton, Skeleton } from '@/components/ui/Skeleton'
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-label="Coaches werden geladen">
+    <div role="status">
+      <span className="sr-only">Coaches werden geladen</span>
       <div className="border-b border-border bg-surface">
         <div className="ardore-container space-y-4 py-8">
           <Skeleton className="h-8 w-64 max-w-full" />
