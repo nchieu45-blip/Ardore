@@ -313,7 +313,7 @@ html[data-input-method=keyboard] :is(.button-base, .popover-enter, .toast-enter,
 }
 
 .prose-ardore em {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 

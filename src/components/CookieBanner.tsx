@@ -80,7 +80,7 @@ export default function CookieBanner() {
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] p-3 sm:p-4 flex justify-center animate-slide-up">
+    <section aria-labelledby="cookie-heading" className="fixed bottom-0 left-0 right-0 z-[100] p-3 sm:p-4 flex justify-center animate-slide-up">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-[calc(100svh-1.5rem)] sm:max-h-[calc(100svh-2rem)] overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="flex items-start gap-3 px-4 sm:px-5 pt-5 pb-4">
@@ -88,7 +88,7 @@ export default function CookieBanner() {
             <Cookie className="h-4.5 w-4.5 text-green-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm mb-1">Deine Cookie-Einstellungen</p>
+            <h2 id="cookie-heading" className="font-semibold text-gray-900 text-sm mb-1">Deine Cookie-Einstellungen</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
               Wir verwenden Cookies, um diese Website zu betreiben und zu verbessern. Notwendige
               Cookies sind immer aktiv. Weitere Kategorien kannst du selbst wählen.{' '}
@@ -175,6 +175,6 @@ export default function CookieBanner() {
           )}
         </div>
       </div>
-    </div>
+    </section>
   )
 }

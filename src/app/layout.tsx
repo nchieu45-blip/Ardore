@@ -82,9 +82,10 @@ export default async function RootLayout({
     <html lang="de" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <InteractionMode />
+        <a href="#hauptinhalt" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[110] focus:rounded-xl focus:bg-surface focus:px-4 focus:py-3 focus:text-brand">Zum Hauptinhalt</a>
         <Navbar user={profile} creatorSlug={creatorSlug} />
         <FavoritesProvider userId={profile?.id ?? null}>
-          <main className="flex-1">
+          <main id="hauptinhalt" tabIndex={-1} className="flex-1 scroll-mt-16">
             {children}
           </main>
         </FavoritesProvider>
