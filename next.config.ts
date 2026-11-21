@@ -4,12 +4,11 @@ const nextConfig: NextConfig = {
   // Shared hosting exposes more CPUs than its process limit can support.
   experimental: { cpus: 2 },
   allowedDevOrigins: ['127.0.0.1'],
-  async redirects() {
+  async headers() {
     return [{
       source: '/:path*',
-      has: [{ type: 'host', value: 'ardore-health.com' }],
-      destination: 'https://www.ardore-health.com/:path*',
-      permanent: true,
+      has: [{ type: 'host', value: '(?:www\\.)?ardore-health\\.com' }],
+      headers: [{ key: 'Strict-Transport-Security', value: 'max-age=86400' }],
     }]
   },
   images: {
