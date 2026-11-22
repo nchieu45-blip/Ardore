@@ -178,16 +178,16 @@ test('home uses shared cards and offers the regular coach search after the inven
     html.indexOf('home-coaches-title') < html.indexOf('home-products-title')
   )
   assert.ok(
-    html.indexOf('home-products-title') < html.indexOf('Hilfe bei der Auswahl')
+    html.indexOf('home-products-title') < html.indexOf('Noch unsicher, wer zu dir passt?')
   )
-  const help = html.slice(html.indexOf('Hilfe bei der Auswahl'))
-  assert.match(help, /href="\/coaches"[^>]*>Coaches entdecken/)
+  const help = html.slice(html.indexOf('Noch unsicher, wer zu dir passt?'))
+  assert.match(help, /href="\/coaches"[^>]*>Coaches vergleichen/)
   assert.doesNotMatch(html, /KI-Finder|KI-Coach-Finder/)
   assert.ok(!html.includes('Gruppen'))
   assert.ok(!html.includes('qualifizierten'))
   assert.ok(html.includes('action="/coaches"'))
   assert.ok(html.includes('name="q"'))
-  assert.ok(html.includes('Meeting-Link'))
+  assert.match(html, /href="\/coaches\?videocoaching=true"/)
 })
 test('public coach model respects publish scope, public prices and safe read errors', async () => {
   const calls = []

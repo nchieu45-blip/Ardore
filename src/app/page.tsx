@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic'
 
 export const metadata = publicPageMetadata(
   '/',
-  'Ardore – Fitness & Gesundheitscoaches',
-  'Finde Coaches, persönliches Coaching und digitale Produkte für Fitness, Ernährung und Wohlbefinden auf Ardore.',
+  'Ardore – Coaching für Bewegung und Ernährung',
+  'Entdecke Coaches und digitale Angebote für Fitness, Yoga, Pilates, Ernährung und Kampfsport.',
 )
 
 export default async function MarketplacePage() {

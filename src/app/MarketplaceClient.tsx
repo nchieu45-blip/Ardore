@@ -59,6 +59,18 @@ interface Props {
   coaches: CoachData[]
 }
 
+const newestProductCopy = {
+  title: 'Neu auf Ardore',
+  description: 'Entdecke frische Ideen für dein Training und deinen Alltag.',
+}
+
+const homeProductCopy: Partial<Record<string, typeof newestProductCopy>> = {
+  newest: newestProductCopy,
+  'best-rated': { title: 'Gut bewertet', description: 'Sieh, welche Inhalte bei anderen gut ankommen.' },
+  courses: { title: 'Online-Kurse', description: 'Lern Schritt für Schritt in deinem Tempo.' },
+  free: { title: 'Kostenlos ausprobieren', description: 'Hol dir Ideen und Übungen für deinen Einstieg.' },
+}
+
 export default function MarketplaceClient({
   products,
   salesCounts,
@@ -83,7 +95,7 @@ export default function MarketplaceClient({
         <div className="ardore-container grid items-center gap-8 pt-10 pb-16 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
           <div>
             <h1 className="page-title max-w-[19ch] text-balance text-white">
-              Coaches und Angebote <span className="text-green-200">für deine Gesundheit.</span>
+              Mach Platz für Bewegung, <span className="text-green-200">die dir guttut.</span>
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white">
               <ul aria-label="Disziplinen" className="flex flex-wrap gap-1.5">
@@ -91,15 +103,9 @@ export default function MarketplaceClient({
                   <li key={discipline} className="rounded-full border border-white/35 bg-black/25 px-2.5 py-1">{discipline}</li>
                 ))}
               </ul>
-              <span>Vor Ort &amp; online</span>
             </div>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
-              Persönliches Coaching, digitale Produkte und Abonnements für
-              Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
-              passt.
-            </p>
-            <p className="mt-4 text-sm font-medium text-white sm:text-base">
-              Dein Ziel. Dein nächster Schritt.
+              Entdecke Coaches für Fitness, Yoga, Pilates, Ernährung und Kampfsport – vor Ort oder online.
             </p>
           </div>
           <div className="min-w-0">
@@ -141,14 +147,14 @@ export default function MarketplaceClient({
                   name="q"
                   placeholder={
                     intent === '/coaches'
-                      ? 'Name, Thema oder Ziel'
-                      : 'Produkt, Coach oder Thema'
+                      ? 'Z. B. Yoga oder Krafttraining'
+                      : 'Z. B. Trainingsplan oder Pilateskurs'
                   }
                   className="field-control min-h-12 w-full pl-12"
                 />
               </label>
               <Button type="submit" className="min-h-12 w-full">
-                Entdecken
+                Suchen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             </form>
@@ -157,14 +163,14 @@ export default function MarketplaceClient({
                 href="/coaches"
                 className="inline-flex min-h-11 items-center gap-2 font-semibold text-white hover:underline"
               >
-                Coaches entdecken
+                Alle Coaches ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 href="/marketplace"
                 className="inline-flex min-h-11 items-center gap-2 text-white hover:underline"
               >
-                Produkte ansehen
+                Alle Produkte ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
@@ -179,10 +185,10 @@ export default function MarketplaceClient({
           <section className="grid gap-6 border-b border-border py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center lg:gap-12" aria-labelledby="goals-title">
             <div>
               <h2 id="goals-title" className="section-title">
-                Was möchtest du erreichen?
+                Dein Thema finden
               </h2>
               <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
-                Entdecke Themen, die unsere Coaches und Produkte abdecken.
+                Stöbere nach einem Schwerpunkt, der zu deinem Ziel passt.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-x-6">
@@ -220,11 +226,11 @@ export default function MarketplaceClient({
 
         <DiscoveryRail
           id="home-coaches"
-          title="Coaches entdecken"
-          description="Lerne die Menschen und ihre Schwerpunkte kennen."
+          title="Lern die Coaches kennen"
+          description="Schau, wie sie arbeiten und was sie anbieten."
           href="/coaches"
-          linkLabel="Alle Coaches"
-          empty={<StatePanel title="Coaches kommen bald dazu" description="Sobald Profile veröffentlicht sind, findest du sie hier." />}
+          linkLabel="Alle Coaches ansehen"
+          empty={<StatePanel title="Hier gibt es noch keine Coach-Profile." description="Bis dahin kannst du dich auf dem Marktplatz umsehen." />}
         >
           {coaches.slice(0, 12).map(coach => <CoachCard key={coach.id} coach={coach} layout="rail" />)}
         </DiscoveryRail>
@@ -233,11 +239,11 @@ export default function MarketplaceClient({
           <DiscoveryRail
             key={row.id}
             id={row.id === 'newest' ? 'home-products' : `home-products-${row.id}`}
-            title={row.title}
-            description={row.description}
+            title={homeProductCopy[row.id]?.title ?? row.title}
+            description={homeProductCopy[row.id]?.description ?? 'Finde digitale Inhalte für dein Thema.'}
             href={row.href}
-            linkLabel="Alle ansehen"
-            empty={<p className="rounded-xl bg-surface-muted p-5 text-base leading-relaxed text-muted">Sobald Produktbewertungen vorliegen, findest du hier die bestbewerteten Inhalte.</p>}
+            linkLabel="Alle Produkte ansehen"
+            empty={<p className="rounded-xl bg-surface-muted p-5 text-base leading-relaxed text-muted">Hier gibt es noch keine Produktbewertungen. Stöbere solange in den neuen Angeboten.</p>}
           >
             {row.products.map(product => (
               <ProductCard key={product.id} product={product} salesCount={salesCounts[product.id]} rating={ratings[product.id]} />
@@ -247,39 +253,41 @@ export default function MarketplaceClient({
         {products.length === 0 && (
           <DiscoveryRail
             id="home-products"
-            title="Neu im Marktplatz"
-            description="Digitale Inhalte für deinen Alltag und dein Training."
+            {...newestProductCopy}
             href="/marketplace?sort=newest"
-            linkLabel="Alle Produkte"
-            empty={<StatePanel title="Noch keine Produkte veröffentlicht" description="Neue Inhalte erscheinen hier, sobald sie verfügbar sind." />}
+            linkLabel="Alle Produkte ansehen"
+            empty={<StatePanel title="Hier gibt es noch keine Produkte." description="Schau wieder vorbei, wenn du nach neuen Ideen für dein Training suchst." />}
           >{[]}</DiscoveryRail>
         )}
 
         <section className="border-t border-border py-6 sm:py-8" aria-labelledby="formats-title">
           <h2 id="formats-title" className="section-title mb-4 max-w-xl text-balance">
-            Die passende Begleitung für dich
+            Wie willst du loslegen?
           </h2>
           <div className="grid gap-4 md:grid-cols-3 md:gap-6">
             {[
               {
                 title: '1:1 Coaching',
-                text: 'Persönliche Sessions mit einem Coach. Termin und Meeting-Link findest du in deiner Buchung.',
+                text: 'Arbeite mit einem Coach an dem, was du verändern möchtest.',
+                action: '1:1 Coaching ansehen',
                 href: '/coaches?videocoaching=true',
                 Icon: UsersRound,
               },
               {
                 title: 'Digitale Produkte',
-                text: 'Pläne, Kurse und weitere Inhalte. Nach dem Kauf findest du sie in deiner Bibliothek.',
+                text: 'Hol dir Trainingspläne, Kurse und Ideen für deinen Alltag.',
+                action: 'Digitale Produkte ansehen',
                 href: '/marketplace',
                 Icon: BookOpen,
               },
               {
-                title: 'Abonnements',
-                text: 'Begleitung im Abo. Inhalte, Preis und Laufzeit siehst du im jeweiligen Coach-Profil.',
+                title: 'Begleitung im Abo',
+                text: 'Bleib mit regelmäßiger Unterstützung an deinem Ziel dran.',
+                action: 'Abos ansehen',
                 href: '/coaches?subscription=true',
                 Icon: Layers,
               },
-            ].map(({ title, text, href, Icon }) => (
+            ].map(({ title, text, action, href, Icon }) => (
               <Link
                 key={title}
                 href={href}
@@ -291,7 +299,7 @@ export default function MarketplaceClient({
                   {text}
                 </p>
                 <span className="mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
-                  Entdecken
+                  {action}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </span>
               </Link>
@@ -307,18 +315,18 @@ export default function MarketplaceClient({
             {[
               {
                 Icon: ShieldCheck,
-                title: 'Profile transparent vergleichen',
-                text: 'Schwerpunkte, Angebote und Preise stehen im jeweiligen Profil. Ein Verifiziert-Siegel wird nur bei verifizierten Profilen angezeigt.',
+                title: 'Finde den passenden Coach',
+                text: 'Vergleiche Schwerpunkte, Angebote und Preise auf einen Blick.',
               },
               {
                 Icon: LockKeyhole,
-                title: 'Deine Inhalte an einem Ort',
-                text: 'Gekaufte Produkte bleiben in deiner Bibliothek. Termine und private Meeting-Links findest du in deinem Konto.',
+                title: 'Alles griffbereit',
+                text: 'Finde deine gekauften Inhalte und behalte deine Termine im Blick.',
               },
               {
                 Icon: BookOpen,
-                title: 'Bewertungen mit Kontext',
-                text: 'Produktbewertungen zeigen ihre Anzahl. Wo noch keine Bewertungen vorliegen, werden keine Sterne ergänzt.',
+                title: 'Erfahrungen helfen dir bei der Wahl',
+                text: 'Schau, wie andere die digitalen Inhalte bewerten.',
               },
             ].map(({ Icon, title, text }) => (
               <div key={title} className="flex gap-3">
@@ -348,14 +356,14 @@ export default function MarketplaceClient({
             <summary className="min-h-11 cursor-pointer py-3 text-base font-semibold text-foreground">
               <span className="inline-flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" />
-                Hilfe bei der Auswahl
+                Noch unsicher, wer zu dir passt?
               </span>
             </summary>
             <p className="mb-4 mt-3 text-sm leading-relaxed text-muted">
-              Vergleiche Coaches nach Themen und schau dir ihre Profile und Angebote an.
+              Such nach dem Thema, das dich gerade beschäftigt. Die Profile zeigen dir, wie die Coaches arbeiten.
             </p>
             <ButtonLink href="/coaches" variant="outline" className="mb-3">
-              Coaches entdecken
+              Coaches vergleichen
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
           </details>
@@ -365,14 +373,13 @@ export default function MarketplaceClient({
       <section data-requires-open-launch className="bg-brand-dark text-white">
         <div className="ardore-container flex flex-col items-start justify-between gap-6 py-10 sm:py-16 md:flex-row md:items-center md:gap-12">
           <div>
-            <h2 className="section-title max-w-xl text-balance">Dein Wissen verdient einen Platz.</h2>
+            <h2 className="section-title max-w-xl text-balance">Teile, was dich antreibt.</h2>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
-              Erstelle dein Coach-Profil und präsentiere deine eigenen Angebote
-              auf Ardore.
+              Zeig in deinem Profil, wie du arbeitest und wobei du Menschen begleiten kannst.
             </p>
           </div>
           <ButtonLink href="/register?role=creator" className="min-h-12 w-full shrink-0 bg-white text-brand-dark hover:bg-brand-soft sm:w-auto">
-            Als Coach starten
+            Coach-Profil erstellen
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </ButtonLink>
         </div>

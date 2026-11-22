@@ -39,18 +39,18 @@ function ProcessScene({ stage }: { stage: 'discover' | 'choose' | 'start' }) {
 const steps = [
   {
     stage: 'discover',
-    title: 'Entdecken',
-    text: 'Suche nach deinem Ziel und vergleiche Coaches oder Produkte.',
+    title: 'Stöbere nach deinem Ziel',
+    text: 'Entdecke Coaches, Kurse und Trainingspläne zu dem, was dich gerade interessiert.',
   },
   {
     stage: 'choose',
-    title: 'Auswählen',
-    text: 'Lies Profil und Angebot. Prüfe Preis, Format und Voraussetzungen.',
+    title: 'Such dir aus, was passt',
+    text: 'Schau dir Profil und Angebot an. Passt es zu deinem Alltag und Budget?',
   },
   {
     stage: 'start',
-    title: 'Loslegen',
-    text: 'Buche deine Session oder kaufe einen Inhalt und finde alles in deinem Konto.',
+    title: 'Mach den ersten Schritt',
+    text: 'Vereinbare einen Termin mit deinem Coach oder starte mit einem digitalen Inhalt.',
   },
 ] as const
 
@@ -58,7 +58,7 @@ export default function CoachingProcess() {
   return (
     <section className="section-space" aria-labelledby="how-title">
       <h2 id="how-title" className="section-title mb-6 sm:mb-8">
-        So funktioniert Ardore
+        So legst du mit Ardore los
       </h2>
       <div className="coaching-process-layout">
         <figure className="coaching-process-photo">

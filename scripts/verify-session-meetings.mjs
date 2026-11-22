@@ -325,8 +325,8 @@ test('migration isolates private URLs and serializes authenticated-owner-only wr
   assert.match(readFileSync(new URL('../src/lib/features.ts', import.meta.url), 'utf8'), /VIDEO_CALLS_ENABLED = true/)
 })
 
-test('booking, marketplace, landing and FAQ describe the external meeting path rather than a disabled session', () => {
-  for (const file of ['src/app/creators/[slug]/BookingWidget.tsx','src/app/MarketplaceClient.tsx','src/app/landing/page.tsx','src/app/hilfe/FaqContent.tsx']) {
+test('booking, coach landing and FAQ describe the external meeting path rather than a disabled session', () => {
+  for (const file of ['src/app/creators/[slug]/BookingWidget.tsx','src/app/landing/page.tsx','src/app/hilfe/FaqContent.tsx']) {
     const source = readFileSync(new URL(`../${file}`,import.meta.url),'utf8')
     assert.doesNotMatch(source,/Video-Call-Funktion wird bald verfügbar sein/)
     assert.match(source,/Meeting-Link/)

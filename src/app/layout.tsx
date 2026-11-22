@@ -89,7 +89,7 @@ export default async function RootLayout({
         {launchPaused && (
           <aside id="start-pausiert" aria-label="Hinweis zum Start" className="scroll-mt-16 border-b border-border bg-brand-soft text-foreground">
             <div className="ardore-container py-3 text-sm leading-relaxed">
-              <p><strong>Der Start von Ardore ist pausiert.</strong> Du kannst den Marktplatz ansehen. Registrierungen, Buchungen und Zahlungen sind vorübergehend gesperrt.</p>
+              <p><strong>Der Start von Ardore ist pausiert.</strong> Du kannst dich gern auf dem Marktplatz umsehen. Registrieren, buchen und bezahlen ist vorübergehend pausiert.</p>
             </div>
           </aside>
         )}
