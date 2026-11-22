@@ -73,12 +73,12 @@ export default function LandingPage() {
               Für Health Coaches in Deutschland
             </p>
             <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              <ButtonLink href="/register?role=creator" size="lg">
+              <ButtonLink data-requires-open-launch href="/register?role=creator" size="lg">
                 Jetzt kostenlos starten <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </ButtonLink>
               <ButtonLink href="/" size="lg" variant="secondary">Marktplatz ansehen</ButtonLink>
             </div>
-            <p className="mt-4 text-sm leading-relaxed text-muted">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
+            <p data-requires-open-launch className="mt-4 text-sm leading-relaxed text-muted">Kostenlos registrieren · In 10 Minuten live · Keine Kreditkarte</p>
           </div>
           <figure className="relative aspect-[4/3] w-full min-w-0 overflow-hidden rounded-2xl lg:aspect-[4/5]">
             <Image src="/media/coach-workspace.webp" alt="Illustration mit Notizbuch und Trainingsmaterial auf einem hellen Arbeitsplatz" fill loading="eager" fetchPriority="high" sizes="(min-width: 1280px) 460px, (min-width: 1024px) 38vw, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)" className="object-cover object-center" />
@@ -87,7 +87,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Early adopter banner ──────────────────────────────────── */}
-      <section className="border-b border-border py-6 sm:py-8">
+      <section data-requires-open-launch className="border-b border-border py-6 sm:py-8">
         <div className="ardore-container">
           <p className="text-green-800 font-semibold text-lg mb-1">Frisch gestartet — werde einer der ersten Coaches</p>
           <p className="text-muted text-sm leading-relaxed">
@@ -207,8 +207,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="text-center mt-12">
-            <ButtonLink href="/register?role=creator" size="lg" className="gap-2">
+          <div data-requires-open-launch className="text-center mt-12">
+            <ButtonLink data-requires-open-launch href="/register?role=creator" size="lg" className="gap-2">
                 Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
               </ButtonLink>
           </div>
@@ -342,7 +342,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <ButtonLink href="/register?role=creator" className="gap-2">
+              <ButtonLink data-requires-open-launch href="/register?role=creator" className="gap-2">
                   <Video className="h-4 w-4" />
                   Kostenlos starten
                 </ButtonLink>
@@ -353,7 +353,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ───────────────────────────────────────────────────── */}
-      <section className="section-space border-t border-border bg-surface">
+      <section data-requires-open-launch className="section-space border-t border-border bg-surface">
 
 
 
@@ -363,7 +363,7 @@ export default function LandingPage() {
             Erstelle dein Coach-Profil in 10 Minuten und starte dein Coaching-Business noch heute.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 mb-5">
-            <ButtonLink href="/register?role=creator" size="lg" className="w-full sm:w-auto gap-2">
+            <ButtonLink data-requires-open-launch href="/register?role=creator" size="lg" className="w-full sm:w-auto gap-2">
                 Jetzt kostenlos starten <ArrowRight className="h-4 w-4" />
               </ButtonLink>
             <ButtonLink href="/" size="lg" variant="secondary" className="w-full sm:w-auto">

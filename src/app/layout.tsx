@@ -10,6 +10,7 @@ import CartDrawer from '@/components/CartDrawer'
 import SessionGuard from '@/components/SessionGuard'
 import InteractionMode from '@/components/InteractionMode'
 import { createClient } from '@/lib/supabase/server'
+import { isLaunchPaused } from '@/lib/launch-pause'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -53,6 +54,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const launchPaused = isLaunchPaused()
   let profile = null
   let creatorSlug: string | null = null
   try {
@@ -80,10 +82,17 @@ export default async function RootLayout({
 
   return (
     <html lang="de" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" data-launch-paused={launchPaused || undefined}>
         <InteractionMode />
         <a href="#hauptinhalt" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[110] focus:rounded-xl focus:bg-surface focus:px-4 focus:py-3 focus:text-brand">Zum Hauptinhalt</a>
         <Navbar user={profile} creatorSlug={creatorSlug} />
+        {launchPaused && (
+          <aside id="start-pausiert" aria-label="Hinweis zum Start" className="scroll-mt-16 border-b border-border bg-brand-soft text-foreground">
+            <div className="ardore-container py-3 text-sm leading-relaxed">
+              <p><strong>Der Start von Ardore ist pausiert.</strong> Du kannst den Marktplatz ansehen. Registrierungen, Buchungen und Zahlungen sind vorübergehend gesperrt.</p>
+            </div>
+          </aside>
+        )}
         <FavoritesProvider userId={profile?.id ?? null}>
           <main id="hauptinhalt" tabIndex={-1} className="flex-1 scroll-mt-16">
             {children}

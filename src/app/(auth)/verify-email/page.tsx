@@ -64,8 +64,10 @@ function VerifyEmailContent() {
         <>
           Bereits bestätigt?{' '}
           <Link href="/login" className="text-green-600 font-medium hover:underline">Anmelden</Link>
-          {' · '}
-          <Link href="/register" className="text-green-600 font-medium hover:underline">Neu registrieren</Link>
+          <span data-requires-open-launch>
+            {' · '}
+            <Link href="/register" className="text-green-600 font-medium hover:underline">Neu registrieren</Link>
+          </span>
         </>
       }
     >
