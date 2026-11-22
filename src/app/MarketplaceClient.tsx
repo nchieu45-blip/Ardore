@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import HomeHeroMedia from '@/components/HomeHeroMedia'
 import {
   ArrowRight,
   Search,
@@ -78,12 +78,20 @@ export default function MarketplaceClient({
   return (
     <div className="min-w-0">
       <section className="home-hero">
-        <Image src="/media/coach-workspace.webp" alt="" fill loading="eager" fetchPriority="high" sizes="100vw" className="home-hero-photo" />
-        <div className="ardore-container grid items-center gap-8 py-10 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
+        <HomeHeroMedia />
+        <div className="ardore-container grid items-center gap-8 pt-10 pb-16 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
           <div>
             <h1 className="page-title max-w-[19ch] text-balance text-white">
               Coaches und Angebote <span className="text-green-200">für deine Gesundheit.</span>
             </h1>
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white">
+              <ul aria-label="Disziplinen" className="flex flex-wrap gap-1.5">
+                {['Fitness', 'Yoga', 'Pilates', 'Ernährung', 'Kampfsport'].map(discipline => (
+                  <li key={discipline} className="rounded-full border border-white/35 bg-black/25 px-2.5 py-1">{discipline}</li>
+                ))}
+              </ul>
+              <span>Vor Ort &amp; online</span>
+            </div>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
               Persönliches Coaching, digitale Produkte und Abonnements für
               Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
