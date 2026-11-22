@@ -1,10 +1,12 @@
 import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
 import { MAX_GROUP_PARTICIPANTS } from '@/lib/group-schedule'
+import type { CoachFormat } from '@/lib/marketplaceFilters'
 
 export interface MarketplaceServiceOffer {
   id: string
   kind: 'coaching' | 'group'
+  format: CoachFormat
   title: string
   description: string | null
   priceCents: number
@@ -107,6 +109,7 @@ function publicOffer(value: unknown, kind: MarketplaceServiceOffer['kind'], now:
   return {
     id,
     kind,
+    format: kind === 'coaching' && profile.format === 'beides' ? 'beides' : 'online',
     title,
     description: text(row.description),
     priceCents: row.price_cents,
@@ -145,7 +148,7 @@ export async function loadPublicCoachingMarketplace(kind: MarketplaceServiceOffe
       : `${OFFER_FIELDS}, title, active, schedule_type, starts_at, recurring_weekday, recurring_time, max_participants, included_in_subscription, group_occurrence_schedules(occurrence_start,scheduled_at,revision)`
     const { data, error } = await supabase
       .from(isCoaching ? 'coaching_offers' : 'video_classes')
-      .select(`${fields}, creator_profiles!inner(${CREATOR_FIELDS})`)
+      .select(`${fields}, creator_profiles!inner(${CREATOR_FIELDS}${isCoaching ? ', format' : ''})`)
       .eq(isCoaching ? 'is_enabled' : 'active', true)
       .eq('creator_profiles.is_published', true)
       .eq('creator_profiles.is_demo', false)

@@ -14,6 +14,7 @@ import { Button, ButtonLink } from '@/components/ui/Button'
 import { StatePanel } from '@/components/ui/StatePanel'
 import type { CoachData } from '@/lib/publicCoaches'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
+import { marketplaceCategoryLabel, matchesMarketplaceCategory } from '@/lib/marketplaceFilters'
 import { LANGUAGE_LABEL_MAP } from '@/lib/languages'
 import {
   buildCoachDiscoveryRows,
@@ -129,7 +130,7 @@ export default function CoachesPageClient({
         .join(' ')
         .toLocaleLowerCase('de-DE')
       return (
-        (category === 'all' || cats.includes(category)) &&
+        matchesMarketplaceCategory(category, cats) &&
         (language === 'all' || c.languages.includes(language)) &&
         (!videocoaching || c.hasVideoCoaching) &&
         (!groupclasses || c.hasGroupClasses) &&
@@ -158,7 +159,7 @@ export default function CoachesPageClient({
   const chips = [
     category !== 'all' && {
       key: 'category',
-      label: CATEGORY_LABEL_MAP[category] ?? category,
+      label: marketplaceCategoryLabel(category),
     },
     language !== 'all' && {
       key: 'language',
@@ -192,7 +193,7 @@ export default function CoachesPageClient({
             ))}
             {category !== 'all' && !availableCategories.includes(category) && (
               <option value={category}>
-                {CATEGORY_LABEL_MAP[category] ?? category}
+                {marketplaceCategoryLabel(category)}
               </option>
             )}
           </select>
@@ -413,7 +414,7 @@ export default function CoachesPageClient({
             <DiscoveryRail
               key={params.toString()}
               id="coaches-results"
-              title={category !== 'all' ? CATEGORY_LABEL_MAP[category] ?? 'Passende Coaches' : 'Alle passenden Coaches'}
+              title={category !== 'all' ? marketplaceCategoryLabel(category) : 'Alle passenden Coaches'}
               description="Vergleiche Profile und Angebote. Wische seitlich, um weitere Coaches zu entdecken."
               href="/coaches"
               linkLabel="Zur Übersicht"

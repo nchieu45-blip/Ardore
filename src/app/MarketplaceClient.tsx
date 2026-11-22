@@ -24,6 +24,7 @@ import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
 import DiscoveryRail from '@/components/DiscoveryRail'
+import HomeCategoryDiscovery from '@/components/HomeCategoryDiscovery'
 import { buildHomeProductRows } from '@/lib/homeDiscovery'
 import type { CoachData } from '@/lib/publicCoaches'
 
@@ -162,6 +163,8 @@ export default function MarketplaceClient({
           </div>
         </div>
       </section>
+
+      <HomeCategoryDiscovery />
 
       <div className="ardore-container">
         {categories.length > 0 && (

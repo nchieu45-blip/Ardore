@@ -3,11 +3,16 @@ import { Search, X, ShoppingBag, UserRound, UsersRound } from 'lucide-react'
 import { marketplaceAreaHref, type MarketplaceArea } from '@/lib/marketplaceAreas'
 import { discoveryHref } from '@/components/ui/DiscoveryNavigation'
 import type { ReactNode } from 'react'
+import MarketplaceFormatToggle from './MarketplaceFormatToggle'
+import type { MarketplaceFormat } from '@/lib/marketplaceFilters'
 
-export default function MarketplaceHeader({ area, search, category = 'all', onSearchChange, children }: {
+export default function MarketplaceHeader({ area, search, category = 'all', categoryParam, format, onFormatChange, onSearchChange, children }: {
   area: MarketplaceArea
   search: string
   category?: string
+  categoryParam?: 'kategorie' | 'category'
+  format?: MarketplaceFormat
+  onFormatChange?: (format: MarketplaceFormat) => void
   onSearchChange: (value: string) => void
   children?: ReactNode
 }) {
@@ -35,7 +40,7 @@ export default function MarketplaceHeader({ area, search, category = 'all', onSe
               { key: 'coaching', label: '1:1 Coaching', Icon: UserRound },
               { key: 'groups', label: 'Gruppencoaching', Icon: UsersRound },
             ] as const).map(({ key, label, Icon }) => (
-              <Link key={key} href={marketplaceAreaHref(key, normalizedSearch, category)} scroll={false} aria-label={label} aria-current={area === key ? 'page' : undefined} className="marketplace-area-link">
+              <Link key={key} href={marketplaceAreaHref(key, normalizedSearch, category, format, categoryParam)} scroll={false} aria-label={label} aria-current={area === key ? 'page' : undefined} className="marketplace-area-link">
                 <Icon className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
                 <span>{key === 'groups' ? <>Gruppen<wbr />coaching</> : label}</span>
               </Link>
@@ -48,6 +53,7 @@ export default function MarketplaceHeader({ area, search, category = 'all', onSe
             {normalizedSearch && <button type="button" onClick={() => onSearchChange('')} aria-label="Suche löschen" className="icon-button absolute right-1 top-1/2 -translate-y-1/2 text-muted"><X className="h-4 w-4" aria-hidden="true" /></button>}
           </label>
         </div>
+        {onFormatChange && <div className="mt-4"><MarketplaceFormatToggle value={format ?? 'beides'} onChange={onFormatChange} /></div>}
         {children}
       </div>
     </section>

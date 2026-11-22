@@ -401,3 +401,45 @@ test('service errors, missing ratings and empty filtered inventories have honest
     assert.match(page(`area=${area}`).html, /Noch keine Angebote/)
   }
 })
+
+test('German category deep links and format filters compose across marketplace tabs', () => {
+  const indoor = offer('studio', { format: 'beides' })
+  const virtual = offer('remote', { format: 'online' })
+  const oldFormat = offer('legacy')
+  const strength = offer('strength', {
+    format: 'beides',
+    creator: { ...offer('strength').creator, categories: ['krafttraining'], category: null },
+  })
+  const fixtures = { serviceOffers: [indoor, virtual, oldFormat, strength] }
+  const onsite = page('area=coaching&kategorie=yoga&format=vor-ort&max_price=0', fixtures)
+  assert.deepEqual(offerIds(onsite.html), ['studio'])
+  assert.match(onsite.html, /creator-studio#coaching-vor-ort/)
+  assert.doesNotMatch(onsite.html, /Preis je Session|45,00/)
+  const destinations = links(nav(onsite.html, 'Angebotsbereiche im Marktplatz'))
+  for (const { href } of destinations) {
+    const params = new URL(href, 'https://example.invalid').searchParams
+    assert.equal(params.get('format'), 'vor-ort')
+    assert.equal(params.get('kategorie'), 'yoga')
+    assert.equal(params.get('max_price'), null)
+  }
+  const formatRadio = onsite.elements.find(({ type, props }) => type === 'input' && props.type === 'radio' && props.value === 'online')
+  assert.ok(formatRadio)
+  formatRadio.props.onChange()
+  assert.deepEqual(onsite.pushes, [['/marketplace?area=coaching&kategorie=yoga&format=online', { scroll: false }]])
+
+  const online = page('area=coaching&kategorie=yoga&format=online', fixtures)
+  assert.deepEqual(new Set(offerIds(online.html)), new Set(['studio', 'remote', 'legacy']))
+  assert.deepEqual(offerIds(page('area=coaching&kategorie=fitness-kraft&format=beides', fixtures).html), ['strength'])
+  assert.deepEqual(offerIds(page('area=coaching&category=yoga&format=irgendwas', fixtures).html), offerIds(online.html))
+})
+
+test('in-person discovery does not treat video groups or digital downloads as onsite sessions', () => {
+  const group = offer('video-group', { kind: 'group', format: 'online' })
+  const groups = page('area=groups&kategorie=yoga&format=vor-ort', { serviceOffers: [group] })
+  assert.deepEqual(offerIds(groups.html), [])
+  assert.match(groups.html, /Gruppencoaching findet online statt/)
+  const products = page('kategorie=yoga&format=vor-ort', { products: [product('online-only')] })
+  assert.doesNotMatch(products.html, /Product online-only/)
+  assert.match(products.html, /Produkte sind digital verfügbar/)
+  assert.match(products.html, /area=coaching&amp;kategorie=yoga&amp;format=vor-ort/)
+})

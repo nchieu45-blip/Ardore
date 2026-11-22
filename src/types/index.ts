@@ -1,3 +1,5 @@
+import type { CoachFormat } from '@/lib/marketplaceFilters'
+
 export type UserRole = 'buyer' | 'creator'
 
 export type ProductType = 'pdf' | 'video' | 'course' | 'image'
@@ -19,6 +21,7 @@ export interface CreatorProfile {
   bio: string | null
   category: string | null
   categories: string[]
+  format: CoachFormat
   services: string[]
   languages: string[]
   avatar_url: string | null
