@@ -110,6 +110,7 @@ function fixture(options = {}) {
         const key = [args.p_booking_id, args.p_recipient_id, args.p_type, args.p_channel, args.p_occurrence].join('|')
         let entry = ledger.get(key)
         if (entry?.delivered) return { data: { state: 'sent', id: entry.id }, error: null }
+        if (entry?.token) return { data: { state: 'busy', id: entry.id }, error: null }
         if (!entry) {
           entry = { id: `synthetic-delivery-${++nextId}`, payload: structuredClone(options.frozenPayload ?? args.p_payload), key }
           ledger.set(key, entry)
@@ -121,7 +122,9 @@ function fixture(options = {}) {
         const id = args.p_delivery_id ?? args.p_id
         const entry = [...ledger.values()].find(item => item.id === id)
         assert.ok(entry, `Completion must reference an existing claimed delivery: ${JSON.stringify(args)}`)
+        assert.equal(args.p_token, entry.token)
         if (name === 'complete_session_notification') entry.delivered = true
+        entry.token = undefined
         return { data: true, error: null }
       }
       throw new Error(`Unexpected RPC: ${name}`)
@@ -169,6 +172,16 @@ test('successful recipient/channel deliveries are durable and skipped on rerun',
   assert.equal(result.failed, 0)
   assert.equal(f.emails.length, 2)
   assert.equal([...f.ledger.values()].filter(entry => entry.delivered).length, 4)
+})
+
+test('overlapping 1:1 cron calls send only one email to each role', async () => {
+  const f = fixture()
+  const results = await Promise.all([f.run(), f.run()])
+  assert.equal(results.reduce((busy, result) => busy + result.busy, 0) > 0, true)
+  await f.run()
+  assert.deepEqual(f.emails.map(({ payload }) => payload.to).sort(),
+    ['synthetic-buyer@example.test', 'synthetic-coach@example.test'])
+  assert.equal(new Set(f.emails.map(({ requestOptions }) => requestOptions.idempotencyKey)).size, 2)
 })
 
 test('buyer email failure does not suppress coach or in-app deliveries and retry sends only failed channel', async () => {
