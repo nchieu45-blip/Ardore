@@ -1,15 +1,17 @@
 import { runCoachingEmails } from '@/lib/coaching-emails'
 import { isCronAuthorized, cronJson } from '@/lib/cron'
 import { runSessionNotifications } from '@/lib/session-cron'
+import { isReminderSchedulerAuthorized } from '@/lib/reminder-scheduler-auth'
 import { runGroupSessionReminders } from '@/lib/group-session-reminders'
 
 export async function GET(request: Request) {
-  if (!isCronAuthorized(request)) return cronJson({ error: 'Unauthorized' }, 401)
+  const fullAccess = isCronAuthorized(request)
+  if (!fullAccess && !isReminderSchedulerAuthorized(request)) return cronJson({ error: 'Unauthorized' }, 401)
   try {
     // One reminder type failing must not suppress the other one.
-    const outcomes = await Promise.allSettled([
-      runSessionNotifications('session_reminder'), runGroupSessionReminders(), runCoachingEmails(),
-    ])
+    const tasks = [runSessionNotifications('session_reminder'), runGroupSessionReminders()]
+    if (fullAccess) tasks.push(runCoachingEmails())
+    const outcomes = await Promise.allSettled(tasks)
     const result = { sent: 0, skipped: 0, failed: 0, legacySkipped: 0, busy: 0, held: 0 }
     for (const outcome of outcomes) {
       if (outcome.status === 'rejected') { result.failed++; continue }
