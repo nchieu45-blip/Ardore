@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
+import { isLaunchPaused } from '@/lib/launch-pause'
 
 export async function proxy(request: NextRequest) {
   // Config-level redirects in Next.js discard the configured response headers.
@@ -11,13 +12,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(canonical, 308)
   }
 
-  // Only the isolated local backend with a sandbox key can accept test bookings.
-  const isolated = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')
-    && /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY ?? '')
   const path = request.nextUrl.pathname
-  if (!isolated && path !== '/api/webhooks/stripe' && !path.startsWith('/api/cron/')) {
+  if (isLaunchPaused() && path !== '/api/webhooks/stripe' && !path.startsWith('/api/cron/')) {
+    if (path === '/register' && ['GET', 'HEAD'].includes(request.method)) {
+      return NextResponse.redirect(new URL('/#start-pausiert', appOrigin()), {
+        status: 307,
+        headers: { 'Cache-Control': 'private, no-store' },
+      })
+    }
     const headers = { 'Cache-Control': 'private, no-store' }
-    if (path.startsWith('/api/') || path === '/register' || !['GET', 'HEAD'].includes(request.method)) {
+    if (path.startsWith('/api/') || !['GET', 'HEAD'].includes(request.method)) {
       return new NextResponse('Der öffentliche Betrieb pausiert.', { status: 503, headers })
     }
   }

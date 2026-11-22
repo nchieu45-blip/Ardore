@@ -24,7 +24,7 @@ export function Footer() {
               <li><Link href="/marketplace" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Marktplatz</Link></li>
               <li><Link href="/coaches" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Coaches entdecken</Link></li>
               <li><Link href="/landing" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Für Coaches</Link></li>
-              <li><Link href="/register" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Registrieren</Link></li>
+              <li data-requires-open-launch><Link href="/register" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Registrieren</Link></li>
               <li><Link href="/hilfe" className="min-h-11 flex items-center py-2 hover:text-white transition-colors">Hilfe & FAQ</Link></li>
             </ul>
           </div>

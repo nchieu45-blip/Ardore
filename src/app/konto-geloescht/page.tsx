@@ -17,13 +17,13 @@ export default function AccountDeletedPage() {
           Alle deine Daten wurden dauerhaft und DSGVO-konform gelöscht.
         </p>
         <p className="text-gray-500 mb-8">
-          Wir bedauern, dich gehen zu sehen. Du kannst jederzeit ein neues Konto erstellen.
+          Wir bedauern, dich gehen zu sehen.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/">
             <Button variant="outline">Zur Startseite</Button>
           </Link>
-          <Link href="/register">
+          <Link data-requires-open-launch href="/register">
             <Button>Neues Konto erstellen</Button>
           </Link>
         </div>

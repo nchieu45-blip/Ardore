@@ -351,7 +351,7 @@ export default function MarketplaceClient({
         </section>
       </div>
 
-      <section className="bg-brand-dark text-white">
+      <section data-requires-open-launch className="bg-brand-dark text-white">
         <div className="ardore-container flex flex-col items-start justify-between gap-6 py-10 sm:py-16 md:flex-row md:items-center md:gap-12">
           <div>
             <h2 className="section-title max-w-xl text-balance">Dein Wissen verdient einen Platz.</h2>
