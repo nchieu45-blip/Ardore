@@ -2,8 +2,19 @@
 
 The existing authenticated `/api/cron/session-reminders` job now runs the 1:1
 and group workers independently. A failure in either worker still returns 503
-and does not suppress the other worker. The existing GitHub schedule is unchanged.
-It is best effort, not a guaranteed exact delivery time.
+and does not suppress the other worker. The reminder job runs independently of payment recovery, review prompts and
+cleanup. GitHub schedules it at minutes 00, 10, 20, 30, 40, 50 and again at
+04, 14, 24, 34, 44, 54. The second schedule only runs reminders. Each run
+retries transport failures, HTTP 429 and 5xx up to twice. Other non-2xx
+responses fail immediately. Each attempt uses the same protected endpoint
+and the database journals handle overlapping calls.
+
+GitHub can still delay or drop scheduled runs. In Actions, check the
+`session-reminders` job for the last successful run. Treat a gap over 20
+minutes as a scheduling incident and inspect the recent job history before
+using an authorized manual recovery. The job's success indicates a successful
+HTTP response. Provider acceptance and inbox delivery require separate evidence.
+A scheduler outside GitHub is needed to cover an outage of GitHub scheduling.
 
 Group reminders cover confirmed, eligible per-occurrence registrations starting
 strictly after now and within the next 24 hours. Each participant gets one email;

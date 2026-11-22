@@ -13,24 +13,26 @@ const require = createRequire(import.meta.url)
 const yaml = require('js-yaml')
 const workflow = yaml.load(readFileSync(new URL('../.github/workflows/ardore-cron.yml', import.meta.url), 'utf8'))
 const job = workflow.jobs['call-cron-endpoints']
-const steps = Object.fromEntries(job.steps.filter(step => step.id).map(step => [step.id, step]))
+const reminders = workflow.jobs['session-reminders']
+const steps = Object.fromEntries([...reminders.steps, ...job.steps].filter(step => step.id).map(step => [step.id, step]))
 const secret = 'fixture-cron-credential-not-real'
 const baseUrl = 'https://www.ardore-health.com'
 const endpointIds = ['reminders', 'review-prompts', 'cleanup']
 
 function enabled(id, { schedule, target = 'all', manual = false, configuration = 'success', checkout = 'success', cancelled = false, recovery = 'success' } = {}) {
-  const expression = steps[id].if.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
-  return runInNewContext(expression, {
+  const context = {
     cancelled: () => cancelled,
     github: { event_name: manual ? 'workflow_dispatch' : 'schedule', event: { schedule } },
     inputs: { target },
     steps: { configuration: { outcome: configuration }, checkout: { outcome: checkout }, recovery: { outcome: recovery } },
-  })
+  }
+  const evaluate = expression => runInNewContext(expression.replace(/^\$\{\{\s*|\s*\}\}$/g, ''), context)
+  return evaluate((id === 'reminders' ? reminders : job).if) && evaluate(steps[id].if)
 }
 
 test('YAML preserves permissions and recovery/cleanup schedules without a duplicate 08:00 sweep', () => {
   assert.deepEqual(workflow.permissions, { contents: 'read' })
-  assert.deepEqual(workflow.on.schedule.map(item => item.cron), ['*/10 * * * *', '0 9 * * *'])
+  assert.deepEqual(workflow.on.schedule.map(item => item.cron), ['*/10 * * * *', '4-54/10 * * * *', '0 9 * * *'])
   assert.deepEqual(workflow.on.workflow_dispatch.inputs.target.options, ['all', 'coaching-payments'])
   assert.equal(job['timeout-minutes'], 10)
   assert.equal(job.env.ARDORE_BASE_URL, '${{ vars.ARDORE_BASE_URL }}')
@@ -41,6 +43,13 @@ test('YAML preserves permissions and recovery/cleanup schedules without a duplic
 test('every-ten-minute session checks coexist with recovery and daily cleanup', () => {
   for (const id of ['checkout', 'recovery', 'reminders', 'review-prompts']) assert.equal(enabled(id, { schedule: '*/10 * * * *' }), true, id)
   assert.equal(enabled('cleanup', { schedule: '*/10 * * * *' }), false)
+  assert.equal(enabled('reminders', { schedule: '4-54/10 * * * *' }), true)
+  for (const id of ['checkout', 'recovery', 'review-prompts', 'cleanup']) {
+    assert.equal(enabled(id, { schedule: '4-54/10 * * * *' }), false, id)
+  }
+  assert.equal(reminders.needs, undefined)
+  assert.equal(reminders['timeout-minutes'], 4)
+  assert.equal(reminders.steps[0].run, steps.configuration.run)
   for (const id of ['recovery', ...endpointIds]) assert.equal(enabled(id, { schedule: '0 8 * * *' }), false, id)
   assert.equal(enabled('cleanup', { schedule: '0 9 * * *' }), true)
   for (const id of ['recovery', 'reminders', 'review-prompts']) assert.equal(enabled(id, { schedule: '0 9 * * *' }), false, id)
@@ -73,7 +82,7 @@ test('configuration failures and cancelled runs prevent every authenticated requ
 })
 
 test('all workflow shell blocks parse without executing commands', () => {
-  for (const step of job.steps.filter(step => step.run)) {
+  for (const step of [...job.steps, ...reminders.steps].filter(step => step.run)) {
     const result = spawnSync('bash', ['-n'], { input: step.run, encoding: 'utf8' })
     assert.equal(result.status, 0, `${step.name}: ${result.stderr}`)
   }
@@ -105,14 +114,18 @@ test('endpoint shell steps accept only 2xx, fail on transport errors and keep cr
 const fs = require('node:fs');
 let input = ''; process.stdin.on('data', chunk => input += chunk);
 process.stdin.on('end', () => {
+  const attempts = process.env.FIXTURE_CAPTURE + '.attempts';
+  const attempt = fs.existsSync(attempts) ? fs.readFileSync(attempts, 'utf8').length + 1 : 1;
+  fs.appendFileSync(attempts, '.');
   fs.writeFileSync(process.env.FIXTURE_CAPTURE, JSON.stringify({
     args: process.argv.slice(2), headerMatches: input === 'Authorization: Bearer ${secret}\\n',
     secretInEnvironment: process.env.CRON_SECRET !== undefined,
   }));
-  process.stdout.write(process.env.FIXTURE_STATUS);
+  process.stdout.write(attempt === 2 && process.env.FIXTURE_RECOVERS ? '200' : process.env.FIXTURE_STATUS);
   process.exitCode = Number(process.env.FIXTURE_EXIT);
 });
 `, { mode: 0o700 })
+  writeFileSync(join(directory, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o700 })
   try {
     for (const id of endpointIds) {
       const step = steps[id]
@@ -122,11 +135,14 @@ process.stdin.on('end', () => {
         ['199', 0, 1], ['301', 0, 1], ['302', 0, 1], ['400', 0, 1], ['401', 0, 1],
         ['404', 0, 1], ['429', 0, 1], ['500', 0, 1], ['503', 0, 1], ['000', 28, 1], ['200', 7, 1],
       ]) {
+        writeFileSync(capture + '.attempts', '')
         const result = spawnSync('bash', ['-c', step.run], { encoding: 'utf8', env: {
           PATH: `${directory}:${process.env.PATH}`, ARDORE_BASE_URL: `${baseUrl}/`, CRON_SECRET: secret,
           FIXTURE_CAPTURE: capture, FIXTURE_STATUS: status, FIXTURE_EXIT: String(exitCode),
         } })
         assert.equal(result.status, expected, `${id}: HTTP ${status}, curl ${exitCode}`)
+        const transient = exitCode || status === '429' || /^5/.test(status)
+        assert.equal(readFileSync(capture + '.attempts', 'utf8').length, id === 'reminders' && transient ? 3 : 1)
         assert.doesNotMatch(result.stdout + result.stderr, new RegExp(secret))
         const invocation = JSON.parse(readFileSync(capture, 'utf8'))
         assert.equal(invocation.headerMatches, true)
@@ -141,5 +157,12 @@ process.stdin.on('end', () => {
         assert.equal(invocation.args.at(-1), `${baseUrl}/api/cron/${endpoint}`)
       }
     }
+    writeFileSync(capture + '.attempts', '')
+    const retry = spawnSync('bash', ['-c', steps.reminders.run], { encoding: 'utf8', env: {
+      PATH: `${directory}:${process.env.PATH}`, ARDORE_BASE_URL: baseUrl, CRON_SECRET: secret,
+      FIXTURE_CAPTURE: capture, FIXTURE_STATUS: '503', FIXTURE_EXIT: '0', FIXTURE_RECOVERS: '1',
+    } })
+    assert.equal(retry.status, 0)
+    assert.equal(readFileSync(capture + '.attempts', 'utf8').length, 2)
   } finally { rmSync(directory, { recursive: true, force: true }) }
 })

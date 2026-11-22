@@ -68,6 +68,18 @@ test('participant and coach receive role-specific Berlin occurrence details and 
 test('durable sent claims suppress all duplicate provider calls on repeated job',async()=>{
   const f=fixture();await f.run();const repeat=await f.run();assert.equal(repeat.sent,0);assert.equal(repeat.skipped,2);assert.equal(f.emails.length,2)
 })
+test('overlapping group cron calls send one email per participant and one to the coach', async () => {
+  const f = fixture({ rows: [
+    row(), row({ recipient_id: 'buyer-2' }),
+    row({ recipient_id: 'coach', recipient_role: 'coach' }),
+  ] })
+  const results = await Promise.all([f.run(), f.run()])
+  assert.ok(results.some(result => result.busy > 0))
+  await f.run()
+  assert.deepEqual(f.emails.map(({ payload }) => payload.to).sort(),
+    ['buyer-2@example.test', 'buyer@example.test', 'coach@example.test'])
+  assert.equal(new Set(f.emails.map(({ options }) => options.idempotencyKey)).size, 3)
+})
 test('failed email retries frozen payload under the same provider idempotency key',async()=>{
   const f=fixture({rows:[row()],failure:true});assert.equal((await f.run()).failed,1);f.setFailure(false);assert.equal((await f.run()).sent,1)
   assert.deepEqual(f.emails[0],f.emails[1])

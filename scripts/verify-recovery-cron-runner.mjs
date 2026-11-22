@@ -124,7 +124,7 @@ test('workflow syntax keeps recovery retries separate from session cron jobs', (
   const require = createRequire(import.meta.url)
   const yaml = require('js-yaml')
   const workflow = yaml.load(readFileSync(new URL('../.github/workflows/ardore-cron.yml', import.meta.url), 'utf8'))
-  assert.deepEqual(workflow.on.schedule.map(item => item.cron), ['*/10 * * * *', '0 9 * * *'])
+  assert.deepEqual(workflow.on.schedule.map(item => item.cron), ['*/10 * * * *', '4-54/10 * * * *', '0 9 * * *'])
   const job = workflow.jobs['call-cron-endpoints']
   assert.equal(job['timeout-minutes'], 10); assert.equal(workflow.permissions.contents, 'read')
   const recovery = job.steps.find(step => step.name === 'Recover coaching payment reservations and refunds')
@@ -134,8 +134,12 @@ test('workflow syntax keeps recovery retries separate from session cron jobs', (
   assert.equal(diagnostic.if, "failure() && steps.recovery.outcome == 'failure'")
   assert.equal(recovery.id, 'recovery'); assert.equal(diagnostic.env?.CRON_SECRET, undefined)
   assert.equal(job.env.CRON_SECRET, undefined)
-  const otherEndpoints = job.steps.filter(step => /session reminders|session review prompts|verification cleanup/.test(step.name))
-  assert.equal(otherEndpoints.length, 3)
+  assert.equal(job.steps.some(step => step.id === 'reminders'), false)
+  const reminderJob = workflow.jobs['session-reminders']
+  assert.equal(reminderJob.needs, undefined)
+  assert.doesNotMatch(reminderJob.steps.find(step => step.id === 'reminders').run, /run-coaching-recovery/)
+  const otherEndpoints = job.steps.filter(step => /session review prompts|verification cleanup/.test(step.name))
+  assert.equal(otherEndpoints.length, 2)
   for (const step of otherEndpoints) {
     assert.doesNotMatch(step.run, /run-coaching-recovery|--retry/)
   }
