@@ -5,13 +5,77 @@
   color: var(--foreground-inverse);
 }
 
+.home-hero-media {
+  position: relative;
+  isolation: isolate;
+  height: clamp(8rem, 35vw, 15rem);
+}
+
+.home-hero-layout {
+  padding-block: 1.5rem;
+}
+
+.home-hero-layout > div {
+  max-width: 36rem;
+}
+
+.home-search {
+  --focus: var(--foreground-inverse);
+  margin-top: 1rem;
+}
+
+.home-search .home-search-tab {
+  color: var(--foreground-inverse);
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+}
+
+.home-search .home-search-tab[aria-pressed="true"] {
+  border-bottom-color: var(--ember-on-dark);
+}
+
+.home-search .home-search-tab:is(:hover, :focus-visible) {
+  text-decoration: underline;
+}
+
+.home-hero-topic {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: .875rem;
+  text-underline-offset: .25em;
+}
+
+.home-hero-topic span {
+  border: 1px solid var(--story-hero-chip-edge);
+  border-radius: 999px;
+  padding: .15rem .45rem;
+}
+
+.home-hero-topic:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 768px) {
+  .home-hero-media {
+    position: absolute;
+    inset: 0;
+    height: auto;
+    z-index: -1;
+  }
+
+  .home-hero-layout { padding-block: clamp(2.5rem, 4vw, 4.5rem); pointer-events: none; }
+  .home-hero-layout > div { max-width: min(47%, 36rem); pointer-events: auto; }
+}
+
 .home-hero-photo {
   z-index: -2;
   object-fit: cover;
-  object-position: 65% 22%;
+  object-position: 80% 29%;
 }
 
-.home-hero::before {
+.home-hero-media::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -156,9 +220,9 @@
   .discovery-rail-header { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 1.5rem; }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .home-hero-photo { object-position: 50% 22%; }
-  .home-hero::before { background: var(--story-hero-scrim-wide); }
+  .home-hero-media::before { background: var(--story-hero-scrim-wide); }
 }
 
 .category-discovery {
@@ -231,9 +295,7 @@
   display: flex;
   height: 100%;
   flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .category-discovery-link:focus-visible {
@@ -246,7 +308,7 @@
   display: block;
   overflow: hidden;
   aspect-ratio: var(--story-category-photo-ratio);
-  border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
 }
 
@@ -255,7 +317,7 @@
 .category-discovery-copy {
   display: grid;
   gap: .4rem;
-  padding: .85rem .95rem 1rem;
+  padding: 1rem 0;
   color: var(--text-secondary);
   font-size: .875rem;
   line-height: 1.45;
@@ -267,8 +329,9 @@
   align-items: center;
   gap: .4rem;
   color: var(--foreground);
-  font-size: 1.075rem;
-  font-weight: 650;
+  font-family: var(--font-editorial);
+  font-size: clamp(1.25rem, 1.6vw, 1.6rem);
+  font-weight: var(--editorial-heading-weight);
 }
 
 .category-discovery-title svg { flex-shrink: 0; color: var(--primary); }
@@ -300,11 +363,6 @@
 .home-story .section-title {
   font-size: var(--editorial-heading-size);
   line-height: var(--editorial-heading-leading);
-}
-
-.home-hero-chip {
-  border-color: var(--story-hero-chip-edge);
-  background: var(--story-hero-chip-background);
 }
 
 .home-dark-band {

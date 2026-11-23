@@ -4,7 +4,9 @@ import Image from 'next/image'
 import { Pause, Play } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-const posterPath = '/media/hero/poster.webp'
+import heroPoster from '../../public/media/hero/poster.webp'
+
+const posterPath = heroPoster.src
 type Connection = EventTarget & { saveData?: boolean; effectiveType?: string }
 type Variant = 'mobile' | 'desktop'
 
@@ -105,7 +107,7 @@ export default function HomeHeroMedia() {
   }, [])
 
   return <>
-    <Image ref={image} src={posterPath} alt="" fill preload fetchPriority="high" quality={55}
+    <Image ref={image} src={heroPoster} alt="" fill preload fetchPriority="high" quality={55}
       sizes="100vw" className="home-hero-photo" />
     {variant && <BackgroundLoop key={variant} variant={variant} poster={poster}
       userPaused={userPaused} onUserPause={setUserPaused} />}

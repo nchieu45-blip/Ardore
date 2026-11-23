@@ -11,7 +11,6 @@ import {
   Heart,
   BookOpen,
   UsersRound,
-  Layers,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -26,6 +25,8 @@ import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
 import Reveal from '@/components/motion/Reveal'
 import DiscoveryRail from '@/components/DiscoveryRail'
+import { DISCOVERY_CATEGORIES } from '@/lib/discoveryCategories'
+import { marketplaceAreaHref } from '@/lib/marketplaceAreas'
 import HomeCategoryDiscovery from '@/components/HomeCategoryDiscovery'
 import { buildHomeProductRows } from '@/lib/homeDiscovery'
 import type { CoachData } from '@/lib/publicCoaches'
@@ -95,37 +96,40 @@ export default function MarketplaceClient({
   return (
     <div className="home-story min-w-0">
       <section className="home-hero">
-        <HomeHeroMedia />
-        <div className="ardore-container grid items-center gap-8 pt-10 pb-16 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
+        <div className="home-hero-media"><HomeHeroMedia /></div>
+        <div className="ardore-container home-hero-layout">
           <div>
-            <h1 className="page-title max-w-[19ch] text-balance">
+            <h1 className="page-title max-w-[16ch] text-balance">
               Mach Platz für Bewegung, <span className="text-ember-on-dark">die dir guttut.</span>
             </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-              <ul aria-label="Disziplinen" className="flex flex-wrap gap-1.5">
-                {['Fitness', 'Yoga', 'Pilates', 'Ernährung', 'Kampfsport'].map(discipline => (
-                  <li key={discipline} className="home-hero-chip rounded-full border px-2.5 py-1">{discipline}</li>
-                ))}
-              </ul>
-            </div>
-            <p className="mt-6 max-w-xl text-base leading-relaxed sm:text-lg">
+            <p className="mt-4 max-w-xl text-base leading-relaxed sm:text-lg">
               Entdecke Coaches für Fitness, Yoga, Pilates, Ernährung und Kampfsport – vor Ort oder online.
             </p>
+            <ul aria-label="Disziplinen" className="mt-3 flex flex-wrap gap-x-2">
+              {DISCOVERY_CATEGORIES.map(({ key, title }) => (
+                <li key={key}>
+                  <Link href={marketplaceAreaHref('coaching', '', key, 'beides', 'kategorie')}
+                    prefetch={false} className="home-hero-topic">
+                    <span>{key === 'fitness-kraft' ? 'Fitness' : title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
           <div className="min-w-0">
             <form
               action={intent}
               role="search"
               aria-label="Marktplatz durchsuchen"
-              className="surface-card grid gap-4 p-4 text-foreground sm:p-6"
+              className="home-search grid grid-cols-[minmax(0,1fr)_auto] gap-2"
             >
-              <div role="group" aria-label="Was möchtest du entdecken?" className="grid grid-cols-2 gap-2">
+              <div role="group" aria-label="Was möchtest du entdecken?" className="col-span-2 flex gap-2">
                 <Button
                   type="button"
                   variant={intent === '/coaches' ? 'soft' : 'tertiary'}
                   aria-pressed={intent === '/coaches'}
                   onClick={() => setIntent('/coaches')}
-                  className="min-h-12"
+                  className="home-search-tab min-h-11"
                 >
                   <UsersRound className="h-4 w-4" aria-hidden="true" />
                   Coaches
@@ -135,13 +139,13 @@ export default function MarketplaceClient({
                   variant={intent === '/marketplace' ? 'soft' : 'tertiary'}
                   aria-pressed={intent === '/marketplace'}
                   onClick={() => setIntent('/marketplace')}
-                  className="min-h-12"
+                  className="home-search-tab min-h-11"
                 >
                   <BookOpen className="h-4 w-4" aria-hidden="true" />
                   Produkte
                 </Button>
               </div>
-              <label className="relative min-w-0">
+              <label className="relative min-w-0 text-foreground">
                 <span className="sr-only">Suchbegriff</span>
                 <Search
                   className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted"
@@ -151,8 +155,8 @@ export default function MarketplaceClient({
                   name="q"
                   placeholder={
                     intent === '/coaches'
-                      ? 'Z. B. Yoga oder Krafttraining'
-                      : 'Z. B. Trainingsplan oder Pilateskurs'
+                      ? 'Z. B. Yoga'
+                      : 'Z. B. Trainingsplan'
                   }
                   className="field-control min-h-12 w-full pl-12"
                 />
@@ -162,7 +166,7 @@ export default function MarketplaceClient({
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             </form>
-            <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
               <Link
                 href="/coaches"
                 className="inline-flex min-h-11 items-center gap-2 font-semibold hover:underline"
@@ -264,45 +268,41 @@ export default function MarketplaceClient({
           >{[]}</DiscoveryRail>
         )}
 
-        <section className="border-t border-border py-6 sm:py-8" aria-labelledby="formats-title">
+        <section className="home-band-space grid items-start gap-5 border-t border-border lg:grid-cols-[1fr_2fr] lg:gap-16" aria-labelledby="formats-title">
           <h2 id="formats-title" className="section-title mb-4 max-w-xl text-balance">
             Wie willst du loslegen?
           </h2>
-          <div className="grid gap-4 md:grid-cols-3 md:gap-6">
+          <div className="border-b border-border">
             {[
               {
                 title: '1:1 Coaching',
                 text: 'Arbeite mit einem Coach an dem, was du verändern möchtest.',
                 action: '1:1 Coaching ansehen',
                 href: '/coaches?videocoaching=true',
-                Icon: UsersRound,
               },
               {
                 title: 'Digitale Produkte',
                 text: 'Hol dir Trainingspläne, Kurse und Ideen für deinen Alltag.',
                 action: 'Digitale Produkte ansehen',
                 href: '/marketplace',
-                Icon: BookOpen,
               },
               {
                 title: 'Begleitung im Abo',
                 text: 'Bleib mit regelmäßiger Unterstützung an deinem Ziel dran.',
                 action: 'Abos ansehen',
                 href: '/coaches?subscription=true',
-                Icon: Layers,
               },
-            ].map(({ title, text, action, href, Icon }) => (
+            ].map(({ title, text, action, href }) => (
               <Link
                 key={title}
                 href={href}
-                className="home-format-link group flex flex-col border-t border-border py-4"
+                className="home-format-link group grid gap-x-5 border-t border-border py-4 sm:grid-cols-[1fr_auto]"
               >
-                <Icon className="mb-2 h-6 w-6 text-brand" aria-hidden="true" />
                 <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
-                <p className="mb-2 mt-2 max-w-prose text-base leading-relaxed text-muted">
+                <p className="mt-1 max-w-prose sm:col-start-1 text-base leading-relaxed text-muted">
                   {text}
                 </p>
-                <span className="home-format-action mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
+                <span className="home-format-action sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
                   {action}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </span>

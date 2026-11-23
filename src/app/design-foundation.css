@@ -15,10 +15,10 @@
   --ember-soft: #ffede3;
   --ember-on-dark: #ffb79a;
   --story-canvas: #fbf3e9;
-  --story-hero-shade: 32 24 20;
+  --story-hero-shade: 16 39 31;
   --story-hero-minimum-opacity: .68;
-  --story-hero-scrim-narrow: linear-gradient(105deg, rgb(var(--story-hero-shade) / .89), rgb(var(--story-hero-shade) / .74));
-  --story-hero-scrim-wide: linear-gradient(90deg, rgb(var(--story-hero-shade) / .93), rgb(var(--story-hero-shade) / .82) 45%, rgb(var(--story-hero-shade) / var(--story-hero-minimum-opacity)));
+  --story-hero-scrim-narrow: linear-gradient(0deg, rgb(var(--story-hero-shade) / .22), transparent 60%);
+  --story-hero-scrim-wide: linear-gradient(90deg, rgb(var(--story-hero-shade) / .93), rgb(var(--story-hero-shade) / var(--story-hero-minimum-opacity)) 50%, transparent 72%);
   --story-hero-chip-background: rgb(0 0 0 / .25);
   --story-hero-chip-edge: rgb(255 255 255 / .35);
   --story-playback-background: #352a24;
