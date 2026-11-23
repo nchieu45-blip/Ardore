@@ -113,10 +113,15 @@ test('the existing authenticated cron runs both kinds even if one fails and leak
     const invoke=async kind=>{calls.push(kind);if(fail===kind)throw Error('PRIVATE');return good}
     const api=load('src/app/api/cron/session-reminders/route.ts',{
       '@/lib/coaching-emails':{runCoachingEmails:()=>invoke('updates')},
+      '@/lib/reminder-scheduler-auth':{isReminderSchedulerAuthorized:r=>r.headers.get('authorization')==='Bearer scoped-fixture'},
       '@/lib/session-cron':{runSessionNotifications:()=>invoke('individual')},'@/lib/group-session-reminders':{runGroupSessionReminders:()=>invoke('group')},
       '@/lib/cron':{isCronAuthorized:r=>r.headers.get('authorization')==='Bearer test-cron',cronJson:(body,status=200)=>Response.json(body,{status})},
     })
     assert.equal((await api.GET(new Request('https://example.test'))).status,401);assert.equal(calls.length,0)
     const r=await api.GET(new Request('https://example.test',{headers:{authorization:'Bearer test-cron'}}));assert.equal(r.status,fail?503:200);assert.deepEqual(calls,['individual','group','updates']);const body=await r.json();assert.equal(body.sent,fail?2:3);assert.equal(body.failed,fail?1:0);assert.doesNotMatch(JSON.stringify(body),/PRIVATE/)
+    calls.length=0
+    const scoped=await api.GET(new Request('https://example.test',{headers:{authorization:'Bearer scoped-fixture'}}))
+    assert.deepEqual(calls,['individual','group'])
+    assert.equal(scoped.status,fail==='individual'||fail==='group'?503:200)
   }
 })

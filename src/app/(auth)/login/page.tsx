@@ -58,7 +58,7 @@ function LoginContent() {
       heading="Willkommen zurück"
       subheading="Melde dich bei deinem Konto an"
       footer={
-        <span data-requires-open-launch>
+        <span>
           Noch kein Konto?{' '}
           <Link href="/register" className="text-green-600 font-medium hover:underline">
             Jetzt registrieren

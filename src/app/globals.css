@@ -338,7 +338,7 @@ a:focus-visible {
   animation: shimmer 1.4s ease-in-out infinite;
 }
 
-/* Preserve registration content for the isolated sandbox while launch is paused. */
+/* Hide sales launch content while transactions are paused. */
 [data-launch-paused="true"] [data-requires-open-launch] {
   display: none;
 }

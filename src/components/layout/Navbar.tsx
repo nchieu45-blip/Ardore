@@ -272,7 +272,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
               <div className="flex items-center gap-2 ml-2">
                 <NavbarCartIcon />
                 <ButtonLink href="/login" variant="ghost" size="sm">Anmelden</ButtonLink>
-                <ButtonLink data-requires-open-launch href="/register" size="sm">Registrieren</ButtonLink>
+                <ButtonLink href="/register" size="sm">Registrieren</ButtonLink>
               </div>
             )}
           </div>
@@ -431,7 +431,7 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
                 </Link>
                 <div className="flex gap-2 pt-1">
                   <ButtonLink href="/login" variant="outline" className="flex-1" size="sm" onClick={() => setMenuOpen(false)}>Anmelden</ButtonLink>
-                  <ButtonLink data-requires-open-launch href="/register" className="flex-1" size="sm" onClick={() => setMenuOpen(false)}>Registrieren</ButtonLink>
+                  <ButtonLink href="/register" className="flex-1" size="sm" onClick={() => setMenuOpen(false)}>Registrieren</ButtonLink>
                 </div>
               </>
             )}
