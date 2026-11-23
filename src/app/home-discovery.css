@@ -325,13 +325,45 @@
   padding-block: var(--story-band-space);
 }
 
-/* Put the native controls below the image and the separate subtitle row. */
-.home-demo-player[data-active] {
-  padding-bottom: var(--story-demo-controls-space);
+.home-demo-dialog {
+  position: static;
+  inline-size: 100%;
+  max-inline-size: none;
+  max-block-size: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
 }
 
-.home-demo-video:fullscreen {
-  object-position: center;
+.home-demo-dialog:modal {
+  position: fixed;
+  inset: 0;
+  block-size: 100%;
+  block-size: 100dvh;
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--surface-inverse);
+}
+
+.home-demo-player:fullscreen,
+.home-demo-dialog:modal .home-demo-player {
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  border: 0;
+  border-radius: 0;
+  overflow: auto;
+}
+
+.home-demo-player:fullscreen .home-demo-picture,
+.home-demo-dialog:modal .home-demo-picture {
+  flex: 0 1 auto;
+  min-block-size: 3rem;
 }
 
 .home-demo-play:focus-visible {

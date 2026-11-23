@@ -24,7 +24,6 @@
   --story-playback-background: #352a24;
   --story-playback-edge: rgb(255 255 255 / .8);
   --story-band-space: clamp(2.75rem, 6vw, 5.25rem);
-  --story-demo-controls-space: 4rem;
   --story-trust-space: clamp(2rem, 5vw, 3.5rem);
   --story-category-photo-ratio: 1 / 1;
   --story-process-photo-ratio: 4 / 3;
