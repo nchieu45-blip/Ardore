@@ -233,6 +233,9 @@
   box-shadow: 0 0 0 2px var(--surface);
 }
 
+.accordion-summary { list-style: none; }
+.accordion-summary::-webkit-details-marker { display: none; }
+
 @media (prefers-reduced-motion: no-preference) {
   .reveal-on-scroll[data-reveal-visible] {
     animation: ardore-enter var(--reveal-duration) var(--ease-out);

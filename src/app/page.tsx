@@ -5,6 +5,8 @@ import { publicPageMetadata } from '@/lib/public-page-metadata'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
+import { isLaunchPaused } from '@/lib/launch-pause'
+import HomeFaq from '@/components/HomeFaq'
 import HomeFounderStory from '@/components/HomeFounderStory'
 import HomeTestimonials from '@/components/HomeTestimonials'
 import { homeTestimonials } from './home-testimonials'
@@ -112,6 +114,7 @@ export default async function MarketplacePage() {
       >
         <HomeFounderStory />
         {homeTestimonials.length > 0 && <HomeTestimonials entries={homeTestimonials} />}
+        <HomeFaq launchPaused={isLaunchPaused()} />
       </MarketplaceClient>
     </div>
   )

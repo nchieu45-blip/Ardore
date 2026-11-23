@@ -6,6 +6,7 @@ import { loadUiComponent } from './fixtures/load-ui-component.mjs'
 
 const Testimonials = loadUiComponent('src/components/HomeTestimonials.tsx').default
 const { homeTestimonials } = loadUiComponent('src/app/home-testimonials.ts')
+const Faq = loadUiComponent('src/components/HomeFaq.tsx').default
 
 test('public testimonials render nothing until approved quotes are available', () => {
   assert.equal(renderToStaticMarkup(React.createElement(Testimonials, { entries: [] })), '')
@@ -27,4 +28,25 @@ test('testimonial navigation is only present for multiple entries', () => {
   assert.match(multiple, /aria-label="Nächste Stimme"/)
   assert.match(multiple, /aria-live="polite"/)
   assert.doesNotMatch(multiple, /Testinhalt B/)
+})
+
+test('six native FAQ disclosures and their JSON-LD stay in sync in both launch modes', () => {
+  for (const launchPaused of [true, false]) {
+    const html = renderToStaticMarkup(React.createElement(Faq, { launchPaused }))
+    const script = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)
+    assert.ok(script)
+    const markup = html.replace(script[0], '')
+    const questions = [...markup.matchAll(/<summary[^>]*><span>([^<]*)<\/span>/g)].map(match => match[1])
+    const schema = JSON.parse(script[1])
+    assert.equal(schema['@type'], 'FAQPage')
+    assert.equal(questions.length, 6)
+    assert.equal((markup.match(/<details name="ardore-home-faq"/g) ?? []).length, 6)
+    assert.deepEqual(schema.mainEntity.map(question => question.name), questions)
+    for (const question of schema.mainEntity) {
+      assert.equal(question['@type'], 'Question')
+      assert.equal(question.acceptedAnswer['@type'], 'Answer')
+      assert.ok(markup.includes(question.acceptedAnswer.text))
+    }
+    assert.equal(markup.includes('Zahlungen über Ardore sind vorübergehend pausiert.'), launchPaused)
+  }
 })
