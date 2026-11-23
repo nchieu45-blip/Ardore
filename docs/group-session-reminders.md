@@ -109,3 +109,23 @@ history entry. The DDL contents are unchanged. Production checks verified RLS,
 the security-invoker view, browser-role denials and service-only function grants.
 At application time there were no group occurrences, eligible recipients or
 delivery rows. No production cron was manually invoked.
+
+### Independent Supabase scheduler
+
+The second scheduler uses a dedicated credential accepted solely by
+`/api/cron/session-reminders`. Its calls execute the 1:1 and group reminder
+workers. The existing GitHub credential also runs the coaching lifecycle worker
+through that endpoint.
+
+Store the dedicated credential in Supabase Vault as
+`ardore_reminder_scheduler`, deploy the matching code, and apply
+`ops/install-reminder-cron.sql` in the authorized project. The job fires every
+five minutes at minutes 02, 07, ..., 57 UTC. Its stored command references the
+Vault entry by name, and overlapping GitHub calls use the same delivery journals.
+The bearer credential must stay out of the repository, terminal output, and
+command arguments.
+
+Check both `cron.job_run_details` and pg_net HTTP responses after installation.
+A successful cron execution means the HTTP request was enqueued. An HTTP 2xx
+response separately confirms the workers finished without reported errors.
+Removal is `select cron.unschedule('ardore-session-reminders');`.
