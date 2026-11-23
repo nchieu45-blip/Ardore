@@ -1,17 +1,55 @@
 'use client'
 
 import Image from 'next/image'
-import { ChevronDown, Play } from 'lucide-react'
-import { useRef, useState, type FormEvent } from 'react'
+import { Captions, ChevronDown, Play } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { flushSync } from 'react-dom'
 
 const videoPath = '/media/ardore-brand-motion-concept.mp4'
 const posterPath = '/media/ardore-brand-motion-concept-poster.webp'
+const captionsPath = '/media/ardore-brand-motion-concept.de.vtt'
 
 export default function ArdoreProductVideo() {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const trackRef = useRef<HTMLTrackElement>(null)
   const [started, setStarted] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [showCaptions, setShowCaptions] = useState(true)
+  const [caption, setCaption] = useState('')
+
+  useEffect(() => {
+    const video = videoRef.current
+    const trackElement = trackRef.current
+    if (!video || !trackElement) return
+
+    const track = trackElement.track
+    function updateCaption() {
+      setCaption(Array.from(track.activeCues ?? [], cue => (cue as VTTCue).text).join('\n'))
+    }
+
+    const updateTrackPresentation = () => {
+      const fullscreen = document.fullscreenElement === video
+        || ('webkitDisplayingFullscreen' in video && video.webkitDisplayingFullscreen === true)
+      // The native fullscreen player can't display the inline caption area.
+      trackElement.kind = fullscreen ? 'captions' : 'metadata'
+      track.mode = fullscreen && showCaptions ? 'showing' : 'hidden'
+    }
+
+    track.addEventListener('cuechange', updateCaption)
+    trackElement.addEventListener('load', updateCaption)
+    document.addEventListener('fullscreenchange', updateTrackPresentation)
+    video.addEventListener('webkitbeginfullscreen', updateTrackPresentation)
+    video.addEventListener('webkitendfullscreen', updateTrackPresentation)
+    updateTrackPresentation()
+
+    return () => {
+      track.removeEventListener('cuechange', updateCaption)
+      trackElement.removeEventListener('load', updateCaption)
+      document.removeEventListener('fullscreenchange', updateTrackPresentation)
+      video.removeEventListener('webkitbeginfullscreen', updateTrackPresentation)
+      video.removeEventListener('webkitendfullscreen', updateTrackPresentation)
+    }
+  }, [started, showCaptions])
 
   function startVideo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -60,7 +98,7 @@ export default function ArdoreProductVideo() {
                 aria-describedby="home-product-tour-caption"
                 onError={() => setFailed(true)}
               >
-                <track kind="captions" src="/media/ardore-brand-motion-concept.de.vtt" srcLang="de" label="Deutsch" />
+                <track ref={trackRef} kind="metadata" src={captionsPath} srcLang="de" label="Deutsch" />
               </video>
             ) : (
               <form action={videoPath} onSubmit={startVideo} className="absolute inset-0 grid place-items-center">
@@ -68,6 +106,24 @@ export default function ArdoreProductVideo() {
                   <Play className="size-5" aria-hidden="true" />
                 </button>
               </form>
+            )}
+            {started && (
+              <div className="relative z-10 grid min-h-30 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 bg-brand-dark px-3 py-2 sm:min-h-20 sm:px-5">
+                <p id="home-product-tour-subtitles" className="text-center text-sm leading-snug text-on-inverse wrap-anywhere sm:text-base sm:whitespace-pre-line">
+                  {showCaptions ? caption : ''}
+                </p>
+                <button
+                  type="button"
+                  aria-label="Untertitel"
+                  aria-pressed={showCaptions}
+                  aria-controls="home-product-tour-subtitles"
+                  title="Untertitel"
+                  className="icon-button cursor-pointer rounded-lg border border-edge-inverse text-on-inverse aria-pressed:border-ember-on-dark aria-pressed:bg-ember-soft aria-pressed:text-ember-deep"
+                  onClick={() => setShowCaptions(current => !current)}
+                >
+                  <Captions className="size-5" aria-hidden="true" />
+                </button>
+              </div>
             )}
           </div>
           <figcaption

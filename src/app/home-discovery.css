@@ -325,7 +325,7 @@
   padding-block: var(--story-band-space);
 }
 
-/* The video box extends below the picture so controls can overlay that space. */
+/* Put the native controls below the image and the separate subtitle row. */
 .home-demo-player[data-active] {
   padding-bottom: var(--story-demo-controls-space);
 }
