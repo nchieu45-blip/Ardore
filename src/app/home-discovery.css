@@ -321,8 +321,7 @@
   padding-block: var(--story-trust-space);
 }
 
-.home-band-space,
-.home-help-band {
+.home-band-space {
   padding-block: var(--story-band-space);
 }
 

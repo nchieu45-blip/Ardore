@@ -20,6 +20,7 @@ import { Button, ButtonLink } from '@/components/ui/Button'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { CoachCard } from '@/components/ui/CoachCard'
 import { StatePanel } from '@/components/ui/StatePanel'
+import AccordionItem from '@/components/ui/AccordionItem'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
@@ -354,27 +355,20 @@ export default function MarketplaceClient({
 
       {children}
 
-      <div className="ardore-container">
-        <section className="home-help-band">
-          <details
-            className="border-y border-border py-2"
-          >
-            <summary className="min-h-11 cursor-pointer py-3 text-base font-semibold text-foreground">
-              <span className="inline-flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" />
-                Noch unsicher, wer zu dir passt?
-              </span>
-            </summary>
-            <p className="mb-4 mt-3 text-sm leading-relaxed text-muted">
+      <section aria-labelledby="home-selection-title" className="ardore-container home-band-space grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-10 lg:gap-16">
+        <h2 id="home-selection-title" className="section-title">Hilfe bei der Auswahl</h2>
+        <div className="min-w-0 border-t border-border">
+          <AccordionItem title="Noch unsicher, wer zu dir passt?">
+            <p className="mb-4 max-w-prose leading-relaxed text-muted">
               Such nach dem Thema, das dich gerade beschäftigt. Die Profile zeigen dir, wie die Coaches arbeiten.
             </p>
-            <ButtonLink href="/coaches" variant="outline" className="mb-3">
+            <ButtonLink href="/coaches" variant="outline">
               Coaches vergleichen
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </ButtonLink>
-          </details>
-        </section>
-      </div>
+          </AccordionItem>
+        </div>
+      </section>
 
       <section data-requires-open-launch className="home-dark-band bg-inverse">
         <div className="ardore-container home-band-space flex flex-col items-start justify-between gap-6 md:flex-row md:items-center md:gap-12">
