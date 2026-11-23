@@ -1,9 +1,32 @@
-import { ChevronDown } from 'lucide-react'
+'use client'
 
-// Native playback keeps the authoring/runtime dependencies outside the website.
-// No autoplay or loop: reduced-motion and data-saving visitors get the poster
-// until they explicitly choose to watch. Controls also work without JavaScript.
+import Image from 'next/image'
+import { ChevronDown, Play } from 'lucide-react'
+import { useRef, useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
+
+const videoPath = '/media/ardore-brand-motion-concept.mp4'
+const posterPath = '/media/ardore-brand-motion-concept-poster.webp'
+
 export default function ArdoreProductVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [started, setStarted] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  function startVideo(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    // Mount the player before calling play so the browser can use the original gesture.
+    flushSync(() => setStarted(true))
+    const player = videoRef.current
+    if (!player) return
+
+    player.focus({ preventScroll: true })
+    void player.play().catch((error: unknown) => {
+      // The native play button stays available if a browser blocks scripted playback.
+      if (!(error instanceof DOMException && error.name === 'NotAllowedError')) setFailed(true)
+    })
+  }
+
   return (
     <section
       className="home-dark-band bg-inverse"
@@ -12,7 +35,7 @@ export default function ArdoreProductVideo() {
       <div className="ardore-container home-band-space">
         <div className="mb-6 sm:mb-8">
           <h2 id="home-product-tour-title" className="section-title">
-            Ein kurzer Blick auf Ardore
+            So einfach geht’s
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-inverse sm:text-base">
             In 14 Sekunden siehst du, wie du Coaches, Angebote und Termine findest.
@@ -20,38 +43,46 @@ export default function ArdoreProductVideo() {
         </div>
 
         <figure>
-          <div className="overflow-hidden rounded-2xl border border-edge-inverse bg-brand-dark">
-            <video
-              className="block aspect-video h-auto w-full"
-              width={1920}
-              height={1080}
-              controls
-              playsInline
-              preload="none"
-              poster="/media/ardore-brand-motion-concept-poster.webp"
-              aria-label="Ardore-Produktvideo: Coaches, Angebote und Coach-Arbeitsbereich"
-              aria-describedby="home-product-tour-caption"
-            >
-              <source src="/media/ardore-brand-motion-concept.mp4" type="video/mp4" />
-              <track
-                kind="captions"
-                src="/media/ardore-brand-motion-concept.de.vtt"
-                srcLang="de"
-                label="Deutsch"
-              />
-              Das Video lässt sich hier gerade nicht abspielen.{' '}
-              <a href="/media/ardore-brand-motion-concept.mp4" className="text-ember-on-dark underline" target="_blank" rel="noopener">
-                Öffne das Video in einem eigenen Tab.
-              </a>
-            </video>
+          <div className="home-demo-player relative overflow-hidden rounded-2xl border border-edge-inverse bg-inverse" data-active={started || undefined}>
+            <div className="relative aspect-video">
+              {!started && <Image src={posterPath} alt="" fill unoptimized fetchPriority="low" />}
+            </div>
+            {started ? (
+              <video
+                ref={videoRef}
+                className="home-demo-video absolute inset-0 size-full object-contain object-top"
+                controls
+                playsInline
+                preload="none"
+                src={videoPath}
+                poster={posterPath}
+                aria-label="Ardore-Produktdemo"
+                aria-describedby="home-product-tour-caption"
+                onError={() => setFailed(true)}
+              >
+                <track kind="captions" src="/media/ardore-brand-motion-concept.de.vtt" srcLang="de" label="Deutsch" />
+              </video>
+            ) : (
+              <form action={videoPath} onSubmit={startVideo} className="absolute inset-0 grid place-items-center">
+                <button type="submit" className="home-demo-play grid size-14 cursor-pointer place-items-center rounded-full border border-edge-inverse bg-inverse text-on-inverse hover:bg-brand-dark" aria-label="Produktdemo abspielen">
+                  <Play className="size-5" aria-hidden="true" />
+                </button>
+              </form>
+            )}
           </div>
           <figcaption
             id="home-product-tour-caption"
-            className="mt-3 text-sm leading-relaxed text-muted-inverse"
+            className="mt-2 text-xs leading-relaxed text-muted-inverse"
           >
-            <strong>Ohne Ton.</strong> Das Video zeigt eine Demo mit erfundenen Beispielen.
+            Fiktive Beispieldaten. Ohne Ton.
           </figcaption>
         </figure>
+        {failed && (
+          <p role="alert" className="mt-3 text-sm text-on-inverse">
+            Die Demo konnte hier nicht gestartet werden.{' '}
+            <a href={videoPath} className="text-ember-on-dark underline">Video direkt öffnen</a>
+          </p>
+        )}
 
         <details className="group mt-3 max-w-3xl text-sm text-muted-inverse">
           <summary className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg font-medium text-ember-on-dark">

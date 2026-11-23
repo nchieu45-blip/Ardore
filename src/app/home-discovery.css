@@ -325,6 +325,21 @@
   padding-block: var(--story-band-space);
 }
 
+/* The video box extends below the picture so controls can overlay that space. */
+.home-demo-player[data-active] {
+  padding-bottom: var(--story-demo-controls-space);
+}
+
+.home-demo-video:fullscreen {
+  object-position: center;
+}
+
+.home-demo-play:focus-visible {
+  outline: 2px solid var(--foreground-inverse);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--surface-inverse);
+}
+
 .category-discovery .marketplace-format label span {
   border: 1px solid transparent;
 }

@@ -7,6 +7,7 @@ import { loadUiComponent } from './fixtures/load-ui-component.mjs'
 const Testimonials = loadUiComponent('src/components/HomeTestimonials.tsx').default
 const { homeTestimonials } = loadUiComponent('src/app/home-testimonials.ts')
 const Faq = loadUiComponent('src/components/HomeFaq.tsx').default
+const ProductDemo = loadUiComponent('src/components/ArdoreProductVideo.tsx').default
 
 test('public testimonials render nothing until approved quotes are available', () => {
   assert.equal(renderToStaticMarkup(React.createElement(Testimonials, { entries: [] })), '')
@@ -49,4 +50,15 @@ test('six native FAQ disclosures and their JSON-LD stay in sync in both launch m
     }
     assert.equal(markup.includes('Zahlungen über Ardore sind vorübergehend pausiert.'), launchPaused)
   }
+})
+
+test('the product demo shows a poster and accessible play action before loading any media', () => {
+  const html = renderToStaticMarkup(React.createElement(ProductDemo))
+  assert.match(html, /So einfach geht’s/)
+  assert.match(html, /<img[^>]*src="\/media\/ardore-brand-motion-concept-poster\.webp"/)
+  assert.match(html, /<form[^>]*action="\/media\/ardore-brand-motion-concept\.mp4"/)
+  assert.match(html, /<button[^>]*aria-label="Produktdemo abspielen"/)
+  assert.doesNotMatch(html, /<(?:video|source|track)\b/)
+  assert.match(html, /<\/form><\/div><figcaption[^>]*>Fiktive Beispieldaten\. Ohne Ton\.<\/figcaption>/)
+  assert.match(html, /Video nachlesen/)
 })

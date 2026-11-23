@@ -351,9 +351,9 @@ export default function MarketplaceClient({
         <CoachingProcess />
       </div>
 
-      <ArdoreProductVideo />
-
       {children}
+
+      <ArdoreProductVideo />
 
       <section aria-labelledby="home-selection-title" className="ardore-container home-band-space grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-10 lg:gap-16">
         <h2 id="home-selection-title" className="section-title">Hilfe bei der Auswahl</h2>
