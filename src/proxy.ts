@@ -14,12 +14,6 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname
   if (isLaunchPaused() && path !== '/api/webhooks/stripe' && !path.startsWith('/api/cron/')) {
-    if (path === '/register' && ['GET', 'HEAD'].includes(request.method)) {
-      return NextResponse.redirect(new URL('/#start-pausiert', appOrigin()), {
-        status: 307,
-        headers: { 'Cache-Control': 'private, no-store' },
-      })
-    }
     const headers = { 'Cache-Control': 'private, no-store' }
     if (path.startsWith('/api/') || !['GET', 'HEAD'].includes(request.method)) {
       return new NextResponse('Der öffentliche Betrieb pausiert.', { status: 503, headers })

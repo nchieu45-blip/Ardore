@@ -23,7 +23,7 @@ export default function AccountDeletedPage() {
           <Link href="/">
             <Button variant="outline">Zur Startseite</Button>
           </Link>
-          <Link data-requires-open-launch href="/register">
+          <Link href="/register">
             <Button>Neues Konto erstellen</Button>
           </Link>
         </div>
