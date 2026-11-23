@@ -73,8 +73,8 @@ export default function LandingPage() {
               Für Health Coaches in Deutschland
             </p>
             <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              <ButtonLink data-requires-open-launch href="/register?role=creator" size="lg">
-                Jetzt kostenlos starten <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ButtonLink href="/register?role=creator" size="lg">
+                Als Coach registrieren <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </ButtonLink>
               <ButtonLink href="/" size="lg" variant="secondary">Marktplatz ansehen</ButtonLink>
             </div>
