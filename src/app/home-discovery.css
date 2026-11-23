@@ -366,6 +366,33 @@
   min-block-size: 3rem;
 }
 
+.home-demo-portrait-transcript {
+  display: none;
+}
+
+@media (max-width: 639px) and (orientation: portrait) {
+  :is(.home-demo-player:fullscreen, .home-demo-dialog:modal .home-demo-player) {
+    justify-content: flex-start;
+  }
+
+  :is(.home-demo-player:fullscreen, .home-demo-dialog:modal .home-demo-player) .home-demo-picture {
+    flex: none;
+  }
+
+  :is(.home-demo-player:fullscreen, .home-demo-dialog:modal .home-demo-player) .home-demo-portrait-transcript {
+    display: block;
+    flex: 1 1 auto;
+    min-block-size: 6rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .home-demo-portrait-transcript:focus-visible {
+    outline: 2px solid var(--foreground-inverse);
+    outline-offset: -2px;
+  }
+}
+
 .home-demo-play:focus-visible {
   outline: 2px solid var(--foreground-inverse);
   outline-offset: 2px;

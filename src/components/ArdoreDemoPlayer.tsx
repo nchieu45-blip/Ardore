@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { Captions, Maximize, Minimize, Pause, Play } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 
 const videoPath = '/media/ardore-brand-motion-concept.mp4'
@@ -15,7 +15,7 @@ function formatTime(time: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-export default function ArdoreDemoPlayer() {
+export default function ArdoreDemoPlayer({ transcript }: { transcript: ReactNode }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const playerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -140,16 +140,16 @@ export default function ArdoreDemoPlayer() {
   function keepFullscreenFocus(event: KeyboardEvent<HTMLDialogElement>) {
     if (!fullscreen || event.key !== 'Tab') return
 
-    const controls = event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href]')
-    const first = controls[0]
-    const last = controls[controls.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last?.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first?.focus()
-    }
+    const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]'))
+      .filter(control => control.getClientRects().length > 0)
+    if (controls.length === 0) return
+
+    const current = controls.findIndex(control => control === document.activeElement)
+    const next = event.shiftKey
+      ? (current > 0 ? current - 1 : controls.length - 1)
+      : (current + 1) % controls.length
+    event.preventDefault()
+    controls[next].focus()
   }
 
   const fullscreenLabel = fullscreen ? 'Vollbild verlassen' : 'Vollbild öffnen'
@@ -237,6 +237,12 @@ export default function ArdoreDemoPlayer() {
                 Die Demo konnte hier nicht gestartet werden.{' '}
                 <a href={videoPath} className="text-ember-on-dark underline">Video direkt öffnen</a>
               </p>
+            )}
+            {fullscreen && (
+              <section tabIndex={0} className="home-demo-portrait-transcript border-t border-edge-inverse px-4 pb-4 pt-3 text-sm text-muted-inverse" aria-labelledby="home-demo-portrait-transcript-title">
+                <h3 id="home-demo-portrait-transcript-title" className="font-semibold text-on-inverse">Video nachlesen</h3>
+                {transcript}
+              </section>
             )}
           </div>
         </dialog>
