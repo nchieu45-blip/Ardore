@@ -6,7 +6,7 @@
 
 .coaching-process-photo {
   position: relative;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--story-process-photo-ratio);
   overflow: hidden;
   border-radius: var(--radius-card);
   background: var(--secondary);
@@ -162,8 +162,8 @@
 }
 
 @media (min-width: 1024px) {
-  .coaching-process-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 3rem; }
-  .coaching-process-photo { aspect-ratio: auto; min-height: 26rem; }
+  .coaching-process-layout { grid-template-columns: var(--story-process-columns); gap: 3rem; }
+  .coaching-process-photo { aspect-ratio: auto; min-height: 26rem; height: 100%; }
   .coaching-process-photoImage { object-position: 50% 50%; }
   .coaching-process-steps { padding-block: .5rem; }
 }

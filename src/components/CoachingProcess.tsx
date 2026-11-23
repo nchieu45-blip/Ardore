@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Reveal from '@/components/motion/Reveal'
 import { ArrowDown, BookOpen, Check, Search, UserRound } from 'lucide-react'
 
 // These abstract scenes explain the journey without imitating live inventory,
@@ -56,20 +57,23 @@ const steps = [
 
 export default function CoachingProcess() {
   return (
-    <section className="section-space" aria-labelledby="how-title">
+    <section className="home-band-space" aria-labelledby="how-title">
       <h2 id="how-title" className="section-title mb-6 sm:mb-8">
         So legst du mit Ardore los
       </h2>
       <div className="coaching-process-layout">
-        <figure className="coaching-process-photo">
-          <Image
-            src="/media/coach-workspace.webp"
-            alt="Grüne Yogamatte, Trainingsband und ein offenes Notizbuch im Tageslicht."
-            fill
-            sizes="(min-width: 1280px) 390px, (min-width: 1024px) 32vw, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
-            className="coaching-process-photoImage"
-          />
-        </figure>
+        <Reveal>
+          <figure className="coaching-process-photo">
+            <Image
+              src="/media/coach-workspace.webp"
+              alt="Grüne Yogamatte, Trainingsband und ein offenes Notizbuch im Tageslicht."
+              fill
+              fetchPriority="low"
+              sizes="(min-width: 1280px) 540px, (min-width: 1024px) 43vw, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
+              className="coaching-process-photoImage"
+            />
+          </figure>
+        </Reveal>
         <ol role="list" className="coaching-process-steps">
           {steps.map(({ stage, title, text }, i) => (
             <li key={stage} className="coaching-process-step">

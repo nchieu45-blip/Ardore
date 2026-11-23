@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'tertiary' | 'danger' | 'destructive' | 'soft'
+export type ButtonVariant = 'primary' | 'ember' | 'secondary' | 'outline' | 'ghost' | 'tertiary' | 'danger' | 'destructive' | 'soft'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
 // Shared by server-rendered links and interactive client buttons.
@@ -10,7 +10,7 @@ export function buttonStyles({ variant = 'primary', size = 'md', className }: { 
   const tertiary = 'text-muted hover:bg-surface-muted hover:text-foreground'
   const destructive = 'bg-[var(--danger)] text-white hover:bg-[#931d29]'
   const variants: Record<ButtonVariant, string> = {
-    primary, secondary, outline: secondary, ghost: tertiary, tertiary,
+    primary, ember: 'bg-ember text-ember-ink hover:bg-ember-hover', secondary, outline: secondary, ghost: tertiary, tertiary,
     danger: destructive, destructive,
     soft: 'bg-brand-soft text-brand-dark hover:bg-green-200',
   }

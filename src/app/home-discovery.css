@@ -2,7 +2,7 @@
   position: relative;
   isolation: isolate;
   background: var(--primary-dark);
-  color: white;
+  color: var(--foreground-inverse);
 }
 
 .home-hero-photo {
@@ -16,7 +16,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(105deg, rgb(32 24 20 / .89), rgb(32 24 20 / .72));
+  background: var(--story-hero-scrim-narrow);
 }
 
 .home-hero-video {
@@ -36,15 +36,15 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid rgb(255 255 255 / .8);
+  border: 1px solid var(--story-playback-edge);
   border-radius: 50%;
-  color: white;
-  background: #352a24;
+  color: var(--foreground-inverse);
+  background: var(--story-playback-background);
   cursor: pointer;
 }
 
 .home-hero-playback:focus-visible {
-  outline: 3px solid white;
+  outline: 3px solid var(--foreground-inverse);
   outline-offset: 2px;
 }
 
@@ -158,11 +158,11 @@
 
 @media (min-width: 1024px) {
   .home-hero-photo { object-position: 50% 22%; }
-  .home-hero::before { background: linear-gradient(90deg, rgb(32 24 20 / .91), rgb(32 24 20 / .80) 45%, rgb(32 24 20 / .64)); }
+  .home-hero::before { background: var(--story-hero-scrim-wide); }
 }
 
 .category-discovery {
-  padding-block: clamp(2.25rem, 5vw, 4.5rem);
+  padding-block: var(--story-band-space);
 }
 
 .category-discovery-header {
@@ -245,7 +245,7 @@
   position: relative;
   display: block;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: var(--story-category-photo-ratio);
   border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
   background: var(--surface-muted);
 }
@@ -279,5 +279,74 @@
     grid-auto-flow: row;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     overflow: visible;
+  }
+}
+
+.home-story {
+  background: var(--story-canvas);
+}
+
+.home-story :is(.page-title, .section-title) {
+  @apply font-editorial;
+  font-weight: var(--editorial-heading-weight);
+  letter-spacing: var(--editorial-heading-tracking);
+}
+
+.home-story .page-title {
+  font-size: var(--editorial-hero-size);
+  line-height: var(--editorial-hero-leading);
+}
+
+.home-story .section-title {
+  font-size: var(--editorial-heading-size);
+  line-height: var(--editorial-heading-leading);
+}
+
+.home-hero-chip {
+  border-color: var(--story-hero-chip-edge);
+  background: var(--story-hero-chip-background);
+}
+
+.home-dark-band {
+  --focus: var(--foreground-inverse);
+  color: var(--foreground-inverse);
+}
+
+:is(.home-hero, .home-dark-band) a:focus-visible {
+  outline-color: var(--foreground-inverse);
+}
+
+.home-trust-band {
+  background: var(--primary-dark);
+  padding-block: var(--story-trust-space);
+}
+
+.home-band-space,
+.home-help-band {
+  padding-block: var(--story-band-space);
+}
+
+.category-discovery .marketplace-format label span {
+  border: 1px solid transparent;
+}
+
+.category-discovery .marketplace-format input:checked + span {
+  color: var(--ember-deep);
+  background: var(--ember-soft);
+  border-color: var(--ember-deep);
+}
+
+.home-format-link:is(:hover, :focus-visible) .home-format-action {
+  color: var(--ember-deep);
+  text-decoration: underline;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .category-discovery-link:hover {
+    border-color: var(--ember-deep);
+  }
+
+  .category-discovery-link:hover .category-discovery-title svg {
+    color: var(--ember-deep);
   }
 }

@@ -23,6 +23,7 @@ import { StatePanel } from '@/components/ui/StatePanel'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
+import Reveal from '@/components/motion/Reveal'
 import DiscoveryRail from '@/components/DiscoveryRail'
 import HomeCategoryDiscovery from '@/components/HomeCategoryDiscovery'
 import { buildHomeProductRows } from '@/lib/homeDiscovery'
@@ -89,22 +90,22 @@ export default function MarketplaceClient({
     .filter((key) => CATEGORY_LABEL_MAP[key])
   const productRows = buildHomeProductRows(products, ratings)
   return (
-    <div className="min-w-0">
+    <div className="home-story min-w-0">
       <section className="home-hero">
         <HomeHeroMedia />
         <div className="ardore-container grid items-center gap-8 pt-10 pb-16 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
           <div>
-            <h1 className="page-title max-w-[19ch] text-balance text-white">
-              Mach Platz für Bewegung, <span className="text-green-200">die dir guttut.</span>
+            <h1 className="page-title max-w-[19ch] text-balance">
+              Mach Platz für Bewegung, <span className="text-ember-on-dark">die dir guttut.</span>
             </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white">
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
               <ul aria-label="Disziplinen" className="flex flex-wrap gap-1.5">
                 {['Fitness', 'Yoga', 'Pilates', 'Ernährung', 'Kampfsport'].map(discipline => (
-                  <li key={discipline} className="rounded-full border border-white/35 bg-black/25 px-2.5 py-1">{discipline}</li>
+                  <li key={discipline} className="home-hero-chip rounded-full border px-2.5 py-1">{discipline}</li>
                 ))}
               </ul>
             </div>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-relaxed sm:text-lg">
               Entdecke Coaches für Fitness, Yoga, Pilates, Ernährung und Kampfsport – vor Ort oder online.
             </p>
           </div>
@@ -153,7 +154,7 @@ export default function MarketplaceClient({
                   className="field-control min-h-12 w-full pl-12"
                 />
               </label>
-              <Button type="submit" className="min-h-12 w-full">
+              <Button type="submit" variant="ember" className="min-h-12 w-full">
                 Suchen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
@@ -161,14 +162,14 @@ export default function MarketplaceClient({
             <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
               <Link
                 href="/coaches"
-                className="inline-flex min-h-11 items-center gap-2 font-semibold text-white hover:underline"
+                className="inline-flex min-h-11 items-center gap-2 font-semibold hover:underline"
               >
                 Alle Coaches ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 href="/marketplace"
-                className="inline-flex min-h-11 items-center gap-2 text-white hover:underline"
+                className="inline-flex min-h-11 items-center gap-2 hover:underline"
               >
                 Alle Produkte ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -291,14 +292,14 @@ export default function MarketplaceClient({
               <Link
                 key={title}
                 href={href}
-                className="group flex flex-col border-t border-border py-4"
+                className="home-format-link group flex flex-col border-t border-border py-4"
               >
                 <Icon className="mb-2 h-6 w-6 text-brand" aria-hidden="true" />
                 <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
                 <p className="mb-2 mt-2 max-w-prose text-base leading-relaxed text-muted">
                   {text}
                 </p>
-                <span className="mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
+                <span className="home-format-action mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
                   {action}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </span>
@@ -306,50 +307,51 @@ export default function MarketplaceClient({
             ))}
           </div>
         </section>
+      </div>
 
-        <section
-          className="border-y border-border py-5 sm:py-6"
-          aria-label="Orientierung und Vertrauen"
-        >
-          <div className="grid gap-4 md:grid-cols-3 md:gap-6">
-            {[
-              {
-                Icon: ShieldCheck,
-                title: 'Finde den passenden Coach',
-                text: 'Vergleiche Schwerpunkte, Angebote und Preise auf einen Blick.',
-              },
-              {
-                Icon: LockKeyhole,
-                title: 'Alles griffbereit',
-                text: 'Finde deine gekauften Inhalte und behalte deine Termine im Blick.',
-              },
-              {
-                Icon: BookOpen,
-                title: 'Erfahrungen helfen dir bei der Wahl',
-                text: 'Schau, wie andere die digitalen Inhalte bewerten.',
-              },
-            ].map(({ Icon, title, text }) => (
-              <div key={title} className="flex gap-3">
-                <Icon
-                  className="mt-1 h-5 w-5 shrink-0 text-brand"
-                  aria-hidden="true"
-                />
-                <div>
-                  <h3 className="text-base font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">
-                    {text}
-                  </p>
-                </div>
+      <section className="home-dark-band home-trust-band" aria-label="Orientierung und Vertrauen">
+        <Reveal className="ardore-container grid gap-6 md:grid-cols-3 md:gap-10">
+          {[
+            {
+              Icon: ShieldCheck,
+              title: 'Finde den passenden Coach',
+              text: 'Vergleiche Schwerpunkte, Angebote und Preise auf einen Blick.',
+            },
+            {
+              Icon: LockKeyhole,
+              title: 'Alles griffbereit',
+              text: 'Finde deine gekauften Inhalte und behalte deine Termine im Blick.',
+            },
+            {
+              Icon: BookOpen,
+              title: 'Erfahrungen helfen dir bei der Wahl',
+              text: 'Schau, wie andere die digitalen Inhalte bewerten.',
+            },
+          ].map(({ Icon, title, text }) => (
+            <div key={title} className="flex gap-3">
+              <Icon
+                className="mt-1 h-5 w-5 shrink-0 text-ember-on-dark"
+                aria-hidden="true"
+              />
+              <div>
+                <h3 className="text-lg font-semibold">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-inverse">
+                  {text}
+                </p>
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
+          ))}
+        </Reveal>
+      </section>
 
+      <div className="ardore-container">
         <CoachingProcess />
+      </div>
 
-        <ArdoreProductVideo />
+      <ArdoreProductVideo />
 
-        <section className="pb-10 sm:pb-16">
+      <div className="ardore-container">
+        <section className="home-help-band">
           <details
             className="border-y border-border py-2"
           >
@@ -370,15 +372,15 @@ export default function MarketplaceClient({
         </section>
       </div>
 
-      <section data-requires-open-launch className="bg-brand-dark text-white">
-        <div className="ardore-container flex flex-col items-start justify-between gap-6 py-10 sm:py-16 md:flex-row md:items-center md:gap-12">
+      <section data-requires-open-launch className="home-dark-band bg-inverse">
+        <div className="ardore-container home-band-space flex flex-col items-start justify-between gap-6 md:flex-row md:items-center md:gap-12">
           <div>
             <h2 className="section-title max-w-xl text-balance">Teile, was dich antreibt.</h2>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-inverse">
               Zeig in deinem Profil, wie du arbeitest und wobei du Menschen begleiten kannst.
             </p>
           </div>
-          <ButtonLink href="/register?role=creator" className="min-h-12 w-full shrink-0 bg-white text-brand-dark hover:bg-brand-soft sm:w-auto">
+          <ButtonLink href="/register?role=creator" variant="ember" className="min-h-12 w-full shrink-0 sm:w-auto">
             Coach-Profil erstellen
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </ButtonLink>

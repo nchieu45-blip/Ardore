@@ -1,9 +1,19 @@
+import localFont from 'next/font/local'
 import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
 import { publicPageMetadata } from '@/lib/public-page-metadata'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
+
+const editorialFont = localFont({
+  src: './fonts/fraunces-600-latin.woff2',
+  variable: '--font-fraunces',
+  weight: '600',
+  display: 'swap',
+  adjustFontFallback: 'Times New Roman',
+  preload: false,
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -90,11 +100,13 @@ export default async function MarketplacePage() {
   )
 
   return (
-    <MarketplaceClient
-      coaches={coaches}
-      products={products}
-      salesCounts={salesCounts}
-      ratings={ratings}
-    />
+    <div className={editorialFont.variable}>
+      <MarketplaceClient
+        coaches={coaches}
+        products={products}
+        salesCounts={salesCounts}
+        ratings={ratings}
+      />
+    </div>
   )
 }

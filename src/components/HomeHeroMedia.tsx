@@ -105,7 +105,7 @@ export default function HomeHeroMedia() {
   }, [])
 
   return <>
-    <Image ref={image} src={posterPath} alt="" fill preload quality={55}
+    <Image ref={image} src={posterPath} alt="" fill preload fetchPriority="high" quality={55}
       sizes="100vw" className="home-hero-photo" />
     {variant && <BackgroundLoop key={variant} variant={variant} poster={poster}
       userPaused={userPaused} onUserPause={setUserPaused} />}

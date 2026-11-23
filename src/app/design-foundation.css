@@ -2,6 +2,41 @@
    tokens/classes are the foundation for subsequent surface migrations. */
 :root {
   --background: #f7f8f5;
+  --surface-inverse: #102b1e;
+  --foreground-inverse: #fff9f4;
+  --text-inverse-muted: #d9e8dc;
+  --border-inverse: #739887;
+
+  /* Glut. Die kräftige Farbe ist für Flächen, helle und tiefe Töne für Text. */
+  --ember: #e8673c;
+  --ember-hover: #df6138;
+  --ember-ink: #20150f;
+  --ember-deep: #963924;
+  --ember-soft: #ffede3;
+  --ember-on-dark: #ffb79a;
+  --story-canvas: #fbf3e9;
+  --story-hero-shade: 32 24 20;
+  --story-hero-minimum-opacity: .68;
+  --story-hero-scrim-narrow: linear-gradient(105deg, rgb(var(--story-hero-shade) / .89), rgb(var(--story-hero-shade) / .74));
+  --story-hero-scrim-wide: linear-gradient(90deg, rgb(var(--story-hero-shade) / .93), rgb(var(--story-hero-shade) / .82) 45%, rgb(var(--story-hero-shade) / var(--story-hero-minimum-opacity)));
+  --story-hero-chip-background: rgb(0 0 0 / .25);
+  --story-hero-chip-edge: rgb(255 255 255 / .35);
+  --story-playback-background: #352a24;
+  --story-playback-edge: rgb(255 255 255 / .8);
+  --story-band-space: clamp(2.75rem, 6vw, 5.25rem);
+  --story-trust-space: clamp(2rem, 5vw, 3.5rem);
+  --story-category-photo-ratio: 1 / 1;
+  --story-process-photo-ratio: 4 / 3;
+  --story-process-columns: minmax(0, 5fr) minmax(0, 6fr);
+  --editorial-hero-size: clamp(2.5rem, 5vw, 4.5rem);
+  --editorial-heading-size: clamp(1.875rem, 3vw, 3rem);
+  --editorial-hero-leading: 1.04;
+  --editorial-heading-leading: 1.12;
+  --editorial-heading-tracking: -.025em;
+  --editorial-heading-weight: 600;
+  --reveal-duration: 420ms;
+  --reveal-offset: .625rem;
+  --reveal-opacity: .86;
   --foreground: #16251d;
   --primary: #1e6847;
   --primary-dark: #154b34;
@@ -55,6 +90,17 @@
   --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-editorial: var(--font-fraunces, Georgia), serif;
+  --color-ember: var(--ember);
+  --color-ember-hover: var(--ember-hover);
+  --color-ember-ink: var(--ember-ink);
+  --color-ember-deep: var(--ember-deep);
+  --color-ember-soft: var(--ember-soft);
+  --color-ember-on-dark: var(--ember-on-dark);
+  --color-inverse: var(--surface-inverse);
+  --color-on-inverse: var(--foreground-inverse);
+  --color-muted-inverse: var(--text-inverse-muted);
+  --color-edge-inverse: var(--border-inverse);
   --color-gray-50: #f7f8f5;
   --color-gray-100: #edf1e9;
   --color-gray-200: #e2e7df;
@@ -185,4 +231,15 @@
   outline: 2px solid var(--focus);
   outline-offset: 3px;
   box-shadow: 0 0 0 2px var(--surface);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-on-scroll[data-reveal-visible] {
+    animation: ardore-enter var(--reveal-duration) var(--ease-out);
+  }
+}
+
+@keyframes ardore-enter {
+  from { opacity: var(--reveal-opacity); transform: translateY(var(--reveal-offset)); }
+  to { opacity: 1; transform: none; }
 }
