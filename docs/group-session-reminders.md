@@ -120,12 +120,13 @@ through that endpoint.
 Store the dedicated credential in Supabase Vault as
 `ardore_reminder_scheduler`, deploy the matching code, and apply
 `ops/install-reminder-cron.sql` in the authorized project. The job fires every
-five minutes at minutes 02, 07, ..., 57 UTC. Its stored command references the
-Vault entry by name, and overlapping GitHub calls use the same delivery journals.
+five minutes at minutes 02, 07, ..., 57 UTC. It reads the Vault entry by name
+and uses a direct HTTPS request with the Postgres `http` extension in a private
+schema. Overlapping GitHub calls use the same delivery journals.
 The bearer credential must stay out of the repository, terminal output, and
 command arguments.
 
-Check both `cron.job_run_details` and pg_net HTTP responses after installation.
-A successful cron execution means the HTTP request was enqueued. An HTTP 2xx
-response separately confirms the workers finished without reported errors.
+Check `cron.job_run_details` after installation. The job succeeds when the
+endpoint returns HTTP 2xx. A transport failure or non-2xx marks it failed.
+The cron job logs no bearer credential, response body, or recipient data.
 Removal is `select cron.unschedule('ardore-session-reminders');`.
