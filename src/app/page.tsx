@@ -6,6 +6,8 @@ import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
 import HomeFounderStory from '@/components/HomeFounderStory'
+import HomeTestimonials from '@/components/HomeTestimonials'
+import { homeTestimonials } from './home-testimonials'
 
 const editorialFont = localFont({
   src: './fonts/fraunces-600-latin.woff2',
@@ -109,6 +111,7 @@ export default async function MarketplacePage() {
         ratings={ratings}
       >
         <HomeFounderStory />
+        {homeTestimonials.length > 0 && <HomeTestimonials entries={homeTestimonials} />}
       </MarketplaceClient>
     </div>
   )
