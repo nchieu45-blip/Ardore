@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import Link from 'next/link'
 import HomeHeroMedia from '@/components/HomeHeroMedia'
 import {
@@ -58,6 +58,7 @@ interface Props {
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
   coaches: CoachData[]
+  children?: ReactNode
 }
 
 const newestProductCopy = {
@@ -77,6 +78,7 @@ export default function MarketplaceClient({
   salesCounts,
   ratings,
   coaches,
+  children,
 }: Props) {
   const [intent, setIntent] = useState('/coaches')
   const categories = [
@@ -349,6 +351,8 @@ export default function MarketplaceClient({
       </div>
 
       <ArdoreProductVideo />
+
+      {children}
 
       <div className="ardore-container">
         <section className="home-help-band">

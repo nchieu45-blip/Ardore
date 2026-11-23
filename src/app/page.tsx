@@ -5,6 +5,7 @@ import { publicPageMetadata } from '@/lib/public-page-metadata'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
+import HomeFounderStory from '@/components/HomeFounderStory'
 
 const editorialFont = localFont({
   src: './fonts/fraunces-600-latin.woff2',
@@ -106,7 +107,9 @@ export default async function MarketplacePage() {
         products={products}
         salesCounts={salesCounts}
         ratings={ratings}
-      />
+      >
+        <HomeFounderStory />
+      </MarketplaceClient>
     </div>
   )
 }
