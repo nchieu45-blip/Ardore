@@ -24,7 +24,6 @@
   --story-trust-space: clamp(2rem, 5vw, 3.5rem);
   --story-category-photo-ratio: 5 / 4;
   --story-process-photo-ratio: 4 / 3;
-  --story-process-columns: minmax(0, 5fr) minmax(0, 6fr);
   --editorial-hero-size: clamp(2.5rem, 5vw, 4.5rem);
   --editorial-heading-size: clamp(1.875rem, 3vw, 3rem);
   --editorial-hero-leading: 1.04;

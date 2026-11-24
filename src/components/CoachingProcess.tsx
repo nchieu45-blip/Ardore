@@ -61,19 +61,15 @@ export default function CoachingProcess() {
       <h2 id="how-title" className="section-title mb-6 sm:mb-8">
         So legst du mit Ardore los
       </h2>
-      <div className="coaching-process-layout">
-        <Reveal>
-          <figure className="coaching-process-photo">
-            <Image
-              src="/media/coach-workspace.webp"
-              alt="Grüne Yogamatte, Trainingsband und ein offenes Notizbuch im Tageslicht."
-              fill
-              fetchPriority="low"
-              sizes="(min-width: 1280px) 540px, (min-width: 1024px) 43vw, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
-              className="coaching-process-photoImage"
-            />
-          </figure>
-        </Reveal>
+      <Reveal className="coaching-process-panel">
+        <Image
+          src="/media/coach-workspace.webp"
+          alt=""
+          fill
+          fetchPriority="low"
+          sizes="(min-width: 1280px) 1216px, (min-width: 1024px) calc(100vw - 64px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
+          className="coaching-process-photoImage"
+        />
         <ol role="list" className="coaching-process-steps">
           {steps.map(({ stage, title, text }, i) => (
             <li key={stage} className="coaching-process-step">
@@ -85,12 +81,12 @@ export default function CoachingProcess() {
               </div>
               <div className="coaching-process-copy">
                 <h3 className="text-lg font-semibold tracking-tight sm:text-xl">{title}</h3>
-                <p className="mt-2 max-w-lg text-base leading-relaxed text-muted">{text}</p>
+                <p className="mt-2 max-w-lg text-base leading-relaxed">{text}</p>
               </div>
             </li>
           ))}
         </ol>
-      </div>
+      </Reveal>
     </section>
   )
 }
