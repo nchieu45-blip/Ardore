@@ -1,42 +1,39 @@
 .home-hero {
-  position: relative;
-  isolation: isolate;
-  background: var(--primary-dark);
-  color: var(--foreground-inverse);
+  background: var(--surface);
+  color: var(--foreground);
 }
 
 .home-hero-media {
   position: relative;
-  isolation: isolate;
-  height: clamp(8rem, 35vw, 15rem);
+  height: clamp(10rem, 22vw, 23rem);
+  overflow: hidden;
+  background: var(--surface-muted);
 }
 
 .home-hero-layout {
-  padding-block: 1.5rem;
-}
-
-.home-hero-layout > div {
-  max-width: 36rem;
+  text-align: center;
+  padding-block: clamp(2rem, 3.8vw, 4rem) 1rem;
 }
 
 .home-search {
-  --focus: var(--foreground-inverse);
-  margin-top: 1rem;
+  margin-top: .75rem;
 }
 
 .home-search .home-search-tab {
-  color: var(--foreground-inverse);
-  border-radius: 0;
   background: transparent;
+  border-radius: 0;
   border-bottom: 2px solid transparent;
 }
 
 .home-search .home-search-tab[aria-pressed="true"] {
-  border-bottom-color: var(--ember-on-dark);
+  color: var(--primary-dark);
+  border-bottom-color: currentColor;
 }
 
-.home-search .home-search-tab:is(:hover, :focus-visible) {
+.home-search .home-search-tab:is(:hover, :focus-visible),
+.home-hero-topic:hover {
   text-decoration: underline;
+  text-underline-offset: .25em;
 }
 
 .home-hero-topic {
@@ -44,43 +41,17 @@
   align-items: center;
   min-height: 44px;
   font-size: .875rem;
-  text-underline-offset: .25em;
 }
 
 .home-hero-topic span {
-  border: 1px solid var(--story-hero-chip-edge);
+  border: 1px solid var(--border-control);
   border-radius: 999px;
-  padding: .15rem .45rem;
-}
-
-.home-hero-topic:hover {
-  text-decoration: underline;
-}
-
-@media (min-width: 768px) {
-  .home-hero-media {
-    position: absolute;
-    inset: 0;
-    height: auto;
-    z-index: -1;
-  }
-
-  .home-hero-layout { padding-block: clamp(2.5rem, 4vw, 4.5rem); pointer-events: none; }
-  .home-hero-layout > div { max-width: min(47%, 36rem); pointer-events: auto; }
+  padding: .15rem .55rem;
 }
 
 .home-hero-photo {
-  z-index: -2;
   object-fit: cover;
-  object-position: 80% 29%;
-}
-
-.home-hero-media::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--story-hero-scrim-narrow);
+  object-position: 50% 54%;
 }
 
 .home-hero-video {
@@ -220,13 +191,8 @@
   .discovery-rail-header { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 1.5rem; }
 }
 
-@media (min-width: 768px) {
-  .home-hero-photo { object-position: 50% 22%; }
-  .home-hero-media::before { background: var(--story-hero-scrim-wide); }
-}
-
 .category-discovery {
-  padding-block: var(--story-band-space);
+  padding-block: clamp(2rem, 3.5vw, 3rem);
 }
 
 .category-discovery-header {
@@ -314,6 +280,13 @@
 
 .category-discovery-photo img { object-fit: cover; }
 
+.category-discovery-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--story-category-scrim);
+}
+
 .category-discovery-copy {
   display: grid;
   gap: .4rem;
@@ -324,17 +297,19 @@
 }
 
 .category-discovery-title {
+  position: absolute;
+  z-index: 1;
+  inset: auto .8rem .65rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: .4rem;
-  color: var(--foreground);
-  font-family: var(--font-editorial);
+  color: var(--foreground-inverse);
   font-size: clamp(1.25rem, 1.6vw, 1.6rem);
   font-weight: var(--editorial-heading-weight);
 }
 
-.category-discovery-title svg { flex-shrink: 0; color: var(--primary); }
+.category-discovery-title svg { flex-shrink: 0; color: inherit; }
 .category-discovery-link:hover .category-discovery-title { text-decoration: underline; text-underline-offset: 3px; }
 
 @media (min-width: 1024px) {
@@ -346,16 +321,17 @@
 }
 
 .home-story {
-  background: var(--story-canvas);
+  background: var(--surface);
 }
 
 .home-story :is(.page-title, .section-title) {
-  @apply font-editorial;
   font-weight: var(--editorial-heading-weight);
   letter-spacing: var(--editorial-heading-tracking);
 }
 
 .home-story .page-title {
+  font-weight: 720;
+  letter-spacing: -.04em;
   font-size: var(--editorial-hero-size);
   line-height: var(--editorial-hero-leading);
 }
@@ -370,7 +346,7 @@
   color: var(--foreground-inverse);
 }
 
-:is(.home-hero, .home-dark-band) a:focus-visible {
+.home-dark-band a:focus-visible {
   outline-color: var(--foreground-inverse);
 }
 
@@ -478,6 +454,6 @@
   }
 
   .category-discovery-link:hover .category-discovery-title svg {
-    color: var(--ember-deep);
+    color: var(--ember-on-dark);
   }
 }

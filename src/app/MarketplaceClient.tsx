@@ -96,16 +96,15 @@ export default function MarketplaceClient({
   return (
     <div className="home-story min-w-0">
       <section className="home-hero">
-        <div className="home-hero-media"><HomeHeroMedia /></div>
         <div className="ardore-container home-hero-layout">
           <div>
-            <h1 className="page-title max-w-[16ch] text-balance">
-              Mach Platz für Bewegung, <span className="text-ember-on-dark">die dir guttut.</span>
+            <h1 className="page-title mx-auto text-balance">
+              Mach Platz für Bewegung, <span className="sm:block">die dir guttut.</span>
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed sm:text-lg">
+            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed sm:text-lg">
               Entdecke Coaches für Fitness, Yoga, Pilates, Ernährung und Kampfsport – vor Ort oder online.
             </p>
-            <ul aria-label="Disziplinen" className="mt-3 flex flex-wrap gap-x-2">
+            <ul aria-label="Disziplinen" className="mt-2 flex flex-wrap justify-center gap-x-2">
               {DISCOVERY_CATEGORIES.map(({ key, title }) => (
                 <li key={key}>
                   <Link href={marketplaceAreaHref('coaching', '', key, 'beides', 'kategorie')}
@@ -116,14 +115,14 @@ export default function MarketplaceClient({
               ))}
             </ul>
           </div>
-          <div className="min-w-0">
+          <div className="mx-auto w-full max-w-xl">
             <form
               action={intent}
               role="search"
               aria-label="Marktplatz durchsuchen"
               className="home-search grid grid-cols-[minmax(0,1fr)_auto] gap-2"
             >
-              <div role="group" aria-label="Was möchtest du entdecken?" className="col-span-2 flex gap-2">
+              <div role="group" aria-label="Was möchtest du entdecken?" className="col-span-2 flex justify-center gap-2">
                 <Button
                   type="button"
                   variant={intent === '/coaches' ? 'soft' : 'tertiary'}
@@ -161,12 +160,12 @@ export default function MarketplaceClient({
                   className="field-control min-h-12 w-full pl-12"
                 />
               </label>
-              <Button type="submit" variant="ember" className="min-h-12 w-full">
+              <Button type="submit" variant="primary" className="min-h-12 w-full">
                 Suchen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             </form>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <div className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
               <Link
                 href="/coaches"
                 className="inline-flex min-h-11 items-center gap-2 font-semibold hover:underline"
@@ -184,6 +183,7 @@ export default function MarketplaceClient({
             </div>
           </div>
         </div>
+        <div className="home-hero-media"><HomeHeroMedia /></div>
       </section>
 
       <HomeCategoryDiscovery />

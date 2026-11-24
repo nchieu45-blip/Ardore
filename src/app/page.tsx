@@ -1,4 +1,3 @@
-import localFont from 'next/font/local'
 import { LAUNCH_TEST_COACH_SLUG } from '@/lib/features'
 import { createClient } from '@/lib/supabase/server'
 import { publicPageMetadata } from '@/lib/public-page-metadata'
@@ -10,15 +9,6 @@ import HomeFaq from '@/components/HomeFaq'
 import HomeFounderStory from '@/components/HomeFounderStory'
 import HomeTestimonials from '@/components/HomeTestimonials'
 import { homeTestimonials } from './home-testimonials'
-
-const editorialFont = localFont({
-  src: './fonts/fraunces-600-latin.woff2',
-  variable: '--font-fraunces',
-  weight: '600',
-  display: 'swap',
-  adjustFontFallback: 'Times New Roman',
-  preload: false,
-})
 
 export const dynamic = 'force-dynamic'
 
@@ -105,17 +95,15 @@ export default async function MarketplacePage() {
   )
 
   return (
-    <div className={editorialFont.variable}>
-      <MarketplaceClient
-        coaches={coaches}
-        products={products}
-        salesCounts={salesCounts}
-        ratings={ratings}
-      >
-        <HomeFounderStory />
-        {homeTestimonials.length > 0 && <HomeTestimonials entries={homeTestimonials} />}
-        <HomeFaq launchPaused={isLaunchPaused()} />
-      </MarketplaceClient>
-    </div>
+    <MarketplaceClient
+      coaches={coaches}
+      products={products}
+      salesCounts={salesCounts}
+      ratings={ratings}
+    >
+      <HomeFounderStory />
+      {homeTestimonials.length > 0 && <HomeTestimonials entries={homeTestimonials} />}
+      <HomeFaq launchPaused={isLaunchPaused()} />
+    </MarketplaceClient>
   )
 }

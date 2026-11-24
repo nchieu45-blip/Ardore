@@ -80,16 +80,16 @@ test('foundation action/body/status colors meet WCAG AA text contrast on their a
     assert.ok(ratio >= 3, `${control}/${background}: ${ratio.toFixed(2)} < 3`)
   }
 
-  // The lightest possible frame is pure white at the least opaque point of the scrim.
-  const heroShade = css.match(/--story-hero-shade: (\d+) (\d+) (\d+);/)
-  const heroOpacity = css.match(/--story-hero-minimum-opacity: (\.[0-9]+);/)
-  assert.ok(heroShade && heroOpacity)
-  const alpha = Number(heroOpacity[1])
-  const heroWorst = '#' + heroShade.slice(1).map(channel =>
+  // Use a white category photo behind the least opaque part of the title area.
+  const categoryShade = css.match(/--story-category-shade: (\d+) (\d+) (\d+);/)
+  const categoryOpacity = css.match(/--story-category-minimum-opacity: (\.[0-9]+);/)
+  assert.ok(categoryShade && categoryOpacity)
+  const alpha = Number(categoryOpacity[1])
+  const categoryWorst = '#' + categoryShade.slice(1).map(channel =>
     Math.ceil(Number(channel) * alpha + 255 * (1 - alpha)).toString(16).padStart(2, '0'),
   ).join('')
-  assert.ok(contrast(color('foreground-inverse'), heroWorst) >= 4.5)
-  assert.ok(contrast(color('ember-on-dark'), heroWorst) >= 3)
+  assert.ok(contrast(color('foreground-inverse'), categoryWorst) >= 4.5)
+  assert.ok(contrast(color('ember-on-dark'), categoryWorst) >= 3)
 })
 test('public discovery read failures throw to the retry UI instead of showing empty inventory', async () => {
   const query = { select(){return this}, eq(){return this}, neq(){return this}, order(){return this}, limit(){return this}, then(resolve){resolve({data:null,error:{message:'private provider detail'}})} }
