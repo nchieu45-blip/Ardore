@@ -39,3 +39,21 @@ Reduced motion and existing cancellation/rescheduling modal behavior are preserv
 ## Verification harness
 
 Run `node scripts/preview-design-foundation.mjs` after a production build and local Next start on port 3010. Port 3012 binds only to 127.0.0.1 and renders the actual dashboard/calendar components using in-memory synthetic read fixtures. It is a visual SSR preview, not an authenticated end-to-end test. It performs no database writes, payments or email requests. Public pages are also checked through the local production build against read-only public inventory.
+
+## Glut auf der Startseite
+
+Das dunkle Ardore-Grün trägt weiterhin Marke und Navigation. Auf der Startseite wechseln warme, helle Flächen mit Waldgrün. Der Suchbutton und die Einladung für Coaches verwenden die Variante `ember`. Die aktive Formatauswahl nutzt einen hellen Glutton mit dunkler Schrift und Rand. Der glühende Textton auf dunklem Hintergrund ist für Highlights und ausgewählte Links vorgesehen. Statusfarben behalten ihre eigene Bedeutung.
+
+Geist bleibt die Schrift für Fließtext und Bedienelemente. Fraunces 600 wird für die großen Überschriften der Startseite als lokale Latin-WOFF2 über `next/font/local` eingebunden. Die [Lizenz der Fraunces-Datei](../src/app/fonts/fraunces-OFL.txt) liegt daneben. Eine zweite Option ist [Instrument Serif](https://github.com/google/fonts/blob/main/ofl/instrumentserif/OFL.txt) mit Geist. Ihre schlankeren Formen eignen sich für kurze, ruhige Editorial-Überschriften. Fraunces bietet hier mehr Gewicht für die längere deutsche Headline.
+
+Die Farbrollen, Abstände, Bildformate und Animationstokens stehen in [design-foundation.css](../src/app/design-foundation.css). Die Startseiten-Regeln wenden sie in [home-discovery.css](../src/app/home-discovery.css) an. Beim Scrollen bewegen sich das Prozessbild und die Vertrauenselemente einmal kurz. Inhalte sind ohne JavaScript und bei reduzierter Bewegung direkt sichtbar.
+
+| Kombination | Kontrast |
+| --- | ---: |
+| Dunkle Schrift auf Glut-Orange | 5,48:1 |
+| Dunkle Schrift auf Glut-Orange beim Hover | 5,02:1 |
+| Dunkle Terrakotta auf der hellen Auswahl | 6,35:1 |
+| Gedämpfter Text im Vertrauensbereich auf Waldgrün | 7,92:1 |
+| Helle Glut über dem hellstmöglichen Hero-Bild, mit Overlay | 3,57:1 |
+
+Der Hero-Akzent ist groß gesetzter Text. Die Prüfung im Repository deckt zusätzlich Fokus, Berandung und Bedienelemente nach [WCAG 2.2 1.4.3](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) und [1.4.11](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html) ab.

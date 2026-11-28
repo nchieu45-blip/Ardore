@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import HomeHeroMedia from '@/components/HomeHeroMedia'
 import {
   ArrowRight,
   Search,
@@ -11,7 +11,6 @@ import {
   Heart,
   BookOpen,
   UsersRound,
-  Layers,
   LockKeyhole,
   ShieldCheck,
   Sparkles,
@@ -20,10 +19,15 @@ import { Button, ButtonLink } from '@/components/ui/Button'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { CoachCard } from '@/components/ui/CoachCard'
 import { StatePanel } from '@/components/ui/StatePanel'
+import AccordionItem from '@/components/ui/AccordionItem'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import ArdoreProductVideo from '@/components/ArdoreProductVideo'
 import CoachingProcess from '@/components/CoachingProcess'
+import Reveal from '@/components/motion/Reveal'
 import DiscoveryRail from '@/components/DiscoveryRail'
+import { DISCOVERY_CATEGORIES } from '@/lib/discoveryCategories'
+import { marketplaceAreaHref } from '@/lib/marketplaceAreas'
+import HomeCategoryDiscovery from '@/components/HomeCategoryDiscovery'
 import { buildHomeProductRows } from '@/lib/homeDiscovery'
 import type { CoachData } from '@/lib/publicCoaches'
 
@@ -56,6 +60,19 @@ interface Props {
   salesCounts: Record<string, number>
   ratings: Record<string, { avg: number; count: number }>
   coaches: CoachData[]
+  children?: ReactNode
+}
+
+const newestProductCopy = {
+  title: 'Neu auf Ardore',
+  description: 'Entdecke frische Ideen für dein Training und deinen Alltag.',
+}
+
+const homeProductCopy: Partial<Record<string, typeof newestProductCopy>> = {
+  newest: newestProductCopy,
+  'best-rated': { title: 'Gut bewertet', description: 'Sieh, welche Inhalte bei anderen gut ankommen.' },
+  courses: { title: 'Online-Kurse', description: 'Lern Schritt für Schritt in deinem Tempo.' },
+  free: { title: 'Kostenlos ausprobieren', description: 'Hol dir Ideen und Übungen für deinen Einstieg.' },
 }
 
 export default function MarketplaceClient({
@@ -63,6 +80,7 @@ export default function MarketplaceClient({
   salesCounts,
   ratings,
   coaches,
+  children,
 }: Props) {
   const [intent, setIntent] = useState('/coaches')
   const categories = [
@@ -76,37 +94,41 @@ export default function MarketplaceClient({
     .filter((key) => CATEGORY_LABEL_MAP[key])
   const productRows = buildHomeProductRows(products, ratings)
   return (
-    <div className="min-w-0">
+    <div className="home-story min-w-0">
       <section className="home-hero">
-        <Image src="/media/coach-workspace.webp" alt="" fill loading="eager" fetchPriority="high" sizes="100vw" className="home-hero-photo" />
-        <div className="ardore-container grid items-center gap-8 py-10 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12 xl:gap-16">
+        <div className="ardore-container home-hero-layout">
           <div>
-            <h1 className="page-title max-w-[19ch] text-balance text-white">
-              Coaches und Angebote <span className="text-green-200">für deine Gesundheit.</span>
+            <h1 className="page-title mx-auto text-balance">
+              Mach Platz für Bewegung, <span className="sm:block">die dir guttut.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
-              Persönliches Coaching, digitale Produkte und Abonnements für
-              Fitness, Ernährung und Wohlbefinden. Finde, was zu deinem Ziel
-              passt.
+            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed sm:text-lg">
+              Entdecke Coaches für Fitness, Yoga, Pilates, Ernährung und Kampfsport – vor Ort oder online.
             </p>
-            <p className="mt-4 text-sm font-medium text-white sm:text-base">
-              Dein Ziel. Dein nächster Schritt.
-            </p>
+            <ul aria-label="Disziplinen" className="mt-2 flex flex-wrap justify-center gap-x-2">
+              {DISCOVERY_CATEGORIES.map(({ key, title }) => (
+                <li key={key}>
+                  <Link href={marketplaceAreaHref('coaching', '', key, 'beides', 'kategorie')}
+                    prefetch={false} className="home-hero-topic">
+                    <span>{key === 'fitness-kraft' ? 'Fitness' : title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="min-w-0">
+          <div className="mx-auto w-full max-w-xl">
             <form
               action={intent}
               role="search"
               aria-label="Marktplatz durchsuchen"
-              className="surface-card grid gap-4 p-4 text-foreground sm:p-6"
+              className="home-search grid grid-cols-[minmax(0,1fr)_auto] gap-2"
             >
-              <div role="group" aria-label="Was möchtest du entdecken?" className="grid grid-cols-2 gap-2">
+              <div role="group" aria-label="Was möchtest du entdecken?" className="col-span-2 flex justify-center gap-2">
                 <Button
                   type="button"
                   variant={intent === '/coaches' ? 'soft' : 'tertiary'}
                   aria-pressed={intent === '/coaches'}
                   onClick={() => setIntent('/coaches')}
-                  className="min-h-12"
+                  className="home-search-tab min-h-11"
                 >
                   <UsersRound className="h-4 w-4" aria-hidden="true" />
                   Coaches
@@ -116,13 +138,13 @@ export default function MarketplaceClient({
                   variant={intent === '/marketplace' ? 'soft' : 'tertiary'}
                   aria-pressed={intent === '/marketplace'}
                   onClick={() => setIntent('/marketplace')}
-                  className="min-h-12"
+                  className="home-search-tab min-h-11"
                 >
                   <BookOpen className="h-4 w-4" aria-hidden="true" />
                   Produkte
                 </Button>
               </div>
-              <label className="relative min-w-0">
+              <label className="relative min-w-0 text-foreground">
                 <span className="sr-only">Suchbegriff</span>
                 <Search
                   className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted"
@@ -132,46 +154,49 @@ export default function MarketplaceClient({
                   name="q"
                   placeholder={
                     intent === '/coaches'
-                      ? 'Name, Thema oder Ziel'
-                      : 'Produkt, Coach oder Thema'
+                      ? 'Z. B. Yoga'
+                      : 'Z. B. Trainingsplan'
                   }
                   className="field-control min-h-12 w-full pl-12"
                 />
               </label>
-              <Button type="submit" className="min-h-12 w-full">
-                Entdecken
+              <Button type="submit" variant="primary" className="min-h-12 w-full">
+                Suchen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             </form>
-            <div className="mt-3 flex flex-wrap justify-between gap-x-4 gap-y-1 text-sm">
+            <div className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
               <Link
                 href="/coaches"
-                className="inline-flex min-h-11 items-center gap-2 font-semibold text-white hover:underline"
+                className="inline-flex min-h-11 items-center gap-2 font-semibold hover:underline"
               >
-                Coaches entdecken
+                Alle Coaches ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 href="/marketplace"
-                className="inline-flex min-h-11 items-center gap-2 text-white hover:underline"
+                className="inline-flex min-h-11 items-center gap-2 hover:underline"
               >
-                Produkte ansehen
+                Alle Produkte ansehen
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
           </div>
         </div>
+        <div className="home-hero-media"><HomeHeroMedia /></div>
       </section>
+
+      <HomeCategoryDiscovery />
 
       <div className="ardore-container">
         {categories.length > 0 && (
           <section className="grid gap-6 border-b border-border py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-center lg:gap-12" aria-labelledby="goals-title">
             <div>
               <h2 id="goals-title" className="section-title">
-                Was möchtest du erreichen?
+                Dein Thema finden
               </h2>
               <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">
-                Entdecke Themen, die unsere Coaches und Produkte abdecken.
+                Stöbere nach einem Schwerpunkt, der zu deinem Ziel passt.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-x-6">
@@ -209,11 +234,11 @@ export default function MarketplaceClient({
 
         <DiscoveryRail
           id="home-coaches"
-          title="Coaches entdecken"
-          description="Lerne die Menschen und ihre Schwerpunkte kennen."
+          title="Lern die Coaches kennen"
+          description="Schau, wie sie arbeiten und was sie anbieten."
           href="/coaches"
-          linkLabel="Alle Coaches"
-          empty={<StatePanel title="Coaches kommen bald dazu" description="Sobald Profile veröffentlicht sind, findest du sie hier." />}
+          linkLabel="Alle Coaches ansehen"
+          empty={<StatePanel title="Hier gibt es noch keine Coach-Profile." description="Bis dahin kannst du dich auf dem Marktplatz umsehen." />}
         >
           {coaches.slice(0, 12).map(coach => <CoachCard key={coach.id} coach={coach} layout="rail" />)}
         </DiscoveryRail>
@@ -222,11 +247,11 @@ export default function MarketplaceClient({
           <DiscoveryRail
             key={row.id}
             id={row.id === 'newest' ? 'home-products' : `home-products-${row.id}`}
-            title={row.title}
-            description={row.description}
+            title={homeProductCopy[row.id]?.title ?? row.title}
+            description={homeProductCopy[row.id]?.description ?? 'Finde digitale Inhalte für dein Thema.'}
             href={row.href}
-            linkLabel="Alle ansehen"
-            empty={<p className="rounded-xl bg-surface-muted p-5 text-base leading-relaxed text-muted">Sobald Produktbewertungen vorliegen, findest du hier die bestbewerteten Inhalte.</p>}
+            linkLabel="Alle Produkte ansehen"
+            empty={<p className="rounded-xl bg-surface-muted p-5 text-base leading-relaxed text-muted">Hier gibt es noch keine Produktbewertungen. Stöbere solange in den neuen Angeboten.</p>}
           >
             {row.products.map(product => (
               <ProductCard key={product.id} product={product} salesCount={salesCounts[product.id]} rating={ratings[product.id]} />
@@ -236,132 +261,125 @@ export default function MarketplaceClient({
         {products.length === 0 && (
           <DiscoveryRail
             id="home-products"
-            title="Neu im Marktplatz"
-            description="Digitale Inhalte für deinen Alltag und dein Training."
+            {...newestProductCopy}
             href="/marketplace?sort=newest"
-            linkLabel="Alle Produkte"
-            empty={<StatePanel title="Noch keine Produkte veröffentlicht" description="Neue Inhalte erscheinen hier, sobald sie verfügbar sind." />}
+            linkLabel="Alle Produkte ansehen"
+            empty={<StatePanel title="Hier gibt es noch keine Produkte." description="Schau wieder vorbei, wenn du nach neuen Ideen für dein Training suchst." />}
           >{[]}</DiscoveryRail>
         )}
 
-        <section className="border-t border-border py-6 sm:py-8" aria-labelledby="formats-title">
+        <section className="home-band-space grid items-start gap-5 border-t border-border lg:grid-cols-[1fr_2fr] lg:gap-16" aria-labelledby="formats-title">
           <h2 id="formats-title" className="section-title mb-4 max-w-xl text-balance">
-            Die passende Begleitung für dich
+            Wie willst du loslegen?
           </h2>
-          <div className="grid gap-4 md:grid-cols-3 md:gap-6">
+          <div className="border-b border-border">
             {[
               {
                 title: '1:1 Coaching',
-                text: 'Persönliche Sessions mit einem Coach. Termin und Meeting-Link findest du in deiner Buchung.',
+                text: 'Arbeite mit einem Coach an dem, was du verändern möchtest.',
+                action: '1:1 Coaching ansehen',
                 href: '/coaches?videocoaching=true',
-                Icon: UsersRound,
               },
               {
                 title: 'Digitale Produkte',
-                text: 'Pläne, Kurse und weitere Inhalte. Nach dem Kauf findest du sie in deiner Bibliothek.',
+                text: 'Hol dir Trainingspläne, Kurse und Ideen für deinen Alltag.',
+                action: 'Digitale Produkte ansehen',
                 href: '/marketplace',
-                Icon: BookOpen,
               },
               {
-                title: 'Abonnements',
-                text: 'Begleitung im Abo. Inhalte, Preis und Laufzeit siehst du im jeweiligen Coach-Profil.',
+                title: 'Begleitung im Abo',
+                text: 'Bleib mit regelmäßiger Unterstützung an deinem Ziel dran.',
+                action: 'Abos ansehen',
                 href: '/coaches?subscription=true',
-                Icon: Layers,
               },
-            ].map(({ title, text, href, Icon }) => (
+            ].map(({ title, text, action, href }) => (
               <Link
                 key={title}
                 href={href}
-                className="group flex flex-col border-t border-border py-4"
+                className="home-format-link group grid gap-x-5 border-t border-border py-4 sm:grid-cols-[1fr_auto]"
               >
-                <Icon className="mb-2 h-6 w-6 text-brand" aria-hidden="true" />
                 <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
-                <p className="mb-2 mt-2 max-w-prose text-base leading-relaxed text-muted">
+                <p className="mt-1 max-w-prose sm:col-start-1 text-base leading-relaxed text-muted">
                   {text}
                 </p>
-                <span className="mt-auto inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
-                  Entdecken
+                <span className="home-format-action sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand">
+                  {action}
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </span>
               </Link>
             ))}
           </div>
         </section>
-
-        <section
-          className="border-y border-border py-5 sm:py-6"
-          aria-label="Orientierung und Vertrauen"
-        >
-          <div className="grid gap-4 md:grid-cols-3 md:gap-6">
-            {[
-              {
-                Icon: ShieldCheck,
-                title: 'Profile transparent vergleichen',
-                text: 'Schwerpunkte, Angebote und Preise stehen im jeweiligen Profil. Ein Verifiziert-Siegel wird nur bei verifizierten Profilen angezeigt.',
-              },
-              {
-                Icon: LockKeyhole,
-                title: 'Deine Inhalte an einem Ort',
-                text: 'Gekaufte Produkte bleiben in deiner Bibliothek. Termine und private Meeting-Links findest du in deinem Konto.',
-              },
-              {
-                Icon: BookOpen,
-                title: 'Bewertungen mit Kontext',
-                text: 'Produktbewertungen zeigen ihre Anzahl. Wo noch keine Bewertungen vorliegen, werden keine Sterne ergänzt.',
-              },
-            ].map(({ Icon, title, text }) => (
-              <div key={title} className="flex gap-3">
-                <Icon
-                  className="mt-1 h-5 w-5 shrink-0 text-brand"
-                  aria-hidden="true"
-                />
-                <div>
-                  <h3 className="text-base font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted">
-                    {text}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <CoachingProcess />
-
-        <ArdoreProductVideo />
-
-        <section className="pb-10 sm:pb-16">
-          <details
-            className="border-y border-border py-2"
-          >
-            <summary className="min-h-11 cursor-pointer py-3 text-base font-semibold text-foreground">
-              <span className="inline-flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-brand" aria-hidden="true" />
-                Hilfe bei der Auswahl
-              </span>
-            </summary>
-            <p className="mb-4 mt-3 text-sm leading-relaxed text-muted">
-              Vergleiche Coaches nach Themen und schau dir ihre Profile und Angebote an.
-            </p>
-            <ButtonLink href="/coaches" variant="outline" className="mb-3">
-              Coaches entdecken
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </ButtonLink>
-          </details>
-        </section>
       </div>
 
-      <section data-requires-open-launch className="bg-brand-dark text-white">
-        <div className="ardore-container flex flex-col items-start justify-between gap-6 py-10 sm:py-16 md:flex-row md:items-center md:gap-12">
+      <section className="home-dark-band home-trust-band" aria-label="Orientierung und Vertrauen">
+        <Reveal className="ardore-container grid gap-6 md:grid-cols-3 md:gap-10">
+          {[
+            {
+              Icon: ShieldCheck,
+              title: 'Finde den passenden Coach',
+              text: 'Vergleiche Schwerpunkte, Angebote und Preise auf einen Blick.',
+            },
+            {
+              Icon: LockKeyhole,
+              title: 'Alles griffbereit',
+              text: 'Finde deine gekauften Inhalte und behalte deine Termine im Blick.',
+            },
+            {
+              Icon: BookOpen,
+              title: 'Erfahrungen helfen dir bei der Wahl',
+              text: 'Schau, wie andere die digitalen Inhalte bewerten.',
+            },
+          ].map(({ Icon, title, text }) => (
+            <div key={title} className="flex gap-3">
+              <Icon
+                className="mt-1 h-5 w-5 shrink-0 text-ember-on-dark"
+                aria-hidden="true"
+              />
+              <div>
+                <h3 className="text-lg font-semibold">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-inverse">
+                  {text}
+                </p>
+              </div>
+            </div>
+          ))}
+        </Reveal>
+      </section>
+
+      <div className="ardore-container">
+        <CoachingProcess />
+      </div>
+
+      {children}
+
+      <ArdoreProductVideo />
+
+      <section aria-labelledby="home-selection-title" className="ardore-container home-band-space grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-10 lg:gap-16">
+        <h2 id="home-selection-title" className="section-title">Hilfe bei der Auswahl</h2>
+        <div className="min-w-0 border-t border-border">
+          <AccordionItem title="Noch unsicher, wer zu dir passt?">
+            <p className="mb-4 max-w-prose leading-relaxed text-muted">
+              Such nach dem Thema, das dich gerade beschäftigt. Die Profile zeigen dir, wie die Coaches arbeiten.
+            </p>
+            <ButtonLink href="/coaches" variant="outline">
+              Coaches vergleichen
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </ButtonLink>
+          </AccordionItem>
+        </div>
+      </section>
+
+      <section data-requires-open-launch className="home-dark-band bg-inverse">
+        <div className="ardore-container home-band-space flex flex-col items-start justify-between gap-6 md:flex-row md:items-center md:gap-12">
           <div>
-            <h2 className="section-title max-w-xl text-balance">Dein Wissen verdient einen Platz.</h2>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
-              Erstelle dein Coach-Profil und präsentiere deine eigenen Angebote
-              auf Ardore.
+            <h2 className="section-title max-w-xl text-balance">Teile, was dich antreibt.</h2>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-inverse">
+              Zeig in deinem Profil, wie du arbeitest und wobei du Menschen begleiten kannst.
             </p>
           </div>
-          <ButtonLink href="/register?role=creator" className="min-h-12 w-full shrink-0 bg-white text-brand-dark hover:bg-brand-soft sm:w-auto">
-            Als Coach starten
+          <ButtonLink href="/register?role=creator" variant="ember" className="min-h-12 w-full shrink-0 sm:w-auto">
+            Coach-Profil erstellen
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </ButtonLink>
         </div>

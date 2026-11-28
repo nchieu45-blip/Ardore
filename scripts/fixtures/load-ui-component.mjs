@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, relative } from 'node:path'
 import { createRequire } from 'node:module'
 import React from 'react'
 import ts from 'typescript'
@@ -21,6 +21,11 @@ export function loadUiComponent(path, overrides = {}, cache = new Map()) {
     if (name === 'next/image') return { __esModule: true, default: ({ fill, sizes, ...props }) => React.createElement('img', { ...props, sizes, 'data-fill': fill || undefined }) }
     if (name.startsWith('@/') || name.startsWith('.')) {
       const target = name.startsWith('@/') ? resolve(root, 'src', name.slice(2)) : resolve(dirname(absolute), name)
+      if (name.endsWith('.webp')) {
+        // Next bundles static image imports. Node's SSR fixture has no asset loader.
+        const imagePath = require.resolve(target)
+        return { src: '/' + relative(resolve(root, 'public'), imagePath) }
+      }
       for (const suffix of ['.tsx', '.ts']) {
         try { readFileSync(target + suffix); return loadUiComponent(target + suffix, overrides, cache) }
         catch (error) { if (error.code !== 'ENOENT') throw error }

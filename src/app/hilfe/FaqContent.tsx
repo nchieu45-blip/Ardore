@@ -28,6 +28,10 @@ const SECTIONS: FAQSection[] = [
         a: 'Stöbere im Marketplace oder auf dem Profil eines Coaches nach digitalen Produkten – z.B. Trainingspläne, Ernährungsguides oder Video-Kurse. Klicke auf „In den Warenkorb", und schließe den Kauf sicher über Stripe ab. Das Produkt erscheint anschließend sofort in deiner Bibliothek unter „Meine Käufe".',
       },
       {
+        q: 'Wie entstehen Produktbewertungen?',
+        a: 'Du kannst ein Produkt bewerten, wenn du es gekauft hast. Bei den Sternen siehst du, wie viele Bewertungen vorliegen. Gibt es noch keine Bewertungen, erscheinen keine Sterne.',
+      },
+      {
         q: 'Wie funktioniert ein Abo?',
         a: 'Viele Coaches bieten monatliche Mitgliedschaften an. Mit einem Abo erhältst du Zugang zu exklusiven Inhalten des Coaches – und je nach Abo-Stufe sind sogar 1:1-Videocoaching-Sessions inklusive. Du kannst dein Abo jederzeit in deinen Einstellungen kündigen. Die Abrechnung erfolgt monatlich automatisch über Stripe.',
       },
@@ -93,6 +97,10 @@ const SECTIONS: FAQSection[] = [
     icon: <ShieldCheck className="h-4 w-4" />,
     color: 'text-blue-700 bg-blue-50 border-blue-200',
     items: [
+      {
+        q: 'Was bedeutet „Verifiziert“?',
+        a: 'Das Siegel zeigt dir, dass Ardore die eingereichten Unterlagen des Coaches geprüft und die Verifizierung freigegeben hat.',
+      },
       {
         q: 'Wie ändere ich mein Passwort?',
         a: 'Gehe in deinen Einstellungen (oben rechts → dein Name → Einstellungen) auf den Bereich „Passwort ändern". Du kannst dort ein neues Passwort festlegen. Alternativ kannst du auf der Anmeldeseite „Passwort vergessen" klicken und erhältst einen sicheren Reset-Link per E-Mail.',

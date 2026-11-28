@@ -10,6 +10,10 @@ import { Button, ButtonLink } from '@/components/ui/Button'
 import { StatePanel } from '@/components/ui/StatePanel'
 import { CATEGORY_LABEL_MAP } from '@/lib/categories'
 import { marketplaceAreaHref } from '@/lib/marketplaceAreas'
+import {
+  marketplaceCategoryLabel, marketplaceCategoryParam, matchesMarketplaceCategory,
+  matchesMarketplaceFormat, readMarketplaceFormat, type MarketplaceFormat,
+} from '@/lib/marketplaceFilters'
 import { VIDEO_CALLS_ENABLED } from '@/lib/features'
 import { buildServiceRows, sortMarketplaceServices } from '@/lib/marketplaceServices'
 import type { MarketplaceServiceOffer } from '@/lib/publicCoachingMarketplace'
@@ -28,7 +32,11 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
   const summary = useRef<HTMLParagraphElement>(null)
   const kind = area === 'coaching' ? 'coaching' : 'group'
   const label = area === 'coaching' ? '1:1 Coaching' : 'Gruppencoaching'
-  const category = params.get('category') ?? 'all'
+  const categoryParam = marketplaceCategoryParam(params)
+  const category = params.get(categoryParam) ?? 'all'
+  const format = readMarketplaceFormat(params.get('format'))
+  const inPerson = format === 'vor-ort' && area === 'coaching'
+  const digitalOnly = format === 'vor-ort' && area === 'groups'
   const urlSearch = normalizeSearch(params.get('q') ?? '')
   const [searchState, setSearchState] = useState({ value: urlSearch, syncedUrl: urlSearch })
   if (searchState.syncedUrl !== urlSearch) setSearchState({ value: urlSearch, syncedUrl: urlSearch })
@@ -36,12 +44,14 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
   const normalizedSearch = normalizeSearch(search)
   const setSearch = (value: string) => setSearchState(current => ({ ...current, value }))
   const rawPrice = params.get('max_price')
-  const maxPrice = rawPrice !== null && rawPrice !== '' && Number.isFinite(Number(rawPrice)) && Number(rawPrice) >= 0 ? Number(rawPrice) : null
+  const maxPrice = !inPerson && rawPrice !== null && rawPrice !== '' && Number.isFinite(Number(rawPrice)) && Number(rawPrice) >= 0 ? Number(rawPrice) : null
   const sortOptions = [
     { key: 'newest', label: 'Neueste' },
-    ...(area === 'coaching' ? [{ key: 'top_rated', label: 'Best bewertet' }] : [{ key: 'upcoming', label: 'Kommende Termine' }]),
-    { key: 'price_asc', label: 'Preis aufsteigend' },
-    { key: 'price_desc', label: 'Preis absteigend' },
+    ...(inPerson ? [] : [
+      ...(area === 'coaching' ? [{ key: 'top_rated', label: 'Best bewertet' }] : [{ key: 'upcoming', label: 'Kommende Termine' }]),
+      { key: 'price_asc', label: 'Preis aufsteigend' },
+      { key: 'price_desc', label: 'Preis absteigend' },
+    ]),
   ]
   const rawSort = params.get('sort')
   const sort = sortOptions.some(option => option.key === rawSort) ? rawSort! : 'newest'
@@ -50,13 +60,14 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
     ...offer.creator.categories,
     ...(offer.creator.category ? [offer.creator.category] : []),
   ]))].filter(key => Object.hasOwn(CATEGORY_LABEL_MAP, key)).sort((a, b) => CATEGORY_LABEL_MAP[a].localeCompare(CATEGORY_LABEL_MAP[b], 'de'))
-  const hasFilters = category !== 'all' || maxPrice !== null || !!normalizedSearch
+  const hasFilters = category !== 'all' || maxPrice !== null || !!normalizedSearch || (format !== undefined && format !== 'beides')
   const rawPage = params.get('page')
   const requestedPage = rawPage && /^[1-9]\d*$/.test(rawPage) && Number.isSafeInteger(Number(rawPage)) ? Number(rawPage) : 1
   const filtered = sortMarketplaceServices(scopedOffers.filter(offer => {
     const keys = [...offer.creator.categories, offer.creator.category ?? '']
     const haystack = [offer.title, offer.description ?? '', offer.creator.display_name, ...keys.flatMap(key => [key, CATEGORY_LABEL_MAP[key] ?? ''])].join(' ').toLocaleLowerCase('de-DE')
-    return (category === 'all' || keys.includes(category))
+    return matchesMarketplaceCategory(category, keys)
+      && !digitalOnly && matchesMarketplaceFormat(format, offer.format)
       && (maxPrice === null || offer.priceCents <= maxPrice * 100)
       && (!normalizedSearch || haystack.includes(normalizedSearch.toLocaleLowerCase('de-DE')))
   }), sort)
@@ -66,7 +77,7 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
   const rows = isOverview ? buildServiceRows(filtered, kind) : []
   const pageOffers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  function href(overrides: { category?: string; search?: string; sort?: string; price?: string; page?: number } = {}) {
+  function href(overrides: { category?: string; format?: MarketplaceFormat; search?: string; sort?: string; price?: string; page?: number } = {}) {
     const query = new URLSearchParams()
     query.set('area', area)
     const cat = overrides.category ?? category
@@ -74,7 +85,9 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
     const order = overrides.sort ?? rawSort
     const price = overrides.price ?? (maxPrice === null ? '' : String(maxPrice))
     const nextPage = overrides.page ?? page
-    if (cat !== 'all') query.set('category', cat)
+    const selectedFormat = overrides.format ?? format
+    if (cat !== 'all') query.set(categoryParam, cat)
+    if (selectedFormat) query.set('format', selectedFormat)
     if (q) query.set('q', q)
     if (order) query.set('sort', order)
     if (price !== '') query.set('max_price', price)
@@ -115,11 +128,13 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
 
   return (
     <div className="discovery-browse min-h-screen">
-      <MarketplaceHeader area={area} search={search} category={category} onSearchChange={setSearch} />
+      <MarketplaceHeader area={area} search={search} category={category} categoryParam={categoryParam}
+        format={format} onFormatChange={value => go({ format: value, price: value === 'vor-ort' ? '' : undefined, sort: value === 'vor-ort' ? '' : undefined, page: 1 })}
+        onSearchChange={setSearch} />
       <div className="border-b border-border bg-surface">
         <div className="ardore-container grid grid-cols-2 gap-3 py-4 sm:grid-cols-3">
-          <label className="min-w-0"><span className="mb-1.5 block text-sm text-muted">Thema</span><select aria-label={`${label}: Thema`} className="field-control w-full" value={category} onChange={event => go({ category: event.target.value, page: 1 })}><option value="all">Alle Themen</option>{category !== 'all' && !categories.includes(category) && <option value={category}>{CATEGORY_LABEL_MAP[category] ?? category}</option>}{categories.map(key => <option key={key} value={key}>{CATEGORY_LABEL_MAP[key]}</option>)}</select></label>
-          <label className="min-w-0"><span className="mb-1.5 block text-sm text-muted">Preis je Session</span><select aria-label={`${label}: Preis`} className="field-control w-full" value={maxPrice === null ? '' : String(maxPrice)} onChange={event => go({ price: event.target.value, page: 1 })}><option value="">Alle Preise</option>{[0, 25, 50, 100].map(price => <option key={price} value={price}>{price === 0 ? 'Kostenlos' : `Bis ${price} €`}</option>)}{maxPrice !== null && ![0, 25, 50, 100].includes(maxPrice) && <option value={maxPrice}>Bis {maxPrice.toLocaleString('de-DE')} €</option>}</select></label>
+          <label className="min-w-0"><span className="mb-1.5 block text-sm text-muted">Thema</span><select aria-label={`${label}: Thema`} className="field-control w-full" value={category} onChange={event => go({ category: event.target.value, page: 1 })}><option value="all">Alle Themen</option>{category !== 'all' && !categories.includes(category) && <option value={category}>{marketplaceCategoryLabel(category)}</option>}{categories.map(key => <option key={key} value={key}>{CATEGORY_LABEL_MAP[key]}</option>)}</select></label>
+          {!inPerson && <label className="min-w-0"><span className="mb-1.5 block text-sm text-muted">Preis je Session</span><select aria-label={`${label}: Preis`} className="field-control w-full" value={maxPrice === null ? '' : String(maxPrice)} onChange={event => go({ price: event.target.value, page: 1 })}><option value="">Alle Preise</option>{[0, 25, 50, 100].map(price => <option key={price} value={price}>{price === 0 ? 'Kostenlos' : `Bis ${price} €`}</option>)}{maxPrice !== null && ![0, 25, 50, 100].includes(maxPrice) && <option value={maxPrice}>Bis {maxPrice.toLocaleString('de-DE')} €</option>}</select></label>}
           <label className="col-span-2 min-w-0 sm:col-span-1"><span className="mb-1.5 block text-sm text-muted">Sortierung</span><select aria-label={`${label}: Sortierung`} className="field-control w-full" value={isOverview ? '' : sort} onChange={event => go({ sort: event.target.value, page: 1 })}>{!hasFilters && <option value="">Übersicht</option>}{sortOptions.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}</select></label>
         </div>
       </div>
@@ -131,7 +146,10 @@ export default function ServiceMarketplaceClient({ area, offers, error, ratingsU
           </div>
           {ratingsUnavailable && area === 'coaching' && <p role="status" className="mb-5 text-sm text-muted">Session-Bewertungen konnten gerade nicht geladen werden.</p>}
           {area === 'groups' && offers.length > 0 && !VIDEO_CALLS_ENABLED && <p className="mb-5 text-sm leading-relaxed text-muted">Die Video-Teilnahme an Gruppenangeboten ist derzeit noch nicht verfügbar.</p>}
-          {filtered.length === 0 ? <StatePanel title={hasFilters ? `Keine passenden Angebote für ${label}` : `Noch keine Angebote für ${label}`} description={hasFilters ? 'Versuche einen anderen Suchbegriff oder setze die Filter zurück.' : 'Sobald Coaches aktive Angebote veröffentlichen, findest du sie hier.'} action={<>{hasFilters && <Button variant="secondary" onClick={reset}>Filter zurücksetzen</Button>}<ButtonLink variant="tertiary" href="/coaches">Coach-Profile ansehen</ButtonLink></>} /> : isOverview ? rows.map(row => <DiscoveryRail key={row.id} id={`marketplace-${area}-${row.id}`} title={row.title} description={row.description} href={row.href} linkLabel="Alle ansehen">{row.offers.map(offer => <CoachingOfferCard key={offer.id} offer={offer} />)}</DiscoveryRail>) : <DiscoveryRail key={params.toString()} id={`marketplace-${area}-results`} title={normalizedSearch ? 'Deine Suchergebnisse' : category === 'all' ? `Alle Angebote für ${label}` : CATEGORY_LABEL_MAP[category] ?? label} description={totalPages > 1 ? `Ergebnisse ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} von ${filtered.length}.` : 'Seitlich wischen oder mit den Pfeilen blättern.'}>{pageOffers.map(offer => <CoachingOfferCard key={offer.id} offer={offer} />)}</DiscoveryRail>}
+          {digitalOnly ? <StatePanel title="Gruppencoaching findet online statt"
+            description="Für Termine vor Ort findest du passende 1:1 Coaches."
+            action={<ButtonLink variant="secondary" href={marketplaceAreaHref('coaching', normalizedSearch, category, format, categoryParam)}>1:1 Coaching vor Ort ansehen</ButtonLink>} />
+            : filtered.length === 0 ? <StatePanel title={hasFilters ? `Keine passenden Angebote für ${label}` : `Noch keine Angebote für ${label}`} description={hasFilters ? 'Versuche einen anderen Suchbegriff oder setze die Filter zurück.' : 'Sobald Coaches aktive Angebote veröffentlichen, findest du sie hier.'} action={<>{hasFilters && <Button variant="secondary" onClick={reset}>Filter zurücksetzen</Button>}<ButtonLink variant="tertiary" href="/coaches">Coach-Profile ansehen</ButtonLink></>} /> : isOverview ? rows.map(row => <DiscoveryRail key={row.id} id={`marketplace-${area}-${row.id}`} title={row.title} description={row.description} href={row.href} linkLabel="Alle ansehen">{row.offers.map(offer => <CoachingOfferCard key={offer.id} offer={offer} inPerson={inPerson} />)}</DiscoveryRail>) : <DiscoveryRail key={params.toString()} id={`marketplace-${area}-results`} title={normalizedSearch ? 'Deine Suchergebnisse' : category === 'all' ? `Alle Angebote für ${label}` : marketplaceCategoryLabel(category)} description={totalPages > 1 ? `Ergebnisse ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} von ${filtered.length}.` : 'Seitlich wischen oder mit den Pfeilen blättern.'}>{pageOffers.map(offer => <CoachingOfferCard key={offer.id} offer={offer} inPerson={inPerson} />)}</DiscoveryRail>}
           {!isOverview && totalPages > 1 && <nav aria-label={`${label}: Ergebnisseiten`} className="mt-6 flex flex-wrap items-center justify-center gap-4"><Button variant="secondary" disabled={page === 1} onClick={() => goToPage(page - 1)}>Zurück</Button><span className="text-sm text-muted">Seite {page} von {totalPages}</span><Button variant="secondary" disabled={page === totalPages} onClick={() => goToPage(page + 1)}>Weiter</Button></nav>}
         </>}
       </div>

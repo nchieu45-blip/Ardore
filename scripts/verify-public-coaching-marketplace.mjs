@@ -60,7 +60,7 @@ function data(rows) { return { data: rows, error: null } }
 
 test('1:1 inventory queries only enabled public offers and narrow public session reviews', async () => {
   const { load, queries } = fixture({
-    coaching_offers: data([coaching()]),
+    coaching_offers: data([coaching({ creator_profiles: profile({ format: 'beides' }) })]),
     public_session_reviews: data([{ id: 'review-a', creator_id: 'coach-a', rating: 5 }]),
   })
   const result = await load('coaching')
@@ -71,13 +71,14 @@ test('1:1 inventory queries only enabled public offers and narrow public session
   assert.deepEqual(queries[0].filters, [['eq', 'is_enabled', true], ['eq', 'creator_profiles.is_published', true], ['eq', 'creator_profiles.is_demo', false], ['neq', 'creator_profiles.slug', 'admin-test-c529babe']])
   assert.deepEqual(queries[0].order, ['created_at', { ascending: false }])
   assert.match(queries[0].selected, /creator_profiles!inner\(/)
+  assert.match(queries[0].selected, /, format\)/)
   assert.deepEqual(queries[1].filters, [['in', 'creator_id', ['coach-a']]])
   assert.equal(queries[1].selected, 'id, creator_id, rating')
   for (const query of queries) {
     assert.doesNotMatch(query.selected, /\*|user_id|buyer_id|email|stripe|daily_room|meeting|booking_id/)
   }
   assert.deepEqual(result.offers[0], {
-    id: 'offer-a', kind: 'coaching', title: '1:1 Coaching mit Anna',
+    id: 'offer-a', kind: 'coaching', format: 'beides', title: '1:1 Coaching mit Anna',
     description: 'Individuelle Begleitung', priceCents: 8500, durationMinutes: 60,
     createdAt: '2026-10-01T12:00:00Z',
     creator: { id: 'coach-a', slug: 'coach-a', display_name: 'Anna', avatar_url: '/anna.webp', category: 'yoga', categories: ['yoga', 'mental'], is_verified: true },
@@ -87,13 +88,14 @@ test('1:1 inventory queries only enabled public offers and narrow public session
 })
 
 test('group inventory reads its own active offers and never borrows 1:1 or product ratings', async () => {
-  const { load, queries } = fixture({ video_classes: data([group()]) })
+  const { load, queries } = fixture({ video_classes: data([group({ creator_profiles: profile({ format: 'beides' }) })]) })
   const result = await load('group')
   assert.equal(result.error, false)
   assert.deepEqual(queries.map((query) => query.table), ['video_classes'])
   assert.deepEqual(queries[0].filters, [['eq', 'active', true], ['eq', 'creator_profiles.is_published', true], ['eq', 'creator_profiles.is_demo', false], ['neq', 'creator_profiles.slug', 'admin-test-c529babe']])
   const offer = result.offers[0]
   assert.equal(offer.kind, 'group')
+  assert.equal(offer.format, 'online')
   assert.equal(offer.title, 'Yoga am Morgen')
   assert.equal(offer.rating, null)
   assert.equal(offer.startsAt, '2099-10-01T12:00:00Z')

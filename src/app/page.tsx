@@ -4,13 +4,18 @@ import { publicPageMetadata } from '@/lib/public-page-metadata'
 import MarketplaceClient, { type MarketplaceProduct } from './MarketplaceClient'
 import { loadPublicCoaches } from '@/lib/publicCoaches'
 import { aggregateProductRatings } from '@/lib/productRatings'
+import { isLaunchPaused } from '@/lib/launch-pause'
+import HomeFaq from '@/components/HomeFaq'
+import HomeFounderStory from '@/components/HomeFounderStory'
+import HomeTestimonials from '@/components/HomeTestimonials'
+import { homeTestimonials } from './home-testimonials'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata = publicPageMetadata(
   '/',
-  'Ardore – Fitness & Gesundheitscoaches',
-  'Finde Coaches, persönliches Coaching und digitale Produkte für Fitness, Ernährung und Wohlbefinden auf Ardore.',
+  'Ardore – Coaching für Bewegung und Ernährung',
+  'Entdecke Coaches und digitale Angebote für Fitness, Yoga, Pilates, Ernährung und Kampfsport.',
 )
 
 export default async function MarketplacePage() {
@@ -95,6 +100,10 @@ export default async function MarketplacePage() {
       products={products}
       salesCounts={salesCounts}
       ratings={ratings}
-    />
+    >
+      <HomeFounderStory />
+      {homeTestimonials.length > 0 && <HomeTestimonials entries={homeTestimonials} />}
+      <HomeFaq launchPaused={isLaunchPaused()} />
+    </MarketplaceClient>
   )
 }

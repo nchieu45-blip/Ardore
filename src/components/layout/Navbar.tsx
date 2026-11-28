@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect, useId, useRef } from 'react'
@@ -7,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/Avatar'
 import { ButtonLink } from '@/components/ui/Button'
 import {
-  Menu, X, Flame, ChevronDown, Settings, LogOut, Video, Heart, ShoppingBag, User,
+  Menu, X, ChevronDown, Settings, LogOut, Video, Heart, ShoppingBag, User,
   LayoutDashboard, Package, MessageCircle, ExternalLink,
 } from 'lucide-react'
 import NavbarNotificationBell from '@/components/NavbarNotificationBell'
@@ -148,12 +149,8 @@ export function Navbar({ user, creatorSlug }: NavbarProps) {
     >
       <div className="ardore-container">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="min-h-11 flex items-center gap-2 font-bold text-xl text-green-600 hover:opacity-80 transition-opacity">
-            <div className="h-8 w-8 rounded-xl bg-green-600 flex items-center justify-center shadow-sm">
-              <Flame className="h-4 w-4 text-white" />
-            </div>
-            <span className="tracking-tight">Ardore</span>
+          <Link href="/" aria-label="Ardore – zur Startseite" className="flex min-h-11 shrink-0 items-center transition-opacity hover:opacity-80">
+            <Image src="/media/ardore-flamme.svg" width={320} height={70} alt="" loading="eager" unoptimized className="h-auto w-28 sm:w-32" />
           </Link>
 
           {/* Desktop Nav */}

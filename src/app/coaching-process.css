@@ -1,20 +1,18 @@
-.coaching-process-layout {
-  display: grid;
-  gap: 2rem;
-  min-width: 0;
-}
-
-.coaching-process-photo {
+.coaching-process-panel {
   position: relative;
-  aspect-ratio: 16 / 9;
+  isolation: isolate;
   overflow: hidden;
   border-radius: var(--radius-card);
-  background: var(--secondary);
+  padding: clamp(1rem, 4vw, 3.5rem);
+  background: var(--story-canvas);
+  color: var(--foreground);
 }
 
 .coaching-process-photoImage {
+  z-index: -1;
   object-fit: cover;
-  object-position: 50% 38%;
+  object-position: 60% center;
+  opacity: .2;
 }
 
 .coaching-process-steps {
@@ -27,7 +25,7 @@
 
 .coaching-process-step {
   display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
+  grid-template-columns: 4rem minmax(0, 1fr);
   align-items: center;
   gap: 1rem;
   min-width: 0;
@@ -45,8 +43,8 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 5.5rem;
-  height: 6rem;
+  width: 4rem;
+  height: 5rem;
   color: var(--primary);
   background: var(--secondary);
   border-radius: var(--radius-card);
@@ -162,8 +160,14 @@
 }
 
 @media (min-width: 1024px) {
-  .coaching-process-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 3rem; }
-  .coaching-process-photo { aspect-ratio: auto; min-height: 26rem; }
-  .coaching-process-photoImage { object-position: 50% 50%; }
-  .coaching-process-steps { padding-block: .5rem; }
+  .coaching-process-steps { max-width: 55%; }
+}
+
+@supports (mask-image: linear-gradient(black, transparent)) {
+  @media (min-width: 1024px) {
+    .coaching-process-photoImage {
+      opacity: .78;
+      mask-image: linear-gradient(to right, rgb(0 0 0 / .16), rgb(0 0 0 / .24) 58%, black 83%);
+    }
+  }
 }

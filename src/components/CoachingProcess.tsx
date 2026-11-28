@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Reveal from '@/components/motion/Reveal'
 import { ArrowDown, BookOpen, Check, Search, UserRound } from 'lucide-react'
 
 // These abstract scenes explain the journey without imitating live inventory,
@@ -39,37 +40,36 @@ function ProcessScene({ stage }: { stage: 'discover' | 'choose' | 'start' }) {
 const steps = [
   {
     stage: 'discover',
-    title: 'Entdecken',
-    text: 'Suche nach deinem Ziel und vergleiche Coaches oder Produkte.',
+    title: 'Stöbere nach deinem Ziel',
+    text: 'Entdecke Coaches, Kurse und Trainingspläne zu dem, was dich gerade interessiert.',
   },
   {
     stage: 'choose',
-    title: 'Auswählen',
-    text: 'Lies Profil und Angebot. Prüfe Preis, Format und Voraussetzungen.',
+    title: 'Such dir aus, was passt',
+    text: 'Schau dir Profil und Angebot an. Passt es zu deinem Alltag und Budget?',
   },
   {
     stage: 'start',
-    title: 'Loslegen',
-    text: 'Buche deine Session oder kaufe einen Inhalt und finde alles in deinem Konto.',
+    title: 'Mach den ersten Schritt',
+    text: 'Vereinbare einen Termin mit deinem Coach oder starte mit einem digitalen Inhalt.',
   },
 ] as const
 
 export default function CoachingProcess() {
   return (
-    <section className="section-space" aria-labelledby="how-title">
+    <section className="home-band-space" aria-labelledby="how-title">
       <h2 id="how-title" className="section-title mb-6 sm:mb-8">
-        So funktioniert Ardore
+        So legst du mit Ardore los
       </h2>
-      <div className="coaching-process-layout">
-        <figure className="coaching-process-photo">
-          <Image
-            src="/media/coach-workspace.webp"
-            alt="Grüne Yogamatte, Trainingsband und ein offenes Notizbuch im Tageslicht."
-            fill
-            sizes="(min-width: 1280px) 390px, (min-width: 1024px) 32vw, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
-            className="coaching-process-photoImage"
-          />
-        </figure>
+      <Reveal className="coaching-process-panel">
+        <Image
+          src="/media/coach-workspace.webp"
+          alt=""
+          fill
+          fetchPriority="low"
+          sizes="(min-width: 1280px) 1216px, (min-width: 1024px) calc(100vw - 64px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
+          className="coaching-process-photoImage"
+        />
         <ol role="list" className="coaching-process-steps">
           {steps.map(({ stage, title, text }, i) => (
             <li key={stage} className="coaching-process-step">
@@ -81,12 +81,12 @@ export default function CoachingProcess() {
               </div>
               <div className="coaching-process-copy">
                 <h3 className="text-lg font-semibold tracking-tight sm:text-xl">{title}</h3>
-                <p className="mt-2 max-w-lg text-base leading-relaxed text-muted">{text}</p>
+                <p className="mt-2 max-w-lg text-base leading-relaxed">{text}</p>
               </div>
             </li>
           ))}
         </ol>
-      </div>
+      </Reveal>
     </section>
   )
 }

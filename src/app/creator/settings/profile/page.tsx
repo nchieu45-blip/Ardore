@@ -16,6 +16,7 @@ import { ArrowLeft, Camera, GraduationCap, Globe, Music2, Plus, X } from 'lucide
 import { InstagramIcon, YoutubeIcon } from '@/components/ui/SocialIcons'
 import Link from 'next/link'
 import { toast } from '@/lib/toast'
+import type { CoachFormat } from '@/lib/marketplaceFilters'
 import {
   normalizeInstagram, normalizeTiktok, normalizeYoutube, normalizeWebsite,
   isValidHandle, isValidYoutube, isValidWebsite,
@@ -43,6 +44,7 @@ export default function ProfileSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [categoryError, setCategoryError] = useState('')
+  const [coachingFormat, setCoachingFormat] = useState<CoachFormat>('online')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
   const [qualifications, setQualifications] = useState<string[]>([])
@@ -80,7 +82,7 @@ export default function ProfileSettingsPage() {
 
         const { data: creator } = await supabase
           .from('creator_profiles')
-          .select('id, display_name, bio, category, categories, services, languages, qualifications, avatar_url, banner_url, social_links')
+          .select('id, display_name, bio, category, categories, format, services, languages, qualifications, avatar_url, banner_url, social_links')
           .eq('user_id', user.id)
           .single()
 
@@ -95,6 +97,7 @@ export default function ProfileSettingsPage() {
             ? (creator.categories as string[])
             : creator.category ? [creator.category] : []
         )
+        setCoachingFormat(creator.format === 'beides' ? 'beides' : 'online')
         setSelectedServices((creator.services as string[] | null) ?? [])
         setSelectedLanguages((creator.languages as string[] | null) ?? [])
         setQualifications((creator.qualifications as string[] | null) ?? [])
@@ -213,6 +216,7 @@ export default function ProfileSettingsPage() {
         bio: data.bio || null,
         category: selectedCategories[0] ?? null,
         categories: selectedCategories,
+        format: coachingFormat,
         services: selectedServices,
         qualifications: qualifications.filter(q => q.trim().length > 0),
         languages: selectedLanguages,
@@ -358,6 +362,21 @@ export default function ProfileSettingsPage() {
               selected={selectedServices}
               onChange={setSelectedServices}
             />
+
+            <div>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-foreground">Format deines 1:1 Coachings</span>
+                <select className="field-control w-full" value={coachingFormat}
+                  aria-describedby="coaching-format-help"
+                  onChange={event => setCoachingFormat(event.target.value === 'beides' ? 'beides' : 'online')}>
+                  <option value="online">Online</option>
+                  <option value="beides">Online und vor Ort auf Anfrage</option>
+                </select>
+              </label>
+              <p className="mt-2 text-sm text-muted" id="coaching-format-help">
+                Für Vor-Ort-Angebote ergänze Ort und Kontaktmöglichkeit in deinem Profil.
+              </p>
+            </div>
 
             <LanguagePicker
               selected={selectedLanguages}

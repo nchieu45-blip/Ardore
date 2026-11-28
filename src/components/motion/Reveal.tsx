@@ -2,38 +2,24 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 
-interface Props {
-  children: ReactNode
-  className?: string
-  stagger?: boolean
-}
-
-export default function Reveal({ children, className = '', stagger = false }: Props) {
+export default function Reveal({ children, className = '' }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    const element = ref.current
+    if (!element || !('IntersectionObserver' in window) ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      element.getBoundingClientRect().top < window.innerHeight) return
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.classList.add('vis')
-          observer.unobserve(el)
-        }
-      },
-      { threshold: 0.18 },
-    )
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      element.dataset.revealVisible = ''
+      observer.disconnect()
+    }, { threshold: 0.12 })
 
-    observer.observe(el)
+    observer.observe(element)
     return () => observer.disconnect()
   }, [])
 
-  const cls = ['reveal', stagger ? 'stagger' : '', className].filter(Boolean).join(' ')
-
-  return (
-    <div ref={ref} className={cls}>
-      {children}
-    </div>
-  )
+  return <div ref={ref} className={`reveal-on-scroll ${className}`}>{children}</div>
 }

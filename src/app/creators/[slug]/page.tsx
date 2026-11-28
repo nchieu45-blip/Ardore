@@ -598,6 +598,21 @@ export default async function CreatorProfilePage({
       </div>
       </>}
       <div className="ardore-container">
+        {coachingOffer && creator.format === 'beides' && (
+          <section id="coaching-vor-ort" className="surface-card mb-6 scroll-mt-24 p-5">
+            <h2 className="text-lg font-semibold text-foreground">1:1 Coaching vor Ort</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              Frag beim Coach nach Ort, Termin und Preis. Die Terminbuchung auf diesem Profil gilt für Online-Coachings.
+            </p>
+            {creator.bio && isStorefrontPilot && <p className="mt-3 max-w-prose text-sm text-foreground">{creator.bio}</p>}
+            {socialIconLinks.length > 0 && <div className="mt-3 flex flex-wrap gap-3">
+              {socialIconLinks.map(({ key, href, label }) => (
+                <a key={key} href={href} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center font-semibold text-brand underline underline-offset-4">{label}</a>
+              ))}
+            </div>}
+          </section>
+        )}
         {isStorefrontPilot && coachingOffer && <div id="booking" className="scroll-mt-24 mb-5"><h2 className="section-title">1:1 Coaching & Termine</h2><p className="mt-2 text-sm text-muted">Wähle einen freien Termin · Europe/Berlin</p></div>}
         {/* Main content: two-column on desktop when booking widget exists */}
         <div className={cn('pb-16', coachingOffer && 'lg:grid lg:grid-cols-5 lg:gap-8')}>

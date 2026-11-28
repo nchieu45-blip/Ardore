@@ -27,6 +27,11 @@ import type { MarketplaceProduct } from '@/app/MarketplaceClient'
 import { cn } from '@/lib/utils'
 import { CATEGORY_GROUPS, CATEGORY_LABEL_MAP } from '@/lib/categories'
 import { compareProductRatings } from '@/lib/productRatings'
+import { marketplaceAreaHref } from '@/lib/marketplaceAreas'
+import {
+  marketplaceCategoryLabel, marketplaceCategoryParam, matchesMarketplaceCategory,
+  matchesMarketplaceFormat, readMarketplaceFormat, type MarketplaceFormat,
+} from '@/lib/marketplaceFilters'
 
 type ProductType = 'pdf' | 'video' | 'course' | 'image'
 type SortKey =
@@ -94,7 +99,9 @@ export default function ProductMarketplaceClient({
   const searchParams = useSearchParams()
 
   // Filter state derived from URL — keeps back/forward navigation in sync
-  const category = searchParams.get('category') ?? 'all'
+  const categoryParam = marketplaceCategoryParam(searchParams)
+  const category = searchParams.get(categoryParam) ?? 'all'
+  const format = readMarketplaceFormat(searchParams.get('format'))
   const type = (searchParams.get('type') as 'all' | ProductType) ?? 'all'
   const sort = (searchParams.get('sort') as SortKey) ?? 'newest'
   const level = searchParams.get('level')
@@ -220,6 +227,7 @@ export default function ProductMarketplaceClient({
   function buildUrl(
     overrides: {
       category?: string
+      format?: MarketplaceFormat | null
       type?: string
       sort?: string
       level?: string | null
@@ -248,7 +256,9 @@ export default function ProductMarketplaceClient({
         : normalizedSearch
 
     const params = new URLSearchParams()
-    if (cat !== 'all') params.set('category', cat)
+    if (cat !== 'all') params.set(categoryParam, cat)
+    const selectedFormat = overrides.format === undefined ? format : overrides.format
+    if (selectedFormat) params.set('format', selectedFormat)
     if (t !== 'all') params.set('type', t)
     if (s && (s !== 'newest' || overrides.sort !== undefined || searchParams.has('sort')))
       params.set('sort', s)
@@ -294,11 +304,10 @@ export default function ProductMarketplaceClient({
   // Filtering + sorting (client-side against the full product list)
   const filtered = products
     .filter((p) => {
-      const matchesCat =
-        category === 'all' ||
-        (p.categories ?? []).includes(category) ||
-        (p.creator.categories ?? []).includes(category) ||
-        p.creator.category === category
+      if (!matchesMarketplaceFormat(format)) return false
+      const matchesCat = matchesMarketplaceCategory(category, [
+        ...(p.categories ?? []), ...(p.creator.categories ?? []), p.creator.category ?? '',
+      ])
       const matchesType = type === 'all' || p.type === type
       const searchNeedle = normalizedSearch.toLocaleLowerCase('de-DE')
       const searchableCategories = [
@@ -401,6 +410,7 @@ export default function ProductMarketplaceClient({
     setSearch('')
     go({
       category: 'all',
+      format: null,
       type: 'all',
       level: null,
       equipment: [],
@@ -428,10 +438,18 @@ export default function ProductMarketplaceClient({
       remove: () => go({ maxPrice: null, page: 1 }),
     })
 
+  if (format && format !== 'beides') {
+    activeFilterChips.push({
+      key: 'format',
+      label: format === 'online' ? 'Online' : 'Vor Ort',
+      remove: () => go({ format: null, page: 1 }),
+    })
+  }
+
   if (category !== 'all') {
     activeFilterChips.push({
       key: 'category',
-      label: `Kategorie: ${CATEGORY_LABEL_MAP[category] ?? category}`,
+      label: `Kategorie: ${marketplaceCategoryLabel(category)}`,
       remove: () => go({ category: 'all', page: 1 }),
     })
   }
@@ -538,7 +556,7 @@ export default function ProductMarketplaceClient({
   const resultTitle = normalizedSearch
     ? 'Deine Suchergebnisse'
     : category !== 'all'
-      ? CATEGORY_LABEL_MAP[category] ?? 'Passende Produkte'
+      ? marketplaceCategoryLabel(category)
       : 'Alle Produkte'
   const visibleSortOptions = [
     ...(activeFilterCount === 0 ? [{ key: '', label: 'Übersicht' }] : []),
@@ -576,7 +594,8 @@ export default function ProductMarketplaceClient({
 
   return (
     <div className="hp-home discovery-browse min-h-screen bg-gray-50/60">
-      <MarketplaceHeader area="products" search={search} category={category} onSearchChange={setSearch}>
+      <MarketplaceHeader area="products" search={search} category={category} categoryParam={categoryParam}
+        format={format} onFormatChange={value => go({ format: value, page: 1 })} onSearchChange={setSearch}>
           <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-muted">
             Hier findest du Produkte.{' '}
             <Link
@@ -1007,7 +1026,7 @@ export default function ProductMarketplaceClient({
                       group.items.some((item) => item.key === category)
                     ) && (
                       <option value={category}>
-                        {CATEGORY_LABEL_MAP[category] ?? category}
+                        {marketplaceCategoryLabel(category)}
                       </option>
                     )}
                   {CATEGORY_GROUPS.map((categoryGroup) => (
@@ -1233,8 +1252,8 @@ export default function ProductMarketplaceClient({
         {/* Discovery shelves and complete, horizontally browsable results. */}
         {pageItems.length === 0 ? (
           <StatePanel
-            title="Keine Produkte gefunden"
-            description="Versuche einen anderen Suchbegriff oder setze die Filter zurück."
+            title={format === 'vor-ort' ? 'Produkte sind digital verfügbar' : 'Keine Produkte gefunden'}
+            description={format === 'vor-ort' ? 'Für Termine vor Ort findest du passende 1:1 Coaches.' : 'Versuche einen anderen Suchbegriff oder setze die Filter zurück.'}
             action={
               <>
                 <Button variant="secondary" onClick={resetAllAndFocusResults}>
@@ -1242,9 +1261,11 @@ export default function ProductMarketplaceClient({
                 </Button>
                 <Link
                   className="button-base px-4 text-sm text-brand"
-                  href={discoveryHref('/coaches', normalizedSearch, category)}
+                  href={format === 'vor-ort'
+                    ? marketplaceAreaHref('coaching', normalizedSearch, category, format, categoryParam)
+                    : discoveryHref('/coaches', normalizedSearch, category)}
                 >
-                  Coaches ansehen
+                  {format === 'vor-ort' ? '1:1 Coaching vor Ort ansehen' : 'Coaches ansehen'}
                 </Link>
               </>
             }

@@ -56,11 +56,46 @@ test('foundation action/body/status colors meet WCAG AA text contrast on their a
   function contrast(a, b) { const x=luminance(a), y=luminance(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05) }
   for (const [text, background] of [['foreground','background'], ['color-gray-400','background'], ['text-secondary','background'], ['primary','surface'], ['danger','danger-soft'], ['warning','warning-soft'], ['info','info-soft'], ['success','secondary']]) assert.ok(contrast(color(text),color(background)) >= 4.5, `${text}/${background}`)
   assert.ok(contrast(color('border-control'),color('surface')) >= 3)
+
+  const storyTextPairs = [
+    ['ember-ink', 'ember'], ['ember-ink', 'ember-hover'], ['ember-deep', 'ember-soft'],
+    ['ember-deep', 'story-canvas'], ['foreground', 'story-canvas'], ['text-secondary', 'story-canvas'],
+    ['foreground-inverse', 'primary-dark'], ['text-inverse-muted', 'primary-dark'], ['ember-on-dark', 'primary-dark'],
+    ['foreground-inverse', 'surface-inverse'], ['text-inverse-muted', 'surface-inverse'], ['ember-on-dark', 'surface-inverse'],
+    ['foreground-inverse', 'story-playback-background'],
+  ]
+  for (const [text, background] of storyTextPairs) {
+    const ratio = contrast(color(text), color(background))
+    assert.ok(ratio >= 4.5, `${text}/${background}: ${ratio.toFixed(2)} < 4.5`)
+  }
+
+  const storyControlPairs = [
+    ['ember', 'surface'], ['ember-hover', 'surface'],
+    ['ember', 'surface-inverse'], ['ember-hover', 'surface-inverse'],
+    ['ember-deep', 'surface-muted'], ['border-inverse', 'primary-dark'], ['border-inverse', 'surface-inverse'],
+    ['focus', 'story-canvas'], ['foreground-inverse', 'surface-inverse'],
+  ]
+  for (const [control, background] of storyControlPairs) {
+    const ratio = contrast(color(control), color(background))
+    assert.ok(ratio >= 3, `${control}/${background}: ${ratio.toFixed(2)} < 3`)
+  }
+
+  // Use a white category photo behind the least opaque part of the title area.
+  const categoryShade = css.match(/--story-category-shade: (\d+) (\d+) (\d+);/)
+  const categoryOpacity = css.match(/--story-category-minimum-opacity: (\.[0-9]+);/)
+  assert.ok(categoryShade && categoryOpacity)
+  const alpha = Number(categoryOpacity[1])
+  const categoryWorst = '#' + categoryShade.slice(1).map(channel =>
+    Math.ceil(Number(channel) * alpha + 255 * (1 - alpha)).toString(16).padStart(2, '0'),
+  ).join('')
+  assert.ok(contrast(color('foreground-inverse'), categoryWorst) >= 4.5)
+  assert.ok(contrast(color('ember-on-dark'), categoryWorst) >= 3)
 })
 test('public discovery read failures throw to the retry UI instead of showing empty inventory', async () => {
   const query = { select(){return this}, eq(){return this}, neq(){return this}, order(){return this}, limit(){return this}, then(resolve){resolve({data:null,error:{message:'private provider detail'}})} }
   const mocks = {
     '@/lib/supabase/server': { createClient: async () => ({ from: () => query }) },
+    'next/font/local': { __esModule: true, default: () => ({ variable: 'test-font' }) },
     '@/app/MarketplaceClient': { __esModule: true, default: () => null },
     './MarketplacePageClient': { __esModule: true, default: () => null },
     './CoachesPageClient': { __esModule: true, default: () => null },
